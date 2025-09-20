@@ -62,7 +62,7 @@ class Appender:
         jlog(logger, logging.INFO, LogCode.STATE_GET, op="add", state={"current": current_state})
 
         effective_payloads = resolved[:len(rr.ids)]
-        new_entry = self._mapper.from_node_result(
+        new_entry = self._mapper.convert(
             NodeResult(rr.ids, rr.extras, rr.metas),
             effective_payloads,
             current_state,

@@ -4,7 +4,7 @@ from typing import Optional, List
 from ...domain.entity.history import Entry, Msg
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.port.factory import ViewFactoryRegistry
-from ...domain.service.history.extra import sanitize_extra
+from ...domain.service.history.extra import cleanse
 from ...domain.value.content import Payload
 
 
@@ -12,7 +12,7 @@ class EntryMapper:
     def __init__(self, registry: ViewFactoryRegistry):
         self._registry = registry
 
-    def from_node_result(
+    def convert(
             self,
             result: "NodeResult",
             payloads: List[Payload],
@@ -35,23 +35,23 @@ class EntryMapper:
                 raise ValueError("meta_missing_kind")
             if k not in ("text", "media", "group"):
                 raise ValueError(f"meta_unsupported_kind:{k}")
-            inline_id = meta.get("inline_id")
+            inline = meta.get("inline_id")
 
-            prev_extra = None
+            previous = None
             if base and idx < len(getattr(base, "messages", []) or []):
                 try:
-                    prev_extra = base.messages[idx].extra
+                    previous = base.messages[idx].extra
                 except Exception:
-                    prev_extra = None
+                    previous = None
 
             if k == "text":
                 text, media, group = meta.get("text"), None, None
             elif k == "media":
-                mt_raw = meta.get("media_type")
+                variant = meta.get("media_type")
                 if payload.media:
                     mtype = payload.media.type
-                elif isinstance(mt_raw, str):
-                    mtype = MediaType(mt_raw)
+                elif isinstance(variant, str):
+                    mtype = MediaType(variant)
                 else:
                     raise ValueError("meta_missing_media_type")
                 mi = MediaItem(type=mtype, path=meta.get("file_id"), caption=meta.get("caption"))
@@ -59,27 +59,27 @@ class EntryMapper:
             elif k == "group":
                 items = []
                 for it in (meta.get("group_items") or []):
-                    mt_raw = it.get("media_type")
-                    if not isinstance(mt_raw, str):
+                    variant = it.get("media_type")
+                    if not isinstance(variant, str):
                         raise ValueError("meta_missing_group_media_type")
                     items.append(
-                        MediaItem(type=MediaType(mt_raw), path=it.get("file_id"), caption=it.get("caption"))
+                        MediaItem(type=MediaType(variant), path=it.get("file_id"), caption=it.get("caption"))
                     )
                 text, media, group = None, None, items
 
-            extra_source = payload.extra if (payload.extra is not None) else prev_extra
+            source = payload.extra if (payload.extra is not None) else previous
 
             if group:
                 first = group[0] if group else None
-                text_len = len((getattr(first, "caption", None) or ""))
+                length = len((getattr(first, "caption", None) or ""))
             elif media:
-                text_len = len((getattr(media, "caption", None) or ""))
+                length = len((getattr(media, "caption", None) or ""))
             elif isinstance(text, str) and not group and not media:
-                text_len = len(text)
+                length = len(text)
             else:
-                text_len = 0
+                length = 0
 
-            extra = sanitize_extra(extra_source, text_len=text_len)
+            extra = cleanse(source, length=length)
             aux = result.extras[idx] if idx < len(result.extras) else []
             msgs.append(
                 Msg(
@@ -91,7 +91,7 @@ class EntryMapper:
                     preview=payload.preview,
                     extra=extra,
                     extras=list(aux),
-                    inline_id=inline_id,
+                    inline_id=inline,
                     automated=True,
                     ts=now,
                 )

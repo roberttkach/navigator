@@ -49,7 +49,7 @@ class Swapper:
         current_state = await self._state_repo.get_state()
 
         effective_payloads = resolved[:len(rr.ids)]
-        new_entry = self._mapper.from_node_result(
+        new_entry = self._mapper.convert(
             NodeResult(rr.ids, rr.extras, rr.metas),
             effective_payloads,
             current_state,

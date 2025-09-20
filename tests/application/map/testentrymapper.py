@@ -5,7 +5,7 @@ from navigator.domain.entity.media import MediaItem, MediaType
 from navigator.domain.value.content import Payload
 
 
-class DummyRegistry:
+class Stub:
     def __init__(self, known: set[str] | None = None) -> None:
         self._known = set(known or [])
 
@@ -16,28 +16,28 @@ class DummyRegistry:
         raise NotImplementedError(key)
 
 
-def make_mapper() -> EntryMapper:
-    return EntryMapper(DummyRegistry({"view"}))
+def forge() -> EntryMapper:
+    return EntryMapper(Stub({"view"}))
 
 
-def test_entry_mapper_requires_kind_metadata() -> None:
-    mapper = make_mapper()
+def testRequirement() -> None:
+    mapper = forge()
     result = NodeResult(ids=[1], extras=[[]], metas=[{}])
 
     with pytest.raises(ValueError, match="meta_missing_kind"):
-        mapper.from_node_result(result, [Payload(text="hello")], state=None, view=None, root=False)
+        mapper.convert(result, [Payload(text="hello")], state=None, view=None, root=False)
 
 
-def test_entry_mapper_rejects_unknown_kind() -> None:
-    mapper = make_mapper()
+def testRejection() -> None:
+    mapper = forge()
     result = NodeResult(ids=[1], extras=[[]], metas=[{"kind": "unknown"}])
 
     with pytest.raises(ValueError, match="meta_unsupported_kind"):
-        mapper.from_node_result(result, [Payload(text="hello")], state=None, view=None, root=False)
+        mapper.convert(result, [Payload(text="hello")], state=None, view=None, root=False)
 
 
-def test_entry_mapper_maps_text_metadata() -> None:
-    mapper = make_mapper()
+def testText() -> None:
+    mapper = forge()
     payload = Payload(text="payload")
     result = NodeResult(
         ids=[1],
@@ -45,7 +45,7 @@ def test_entry_mapper_maps_text_metadata() -> None:
         metas=[{"kind": "text", "text": "meta", "inline_id": "123"}],
     )
 
-    entry = mapper.from_node_result(result, [payload], state="s", view="view", root=True)
+    entry = mapper.convert(result, [payload], state="s", view="view", root=True)
 
     assert entry.view == "view"
     assert entry.messages[0].text == "meta"
@@ -54,8 +54,8 @@ def test_entry_mapper_maps_text_metadata() -> None:
     assert entry.messages[0].inline_id == "123"
 
 
-def test_entry_mapper_maps_media_metadata() -> None:
-    mapper = make_mapper()
+def testMedia() -> None:
+    mapper = forge()
     payload = Payload(media=MediaItem(type=MediaType.PHOTO, path="local", caption="payload"))
     result = NodeResult(
         ids=[5],
@@ -69,7 +69,7 @@ def test_entry_mapper_maps_media_metadata() -> None:
         }],
     )
 
-    entry = mapper.from_node_result(result, [payload], state=None, view=None, root=False)
+    entry = mapper.convert(result, [payload], state=None, view=None, root=False)
 
     msg = entry.messages[0]
     assert msg.media is not None
@@ -82,8 +82,8 @@ def test_entry_mapper_maps_media_metadata() -> None:
     assert msg.extras == [42]
 
 
-def test_entry_mapper_maps_group_metadata() -> None:
-    mapper = make_mapper()
+def testGroup() -> None:
+    mapper = forge()
     payload = Payload(
         group=[
             MediaItem(type=MediaType.PHOTO, path="local-a", caption="cap-a"),
@@ -103,7 +103,7 @@ def test_entry_mapper_maps_group_metadata() -> None:
         }],
     )
 
-    entry = mapper.from_node_result(result, [payload], state=None, view=None, root=False)
+    entry = mapper.convert(result, [payload], state=None, view=None, root=False)
 
     msg = entry.messages[0]
     assert msg.group is not None

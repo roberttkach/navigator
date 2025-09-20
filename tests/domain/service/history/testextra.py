@@ -1,12 +1,12 @@
-from navigator.domain.service.history.extra import sanitize_extra
+from navigator.domain.service.history.extra import cleanse
 
 
-def test_sanitize_extra_returns_none_for_non_dict():
-    assert sanitize_extra(None, text_len=10) is None
-    assert sanitize_extra([], text_len=10) is None  # type: ignore[arg-type]
+def testNullity():
+    assert cleanse(None, length=10) is None
+    assert cleanse([], length=10) is None  # type: ignore[arg-type]
 
 
-def test_sanitize_extra_filters_unknown_keys_and_tracks_thumb():
+def testFiltration():
     extra = {
         "mode": "HTML",
         "spoiler": True,
@@ -14,12 +14,12 @@ def test_sanitize_extra_filters_unknown_keys_and_tracks_thumb():
         "unexpected": 42,
     }
 
-    sanitized = sanitize_extra(extra, text_len=0)
+    cleansed = cleanse(extra, length=0)
 
-    assert sanitized == {"mode": "HTML", "spoiler": True, "has_thumb": True}
+    assert cleansed == {"mode": "HTML", "spoiler": True, "has_thumb": True}
 
 
-def test_sanitize_extra_validates_entities_against_text_length():
+def testEntities():
     extra = {
         "mode": "HTML",
         "entities": [
@@ -35,15 +35,15 @@ def test_sanitize_extra_validates_entities_against_text_length():
         ],
     }
 
-    sanitized = sanitize_extra(extra, text_len=6)
+    cleansed = cleanse(extra, length=6)
 
-    assert sanitized["entities"] == [
+    assert cleansed["entities"] == [
         {"type": "bold", "offset": 0, "length": 4},
         {"type": "text_link", "offset": 1, "length": 3, "url": "https://example.com"},
     ]
 
 
-def test_sanitize_extra_drops_entities_if_none_valid_and_returns_none():
+def testVanish():
     extra = {"entities": [{"type": "bold", "offset": 0, "length": 10}]}
 
-    assert sanitize_extra(extra, text_len=5) is None
+    assert cleanse(extra, length=5) is None
