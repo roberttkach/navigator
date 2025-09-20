@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from ..navigator import Navigator
 from ...application.log.emit import jlog
 from ...domain.error import HistoryEmpty, InlineUnsupported
-from ...domain.value.lexicon import lexeme
+from .lexicon import lexeme
 from ...domain.log.code import LogCode
 
 router = Router(name="navigator_handlers")

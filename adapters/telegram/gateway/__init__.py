@@ -14,7 +14,7 @@ from ....domain.port.markup import MarkupCodec
 from ....domain.port.message import MessageGateway, Result
 from ....domain.service.scope import scope_kv
 from ....domain.value.content import Payload
-from ....domain.value.lexicon import lexeme
+from ....presentation.telegram.lexicon import lexeme
 from ....domain.value.message import Scope
 from ....domain.log.code import LogCode
 
