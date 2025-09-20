@@ -7,7 +7,7 @@ from ...domain.entity.history import Entry, Msg
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LastMessageRepository
 from ...domain.port.temp import TemporaryRepository
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

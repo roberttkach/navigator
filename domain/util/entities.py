@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List
 
 from ..log.emit import jlog
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 _ALLOWED_ENTITY_TYPES = {
     "mention",

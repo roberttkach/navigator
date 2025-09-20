@@ -8,7 +8,7 @@ from ..adapters.factory.registry import default as _default_registry
 from ..adapters.storage.keys import FSM_HISTORY_KEY, FSM_LAST_ID_KEY, FSM_GRAPH_NODES_KEY, FSM_GRAPH_EDGES_KEY, \
     FSM_TEMP_KEY
 from ..domain.log.emit import jlog
-from ..logging.code import LogCode
+from ..domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

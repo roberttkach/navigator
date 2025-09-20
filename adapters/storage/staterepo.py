@@ -7,7 +7,7 @@ from .keys import FSM_GRAPH_NODES_KEY, FSM_GRAPH_EDGES_KEY
 from ...domain.entity.stategraph import Graph
 from ...domain.log.emit import jlog
 from ...domain.port.state import StateRepository
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

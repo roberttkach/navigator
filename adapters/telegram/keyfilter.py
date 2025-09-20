@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, FrozenSet
 
 from ...domain.log.emit import jlog
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 _seen: set[tuple[str, FrozenSet[str]]] = set()
 _logger = logging.getLogger(__name__)

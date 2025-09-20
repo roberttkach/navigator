@@ -11,7 +11,7 @@ from ....domain.log.emit import jlog
 from ....domain.service.scope import scope_kv
 from ....domain.value.ids import unique_sorted as _uniq
 from ....domain.value.message import Scope
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 _DELAY_SEC = max(0.0, float(int(os.getenv("NAV_DELETE_DELAY_MS", "50"))) / 1000.0)

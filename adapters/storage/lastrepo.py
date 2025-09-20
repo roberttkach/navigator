@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from .keys import FSM_LAST_ID_KEY
 from ...domain.log.emit import jlog
 from ...domain.port.last import LastMessageRepository
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

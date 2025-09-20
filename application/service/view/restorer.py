@@ -8,7 +8,7 @@ from ....domain.entity.history import Entry
 from ....domain.port.factory import ViewFactoryRegistry
 from ....domain.port.markup import MarkupCodec
 from ....domain.value.content import Payload
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

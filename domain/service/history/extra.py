@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 from ...log.emit import jlog
 from ...util.entities import validate_entities
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

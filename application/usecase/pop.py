@@ -4,7 +4,7 @@ from ..log.decorators import log_io
 from ..log.emit import jlog
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LastMessageRepository
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

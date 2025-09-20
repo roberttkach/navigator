@@ -23,7 +23,7 @@ from ...domain.error import MessageEditForbidden, NavigatorError, CaptionTooLong
 from ...domain.log.emit import jlog
 from ...domain.service.rendering.album import validate_group, MediaGroupInvalid
 from ...domain.util.path import is_http_url, is_local_path
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 InputFile = Union[str, FSInputFile, BufferedInputFile, URLInputFile]
 InputMedia = Union[InputMediaPhoto, InputMediaVideo, InputMediaDocument, InputMediaAudio, InputMediaAnimation]

@@ -10,7 +10,7 @@ from ...domain.entity.markup import Markup
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.log.emit import jlog
 from ...domain.value.content import Preview
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
