@@ -5,6 +5,7 @@ from ..log.decorators import log_io
 from ..log.emit import jlog
 from ..map.entry import EntryMapper, NodeResult
 from ..service.view.orchestrator import ViewOrchestrator
+from ..service.view.policy import payload_with_allowed_reply
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LastMessageRepository
 from ...domain.port.state import StateRepository
@@ -35,7 +36,7 @@ class ReplaceUseCase:
 
     @log_io(None, None, None)
     async def execute(self, scope: Scope, payloads: List[Payload]) -> None:
-        resolved = [resolve_content(p) for p in payloads]
+        resolved = [payload_with_allowed_reply(scope, resolve_content(p)) for p in payloads]
         history = await self._history_repo.get_history()
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, op="replace", history={"len": len(history)})
         last_entry = history[-1] if history else None

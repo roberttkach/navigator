@@ -13,18 +13,8 @@ from ....logging.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-def reply_for_send(codec, scope, reply):
-    obj = serializer.decode_reply(codec, reply)
-    if obj is None:
-        return None
-    if bool(scope.biz_id):
-        return obj if isinstance(obj, InlineKeyboardMarkup) else None
-    ct = getattr(scope, "chat_kind", None)
-    if ct == "private":
-        return obj  # приватные чаты: разрешить все поддерживаемые reply-объекты
-    if ct == "group":
-        return obj  # группы: разрешить все поддерживаемые reply-объекты
-    return obj if isinstance(obj, InlineKeyboardMarkup) else None
+def reply_for_send(codec, reply):
+    return serializer.decode_reply(codec, reply)
 
 
 def reply_for_edit(codec, reply):
