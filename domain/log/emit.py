@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from ...logging.code import LogCode
+from .code import LogCode
 
 REDACT_KEYS = {"path", "inline_id", "biz_id", "url", "caption", "thumb"}
 # Режимы:

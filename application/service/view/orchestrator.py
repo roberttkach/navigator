@@ -21,7 +21,7 @@ from ....domain.service.rendering.helpers import payload_kind, reply_equal
 from ....domain.util.path import is_http_url, is_local_path
 from ....domain.value.content import Payload
 from ....domain.value.message import Scope
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

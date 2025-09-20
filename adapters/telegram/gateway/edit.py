@@ -15,7 +15,7 @@ from ....domain.port.message import Result
 from ....domain.service.rendering.helpers import payload_kind as _payload_kind
 from ....domain.service.scope import scope_kv
 from ....domain.value.message import Scope
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from aiogram.types import (
 from ...domain.entity.markup import Markup
 from ...domain.log.emit import jlog
 from ...domain.port.markup import MarkupCodec
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

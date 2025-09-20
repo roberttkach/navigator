@@ -8,7 +8,7 @@ from ....domain.log.emit import jlog
 from ....domain.port.message import Result
 from ....domain.service.rendering.helpers import payload_kind
 from ....domain.service.scope import scope_kv
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

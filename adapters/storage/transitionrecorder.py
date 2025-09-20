@@ -5,7 +5,7 @@ from ...domain.entity.stategraph import Graph
 from ...domain.log.emit import jlog
 from ...domain.port.state import StateRepository
 from ...domain.port.transition import TransitionObserver
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 
 class TransitionRecorder(TransitionObserver):

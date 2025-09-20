@@ -3,7 +3,7 @@ from typing import Dict
 
 from ...domain.log.emit import jlog
 from ...domain.port.factory import ViewFactoryRegistry as ViewFactoryRegistryProtocol, ViewFactory
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ from ...domain.port.message import MessageGateway
 from ...domain.port.state import StateRepository
 from ...domain.value.content import resolve_content
 from ...domain.value.message import Scope
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

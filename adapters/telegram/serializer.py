@@ -12,7 +12,7 @@ from ...domain.entity.markup import Markup
 from ...domain.log.emit import jlog
 from ...domain.util.entities import validate_entities
 from ...domain.value.content import Payload, caption_of
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramRetryAfter
 from .patterns import NOT_MODIFIED, EDIT_FORBIDDEN
 from ....domain.error import MessageNotChanged, MessageEditForbidden
 from ....domain.log.emit import jlog
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)

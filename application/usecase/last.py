@@ -11,7 +11,7 @@ from ...domain.port.message import MessageGateway
 from ...domain.service.rendering import decision
 from ...domain.value.content import Payload, resolve_content
 from ...domain.value.message import Scope
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

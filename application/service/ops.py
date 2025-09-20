@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from ..log.emit import jlog
 from ...domain.entity.history import Entry, Msg
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

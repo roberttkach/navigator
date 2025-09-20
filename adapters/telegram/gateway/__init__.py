@@ -16,7 +16,7 @@ from ....domain.service.scope import scope_kv
 from ....domain.value.content import Payload
 from ....domain.value.lexicon import lexeme
 from ....domain.value.message import Scope
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

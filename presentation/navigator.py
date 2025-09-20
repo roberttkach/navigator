@@ -61,7 +61,7 @@ from ..application.usecase.replace import ReplaceUseCase
 from ..application.usecase.set import SetUseCase
 from ..domain.service.scope import scope_kv
 from ..domain.value.message import Scope
-from ..logging.code import LogCode
+from ..domain.log.code import LogCode
 from .types import StateLike
 
 logger = logging.getLogger(__name__)

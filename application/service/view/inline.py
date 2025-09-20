@@ -10,7 +10,7 @@ from ....domain.log.emit import jlog
 from ....domain.service.rendering import decision as _d
 from ....domain.service.rendering.config import RenderingConfig
 from ....domain.util.path import is_local_path, is_http_url
-from ....logging.code import LogCode
+from ....domain.log.code import LogCode
 
 
 def _canon(d):  # noqa: ANN001

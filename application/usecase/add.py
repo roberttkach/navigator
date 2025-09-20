@@ -13,7 +13,7 @@ from ...domain.service.history import policy as history_policy
 from ...domain.service.scope import scope_kv
 from ...domain.value.content import Payload, resolve_content
 from ...domain.value.message import Scope
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

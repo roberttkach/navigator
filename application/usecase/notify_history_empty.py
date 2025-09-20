@@ -3,7 +3,7 @@ import logging
 from ..log.emit import jlog
 from ...domain.port.message import MessageGateway
 from ...domain.value.message import Scope
-from ...logging.code import LogCode
+from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
