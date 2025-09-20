@@ -45,16 +45,15 @@ def caption_for_edit(payload: Payload) -> Optional[str]:
     """
     Правило для edit_caption:
     - вернуть текст подписи, если он вычисляется (caption_of(payload));
-    - если payload.text задан (в т.ч. пустая строка) и медиа есть — вернуть "" для очистки подписи;
+    - если payload.clear_caption установлен — вернуть "" для очистки подписи;
     - иначе вернуть None (не менять подпись).
     Пустая строка → явная очистка подписи на стороне Telegram.
-    Примечание: пустая строка не должна поступать из маппера без clear_caption=True; вариант с пустой строкой
-    без флага считается устаревшим и маппером игнорируется.
+    Примечание: пустая строка из payload.text без маркера clear_caption игнорируется и приводит к no-op.
     """
     cap = caption_of(payload)
     if cap is not None:
         return cap
-    if payload.text is not None:
+    if payload.clear_caption:
         return ""
     return None
 

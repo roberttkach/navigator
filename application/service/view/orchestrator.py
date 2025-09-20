@@ -91,7 +91,7 @@ class ViewOrchestrator:
         Нормализация meta:
         - Для media: восстанавливает media_type/file_id/caption при edit_*, когда Telegram вернул bool.
         - Для text: восстанавливает text при edit_*, когда Telegram вернул bool.
-        - Очистка подписи: payload.text is not None при media -> caption == "".
+        - Очистка подписи: payload.clear_caption -> caption == "".
         """
         m = dict(meta or {})
         kind = m.get("kind")
@@ -117,8 +117,8 @@ class ViewOrchestrator:
                     m["caption"] = new_cap
                 elif (getattr(payload, "media", None) and getattr(payload.media, "caption", None) == ""):
                     m["caption"] = ""  # очистка через media.caption=""
-                elif payload.text is not None:
-                    m["caption"] = ""  # явная очистка через text
+                elif payload.clear_caption:
+                    m["caption"] = ""  # явная очистка через clear_caption
                 else:
                     m["caption"] = base_msg.media.caption
         elif kind == "text" and base_msg and (getattr(base_msg, "text", None) is not None):

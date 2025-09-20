@@ -65,11 +65,15 @@ def _to_group(items: Optional[List[Media]]) -> Optional[List[MediaItem]]:
 def to_payload(dto: Content) -> Payload:
     # При media и clear_caption=True — выставляем text="" для явной очистки подписи.
     text = dto.text
-    if dto.media and dto.clear_caption and text is None:
-        text = ""
-    # Пустая строка без флага очистки — устаревший способ. Игнорируем.
+    clear_caption = False
+    if dto.media and dto.clear_caption:
+        if text is None or text == "":
+            text = ""
+            clear_caption = True
+        else:
+            clear_caption = False
     if dto.media and text == "" and not dto.clear_caption:
-        text = None
+        raise ValueError("empty_caption_without_clear_flag")
     return Payload(
         text=text,
         media=_to_media(dto.media),
@@ -77,6 +81,7 @@ def to_payload(dto: Content) -> Payload:
         reply=dto.reply,
         preview=dto.preview,
         extra=dto.extra,
+        clear_caption=clear_caption,
     )
 
 

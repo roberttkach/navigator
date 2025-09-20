@@ -24,8 +24,9 @@ class Content:
     - Попытка изменить только эффект без изменения текста/медиа/markup логически приводит к NO_CHANGE.
 
     Очистка подписи:
-    - Если media и clear_caption=True и text is None → в payload.text будет установлен "".
-    - Если media и text == "" и clear_caption=False → пустая строка считается устаревшим способом и игнорируется (text=None).
+    - Если media и clear_caption=True и text в значении None/"" →
+      в payload.text будет установлен "" и установлен маркер явной очистки.
+    - Если media и text == "" при clear_caption=False → выбрасывается ValueError.
     """
     text: Optional[str] = None
     media: Optional[Media] = None
