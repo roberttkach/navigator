@@ -16,6 +16,7 @@ from ...application.service.view.restorer import ViewRestorer
 from ...application.usecase.add import AddUseCase
 from ...application.usecase.back import BackUseCase
 from ...application.usecase.last import LastUseCase
+from ...application.usecase.notify_history_empty import NotifyHistoryEmptyUseCase
 from ...application.usecase.pop import PopUseCase
 from ...application.usecase.rebase import RebaseUseCase
 from ...application.usecase.replace import ReplaceUseCase
@@ -94,4 +95,8 @@ class AppContainer(containers.DeclarativeContainer):
     last_uc = providers.Factory(
         LastUseCase, last_repo=last_repo, history_repo=history_repo, gateway=gateway,
         orchestrator=view_orchestrator,
+    )
+    notify_history_empty_uc = providers.Factory(
+        NotifyHistoryEmptyUseCase,
+        gateway=gateway,
     )

@@ -25,6 +25,6 @@ async def create_navigator(event: Any, state: Any, registry: Optional[Any] = Non
         pop_uc=container.pop_uc(),
         rebase_uc=container.rebase_uc(),
         last_uc=container.last_uc(),
-        gateway=container.gateway(),
+        notify_history_empty_uc=container.notify_history_empty_uc(),
         scope=scope,
     )

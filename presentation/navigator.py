@@ -56,11 +56,11 @@ from ..application.map.payload import to_node_payload, to_payload
 from ..application.usecase.add import AddUseCase
 from ..application.usecase.back import BackUseCase
 from ..application.usecase.last import LastUseCase
+from ..application.usecase.notify_history_empty import NotifyHistoryEmptyUseCase
 from ..application.usecase.pop import PopUseCase
 from ..application.usecase.rebase import RebaseUseCase
 from ..application.usecase.replace import ReplaceUseCase
 from ..application.usecase.set import SetUseCase
-from ..domain.port.message import MessageGateway
 from ..domain.service.scope import scope_kv
 from ..domain.value.message import Scope
 from ..logging.code import LogCode
@@ -115,7 +115,7 @@ class Navigator:
             pop_uc: PopUseCase,
             rebase_uc: RebaseUseCase,
             last_uc: LastUseCase,
-            gateway: MessageGateway,
+            notify_history_empty_uc: NotifyHistoryEmptyUseCase,
             scope: Scope,
     ):
         self._add = add_uc
@@ -124,7 +124,7 @@ class Navigator:
         self._set = set_uc
         self._pop = pop_uc
         self._rebase = rebase_uc
-        self._gateway = gateway
+        self._notify_history_empty = notify_history_empty_uc
         self._scope = scope
         self.last = _LastAPI(use_case=last_uc, scope=scope)
 
@@ -197,4 +197,4 @@ class Navigator:
     async def inform_history_is_empty(self) -> None:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="notify_empty", scope=scope_kv(self._scope))
         async with locks.guard(self._scope):
-            await self._gateway.notify_empty(self._scope)
+            await self._notify_history_empty.execute(self._scope)
