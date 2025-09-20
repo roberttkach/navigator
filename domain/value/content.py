@@ -29,7 +29,7 @@ class Payload:
     reply: Markup | None = None
     preview: Preview | None = None
     extra: Extra | None = None
-    clear_caption: bool = False
+    erase: bool = False
 
     def morph(self, **kw: Any) -> Payload:
         return replace(self, **kw)
@@ -55,7 +55,7 @@ def normalize(payload: Payload) -> Payload:
         reply=payload.reply,
         preview=payload.preview,
         extra=payload.extra,
-        clear_caption=payload.clear_caption and not bool(group),
+        erase=payload.erase and not bool(group),
     )
 
 
