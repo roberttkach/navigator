@@ -6,14 +6,14 @@ from ....domain.value.message import Scope
 
 
 def targets(scope: Scope, message_id: Optional[int] = None) -> Dict[str, Any]:
-    if scope.inline_id:
-        data: Dict[str, Any] = {"inline_message_id": scope.inline_id}
+    if scope.inline:
+        data: Dict[str, Any] = {"inline_message_id": scope.inline}
     else:
         data = {"chat_id": scope.chat}
         if message_id is not None:
             data["message_id"] = message_id
-    if scope.biz_id:
-        data["business_connection_id"] = scope.biz_id
+    if scope.business:
+        data["business_connection_id"] = scope.business
     return data
 
 
@@ -59,7 +59,7 @@ def extract_meta(result_msg_or_bool: Any, payload: Any, scope: Scope) -> dict:
     Для inline всегда проставлять inline_id из scope.
     Для media_group собирать group_items в send.py и передавать сюда готовым dict.
     """
-    inline_id = getattr(scope, "inline_id", None)
+    inline_id = getattr(scope, "inline", None)
     if hasattr(result_msg_or_bool, "message_id"):
         m = _msg_to_meta(result_msg_or_bool)
         m["inline_id"] = inline_id

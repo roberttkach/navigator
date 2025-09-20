@@ -10,14 +10,14 @@ from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LastMessageRepository
 from ...domain.port.state import StateRepository
 from ...domain.service.history import policy as history_policy
-from ...domain.value.content import Payload, resolve_content
+from ...domain.value.content import Payload, normalize
 from ...domain.value.message import Scope
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
 
-class ReplaceUseCase:
+class Swapper:
     def __init__(
             self,
             history_repo: HistoryRepository,
@@ -36,12 +36,12 @@ class ReplaceUseCase:
 
     @log_io(None, None, None)
     async def execute(self, scope: Scope, payloads: List[Payload]) -> None:
-        resolved = [payload_with_allowed_reply(scope, resolve_content(p)) for p in payloads]
+        resolved = [payload_with_allowed_reply(scope, normalize(p)) for p in payloads]
         history = await self._history_repo.get_history()
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, op="replace", history={"len": len(history)})
         last_entry = history[-1] if history else None
         rr = await self._orchestrator.render_node(
-            "replace", scope, resolved, last_entry, inline=bool(scope.inline_id)
+            "replace", scope, resolved, last_entry, inline=bool(scope.inline)
         )
         if not rr or not rr.ids or not rr.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="replace")

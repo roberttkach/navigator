@@ -1,6 +1,6 @@
 from typing import Optional, List, Set, Literal
 
-from ...constants import ALBUM_MIN, ALBUM_MAX, ALBUM_MIXED_ALLOWED
+from ...constants import AlbumBlend, AlbumCeiling, AlbumFloor
 from ...entity.media import MediaItem, MediaType
 from ...error import NavigatorError
 
@@ -28,7 +28,7 @@ def _group_invalid_reasons(items: Optional[List[MediaItem]]) -> List[str]:
     if not items:
         reasons.append("empty")
         return reasons
-    if len(items) < ALBUM_MIN or len(items) > ALBUM_MAX:
+    if len(items) < AlbumFloor or len(items) > AlbumCeiling:
         reasons.append("size")
     types: Set[MediaType] = {i.type for i in items}
     if types & {MediaType.ANIMATION, MediaType.VOICE, MediaType.VIDEO_NOTE}:
@@ -69,4 +69,4 @@ def album_compatible(old: List[MediaItem], new: List[MediaItem]) -> bool:
         return all(i.type == MediaType.AUDIO for i in new)
     if k == "document":
         return all(i.type == MediaType.DOCUMENT for i in new)
-    return all(i.type.value in ALBUM_MIXED_ALLOWED for i in new)
+    return all(i.type.value in AlbumBlend for i in new)

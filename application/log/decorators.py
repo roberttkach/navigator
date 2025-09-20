@@ -14,8 +14,8 @@ def _extract_scope_payload(fn: Callable[..., Any], args: Tuple[Any, ...], kwargs
     scope = ba.arguments.get("scope")
     payload = ba.arguments.get("payload")
     try:
-        from ...domain.service.scope import scope_kv
-        scope_val = scope_kv(scope) if scope is not None else None
+        from ...domain.service.scope import profile
+        scope_val = profile(scope) if scope is not None else None
     except (AttributeError, ImportError, TypeError, ValueError):
         scope_val = None
     try:

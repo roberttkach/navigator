@@ -32,9 +32,9 @@ def test_history_repo_persists_extra_without_mutation() -> None:
             markup=None,
             preview=None,
             extra={"unexpected": "value"},
-            aux_ids=[],
+            extras=[],
             inline_id=None,
-            by_bot=True,
+            automated=True,
             ts=datetime.now(timezone.utc),
         )
         entry = Entry(state="state", view="view", messages=[msg], root=False)

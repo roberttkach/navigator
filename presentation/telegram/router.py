@@ -60,7 +60,7 @@ async def back_text_handler(msg: Message, navigator: Navigator, **data: Dict[str
              scope={"chat": msg.chat.id, "inline": False})
     except HistoryEmpty:
         jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="text", note="history_empty")
-        await navigator.inform_history_is_empty()
+        await navigator.alert()
     except Exception:
         jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="text", note="generic")
-        await navigator.inform_history_is_empty()
+        await navigator.alert()

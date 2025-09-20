@@ -9,14 +9,14 @@ from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LastMessageRepository
 from ...domain.port.message import MessageGateway
 from ...domain.port.state import StateRepository
-from ...domain.value.content import resolve_content
+from ...domain.value.content import normalize
 from ...domain.value.message import Scope
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
 
-class SetUseCase:
+class Setter:
     def __init__(
             self,
             history_repo: HistoryRepository,
@@ -47,7 +47,7 @@ class SetUseCase:
             LogCode.HISTORY_LOAD,
             op="set",
             history={"len": len(history)},
-            scope={"chat": scope.chat, "inline": bool(scope.inline_id)},
+            scope={"chat": scope.chat, "inline": bool(scope.inline)},
         )
         target_idx: Optional[int] = None
         for i in range(len(history) - 1, -1, -1):
@@ -61,11 +61,11 @@ class SetUseCase:
                 logging.INFO,
                 LogCode.GATEWAY_NOTIFY_EMPTY,
                 op="set",
-                scope={"chat": scope.chat, "inline": bool(scope.inline_id)},
+                scope={"chat": scope.chat, "inline": bool(scope.inline)},
             )
             return
         target_entry = history[target_idx]
-        is_inline = bool(scope.inline_id)
+        is_inline = bool(scope.inline)
         current_tail = history[-1]
         new_history = history[: target_idx + 1]
         await self._history_repo.save_history(new_history)
@@ -75,7 +75,7 @@ class SetUseCase:
         fsm_data = await self._state_repo.get_data()
         merged_handler_data = {**fsm_data, **handler_data}
         restored_payloads = await self._restorer.restore_node(target_entry, merged_handler_data, inline=is_inline)
-        resolved_payloads = [resolve_content(p) for p in restored_payloads]
+        resolved_payloads = [normalize(p) for p in restored_payloads]
         if not is_inline:
             render_result = await self._orchestrator.render_node(
                 "set",
@@ -93,13 +93,13 @@ class SetUseCase:
                 inline=True,
             )
         if render_result and render_result.changed:
-            # Политика хвоста: удаление при inline и наличии biz_id.
+            # Политика хвоста: удаление при inline и наличии business.
             from ..internal import policy as _pol
-            if is_inline and _pol.INLINE_TAIL_MODE in ("delete", "collapse") and getattr(scope, "biz_id", None):
+            if is_inline and _pol.TailMode in ("delete", "collapse") and getattr(scope, "business", None):
                 to_delete = []
                 for m in current_tail.messages[1:]:
                     to_delete.append(m.id)
-                    to_delete.extend(list(getattr(m, "aux_ids", []) or []))
+                    to_delete.extend(list(getattr(m, "extras", []) or []))
                 if to_delete:
                     first_n = to_delete[:20]
                     jlog(
@@ -126,9 +126,9 @@ class SetUseCase:
                                      markup=tail.messages[i].markup,
                                      preview=tail.messages[i].preview,
                                      extra=tail.messages[i].extra,
-                                     aux_ids=render_result.extras[i],
+                                     extras=render_result.extras[i],
                                      inline_id=tail.messages[i].inline_id,
-                                     by_bot=tail.messages[i].by_bot,
+                                     automated=tail.messages[i].automated,
                                      ts=tail.messages[i].ts,
                                  )
                                  for i in range(min(len(tail.messages), len(render_result.ids)))

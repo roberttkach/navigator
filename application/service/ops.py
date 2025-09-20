@@ -48,9 +48,9 @@ def patch_entry_ids(entry: Entry, new_ids: List[int], new_extras: Optional[List[
                 markup=entry.messages[i].markup,
                 preview=entry.messages[i].preview,
                 extra=entry.messages[i].extra,
-                aux_ids=(new_extras[i] if new_extras and i < len(new_extras) else entry.messages[i].aux_ids),
+                extras=(new_extras[i] if new_extras and i < len(new_extras) else entry.messages[i].extras),
                 inline_id=entry.messages[i].inline_id,
-                by_bot=entry.messages[i].by_bot,
+                automated=entry.messages[i].automated,
                 ts=entry.messages[i].ts,
             )
         )

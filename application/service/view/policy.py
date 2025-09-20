@@ -18,10 +18,10 @@ def allowed_reply(scope: Scope, reply: Optional[Markup]) -> Optional[Markup]:
     if reply is None:
         return None
 
-    if bool(getattr(scope, "biz_id", None)):
+    if bool(getattr(scope, "business", None)):
         return reply if reply.kind == _INLINE_KEYBOARD_KIND else None
 
-    chat_kind = getattr(scope, "chat_kind", None)
+    chat_kind = getattr(scope, "category", None)
     if chat_kind in {"private", "group"}:
         return reply
 
@@ -32,7 +32,7 @@ def payload_with_allowed_reply(scope: Scope, payload: Payload) -> Payload:
     allowed = allowed_reply(scope, payload.reply)
     if allowed is payload.reply:
         return payload
-    return payload.with_(reply=allowed)
+    return payload.morph(reply=allowed)
 
 
 __all__ = ["allowed_reply", "payload_with_allowed_reply"]

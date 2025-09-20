@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, List
 
-from ..internal.policy import INLINE_DELETE_TRIMS_HISTORY, make_dummy_entry_for_last
+from ..internal.policy import TailPrune, prime
 from ..internal.rules.inline import remap as _inline_remap
 from ..log.emit import jlog
 from ..service.view.orchestrator import ViewOrchestrator
@@ -9,14 +9,14 @@ from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LastMessageRepository
 from ...domain.port.message import MessageGateway
 from ...domain.service.rendering import decision
-from ...domain.value.content import Payload, resolve_content
+from ...domain.value.content import Payload, normalize
 from ...domain.value.message import Scope
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
 
-class LastUseCase:
+class Tailer:
     def __init__(
             self,
             last_repo: LastMessageRepository,
@@ -39,8 +39,8 @@ class LastUseCase:
         if not history:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="last.delete", note="no_history")
             return
-        if scope.inline_id and not scope.biz_id:
-            if INLINE_DELETE_TRIMS_HISTORY:
+        if scope.inline and not scope.business:
+            if TailPrune:
                 new_history = history[:-1]
                 await self._history_repo.save_history(new_history)
                 jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.delete", history={"len": len(new_history)})
@@ -69,7 +69,7 @@ class LastUseCase:
         ids: List[int] = []
         for m in last_node.messages:
             ids.append(m.id)
-            ids.extend(list(getattr(m, "aux_ids", []) or []))
+            ids.extend(list(getattr(m, "extras", []) or []))
         if ids:
             await self._gateway.delete(scope, ids)
         await self._history_repo.save_history(history[:-1])
@@ -79,7 +79,7 @@ class LastUseCase:
             logger,
             logging.INFO,
             LogCode.LAST_DELETE,
-            scope={"chat": scope.chat, "inline": bool(scope.inline_id)},
+            scope={"chat": scope.chat, "inline": bool(scope.inline)},
             message={"id": ids[0] if ids else None},
         )
 
@@ -89,10 +89,10 @@ class LastUseCase:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="last.edit", note="no_last_id")
             return None
 
-        p = resolve_content(payload)
-        if scope.inline_id and getattr(p, "group", None):
+        p = normalize(payload)
+        if scope.inline and getattr(p, "group", None):
             first = p.group[0]
-            p = p.with_(media=first, group=None)
+            p = p.morph(media=first, group=None)
 
         history = await self._history_repo.get_history()
         last_entry = None
@@ -113,16 +113,16 @@ class LastUseCase:
             else:
                 return None
 
-        base = last_entry if last_entry is not None else make_dummy_entry_for_last(last_id, p)
+        base = last_entry if last_entry is not None else prime(last_id, p)
 
         # Единый inline-ремап DELETE_SEND
-        if scope.inline_id and dec == decision.Decision.DELETE_SEND:
+        if scope.inline and dec == decision.Decision.DELETE_SEND:
             base_msg = base.messages[0] if (base and base.messages) else None
             if base_msg:
                 remapped = _inline_remap(base_msg, p, inline=True)
                 jlog(logger, logging.INFO, LogCode.INLINE_REMAP_DELETE_SEND, from_="DELETE_SEND", to_=remapped.name)
                 if remapped == decision.Decision.EDIT_MARKUP:
-                    result = await self._orchestrator.swap(scope, p.with_(media=base_msg.media, group=None), base,
+                    result = await self._orchestrator.swap(scope, p.morph(media=base_msg.media, group=None), base,
                                                            remapped)
                     if result:
                         await self._last_repo.set_last_id(result.id)
@@ -141,7 +141,7 @@ class LastUseCase:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="last.edit", note="inline_no_content_type_switch")
             return None
 
-        if scope.inline_id and dec in (
+        if scope.inline and dec in (
                 decision.Decision.EDIT_TEXT,
                 decision.Decision.EDIT_MEDIA,
                 decision.Decision.EDIT_MEDIA_CAPTION,
@@ -185,7 +185,7 @@ class LastUseCase:
         if dec in (decision.Decision.EDIT_MEDIA, decision.Decision.EDIT_MEDIA_CAPTION) and not (p.media or p.group):
             return None
 
-        if (not scope.inline_id) and dec in (
+        if (not scope.inline) and dec in (
                 decision.Decision.EDIT_TEXT,
                 decision.Decision.EDIT_MEDIA,
                 decision.Decision.EDIT_MEDIA_CAPTION,
@@ -193,7 +193,7 @@ class LastUseCase:
         ):
             ids_to_del = [last_id]
             if last_entry and last_entry.messages:
-                ids_to_del += list(last_entry.messages[0].aux_ids or [])
+                ids_to_del += list(last_entry.messages[0].extras or [])
             await self._gateway.delete(scope, ids_to_del)
             resend_result = await self._orchestrator.swap(scope, p, None, decision.Decision.RESEND)
             if resend_result:

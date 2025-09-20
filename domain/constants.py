@@ -1,9 +1,28 @@
+import warnings
 from typing import Final
 
-TEXT_MAX: Final = 4096
-CAPTION_MAX: Final = 1024
-ALBUM_MIN: Final = 2
-ALBUM_MAX: Final = 10
-ALBUM_MIXED_ALLOWED: Final = {"photo", "video"}
+__all__ = ["TextLimit", "CaptionLimit", "AlbumFloor", "AlbumCeiling", "AlbumBlend", "ThumbWatch"]
+
+TextLimit: Final = 4096
+CaptionLimit: Final = 1024
+AlbumFloor: Final = 2
+AlbumCeiling: Final = 10
+AlbumBlend: Final = {"photo", "video"}
 # Если True: любое присутствие thumb в extra при partial-edit альбомов триггерит EDIT_MEDIA.
-DETECT_THUMB_CHANGE: Final[bool] = False
+ThumbWatch: Final[bool] = False
+
+_DEPRECATED = {
+    "TEXT_MAX": TextLimit,
+    "CAPTION_MAX": CaptionLimit,
+    "ALBUM_MIN": AlbumFloor,
+    "ALBUM_MAX": AlbumCeiling,
+    "ALBUM_MIXED_ALLOWED": AlbumBlend,
+    "DETECT_THUMB_CHANGE": ThumbWatch,
+}
+
+
+def __getattr__(name: str):
+    if name in _DEPRECATED:
+        warnings.warn(f"{name} is deprecated; use the new single-word constant", DeprecationWarning, stacklevel=2)
+        return _DEPRECATED[name]
+    raise AttributeError(f"module 'domain.constants' has no attribute {name!r}")

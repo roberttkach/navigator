@@ -1,8 +1,9 @@
 from typing import Optional, Any
+import warnings
 
 from ..adapters.factory.registry import default as reg_default
 from ..application.log.emit import set_redaction_mode
-from .migrate import purge_invalid_views
+from .migrate import cleanse
 from ..infrastructure.config import SETTINGS
 from ..infrastructure.di.container import AppContainer
 from ..infrastructure.locks import configure_from_env
@@ -10,21 +11,26 @@ from ..presentation.navigator import Navigator
 from ..presentation.telegram.scope import make_scope
 
 
-async def create_navigator(event: Any, state: Any, registry: Optional[Any] = None) -> Navigator:
+async def assemble(event: Any, state: Any, registry: Optional[Any] = None) -> Navigator:
     set_redaction_mode(SETTINGS.log_redaction_mode)
     configure_from_env()
     reg = registry if registry is not None else reg_default
-    await purge_invalid_views(state, reg)
+    await cleanse(state, reg)
     container = AppContainer(event=event, state=state, registry=reg)
     scope = make_scope(event)
     return Navigator(
-        add_uc=container.add_uc(),
-        replace_uc=container.replace_uc(),
-        back_uc=container.back_uc(),
-        set_uc=container.set_uc(),
-        pop_uc=container.pop_uc(),
-        rebase_uc=container.rebase_uc(),
-        last_uc=container.last_uc(),
-        notify_history_empty_uc=container.notify_history_empty_uc(),
+        appender=container.appender(),
+        swapper=container.swapper(),
+        rewinder=container.rewinder(),
+        setter=container.setter(),
+        trimmer=container.trimmer(),
+        shifter=container.shifter(),
+        tailer=container.tailer(),
+        alarm=container.alarm(),
         scope=scope,
     )
+
+
+async def create_navigator(event: Any, state: Any, registry: Optional[Any] = None) -> Navigator:
+    warnings.warn("create_navigator is deprecated; use assemble", DeprecationWarning, stacklevel=2)
+    return await assemble(event, state, registry)

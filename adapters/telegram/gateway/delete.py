@@ -8,8 +8,8 @@ from typing import List
 from .retry import call_tg
 from ..errors import any_soft_ignorable_exc
 from ....domain.log.emit import jlog
-from ....domain.service.scope import scope_kv
-from ....domain.value.ids import unique_sorted as _uniq
+from ....domain.service.scope import profile
+from ....domain.value.ids import order as _order
 from ....domain.value.message import Scope
 from ....domain.log.code import LogCode
 
@@ -23,19 +23,19 @@ class BatchDeleteRunner:
         self._chunk = min(int(chunk_size), 100)
 
     async def run(self, scope: Scope, ids: List[int]) -> None:
-        if scope.inline_id and not scope.biz_id:
+        if scope.inline and not scope.business:
             jlog(
                 logger,
                 logging.INFO,
                 LogCode.RENDER_SKIP,
-                scope=scope_kv(scope),
-                note="inline_without_biz_delete_skip",
+                scope=profile(scope),
+                note="inline_without_business_delete_skip",
                 count=len(ids or []),
             )
             return
         if not ids:
             return
-        uniq_ids = _uniq(ids)
+        uniq_ids = _order(ids)
         if not uniq_ids:
             return
         parts = [uniq_ids[i:i + self._chunk] for i in range(0, len(uniq_ids), self._chunk)]
@@ -52,18 +52,18 @@ class BatchDeleteRunner:
         try:
             for idx, part in enumerate(parts, start=1):
                 try:
-                    if scope.biz_id:
+                    if scope.business:
                         try:
                             await call_tg(
                                 self._bot.delete_business_messages,
-                                business_connection_id=scope.biz_id,
+                                business_connection_id=scope.business,
                                 message_ids=part,
                             )
                             jlog(
                                 logger,
                                 logging.INFO,
                                 LogCode.GATEWAY_DELETE_OK,
-                                scope=scope_kv(scope),
+                                scope=profile(scope),
                                 message={"deleted": len(part)},
                                 chunk={"index": idx, "total": total},
                             )
@@ -80,7 +80,7 @@ class BatchDeleteRunner:
                                     logger,
                                     logging.INFO,
                                     LogCode.GATEWAY_DELETE_OK,
-                                    scope=scope_kv(scope),
+                                    scope=profile(scope),
                                     message={"deleted": len(part)},
                                     chunk={"index": idx, "total": total},
                                 )
@@ -99,7 +99,7 @@ class BatchDeleteRunner:
                             logger,
                             logging.INFO,
                             LogCode.GATEWAY_DELETE_OK,
-                            scope=scope_kv(scope),
+                            scope=profile(scope),
                             message={"deleted": len(part)},
                             chunk={"index": idx, "total": total},
                         )
@@ -113,7 +113,7 @@ class BatchDeleteRunner:
                 logger,
                 logging.WARNING,
                 LogCode.GATEWAY_DELETE_FAIL,
-                scope=scope_kv(scope),
+                scope=profile(scope),
                 count=len(uniq_ids),
                 note=type(e).__name__,
             )

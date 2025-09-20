@@ -1,4 +1,4 @@
-from .composition import create_navigator
+from .composition import assemble, create_navigator
 from .presentation.navigator import Navigator
 
-__all__ = ["Navigator", "create_navigator"]
+__all__ = ["Navigator", "assemble", "create_navigator"]

@@ -10,13 +10,13 @@ from .util import targets as _targets
 from .. import media as media_mapper
 from .. import serializer
 from ..keyfilter import accept_for
-from ....domain.constants import TEXT_MAX, CAPTION_MAX
+from ....domain.constants import CaptionLimit, TextLimit
 from ....domain.error import EmptyPayload, MessageEditForbidden, TextTooLong, CaptionTooLong
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
 from ....domain.port.message import Result
 from ....domain.service.rendering.helpers import payload_kind as _payload_kind
-from ....domain.service.scope import scope_kv
+from ....domain.service.scope import profile
 from ....domain.value.message import Scope
 from ....domain.log.code import LogCode
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: bool = False) -> Result:
     context = _targets(scope)
-    inline = bool(scope.inline_id)
+    inline = bool(scope.inline)
     allow_local = not inline
     try:
         if payload.group:
@@ -52,11 +52,11 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                 logger,
                 logging.INFO,
                 LogCode.GATEWAY_SEND_OK,
-                scope=scope_kv(scope),
+                scope=profile(scope),
                 payload=_payload_kind(payload),
                 message={"id": sent_messages[0].message_id, "extra_len": len(sent_messages) - 1},
             )
-            meta = {"kind": "group", "group_items": items, "inline_id": scope.inline_id}
+            meta = {"kind": "group", "group_items": items, "inline_id": scope.inline}
             return Result(
                 id=sent_messages[0].message_id,
                 extra=[m.message_id for m in sent_messages[1:]],
@@ -70,17 +70,17 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                     logger,
                     logging.WARNING,
                     LogCode.GATEWAY_SEND_FAIL,
-                    scope=scope_kv(scope),
+                    scope=profile(scope),
                     payload=_payload_kind(payload),
                     note="inline_upload_forbidden",
                 )
                 raise
             sender = getattr(bot, f"send_{payload.media.type.value}")
             caption = serializer.caption_for(payload)
-            if caption is not None and len(caption) > CAPTION_MAX:
+            if caption is not None and len(caption) > CaptionLimit:
                 if truncate:
-                    caption = caption[:CAPTION_MAX]
-                    jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=scope_kv(scope), stage="send.caption")
+                    caption = caption[:CaptionLimit]
+                    jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.caption")
                 else:
                     raise CaptionTooLong()
             norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=False)
@@ -130,7 +130,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                     logger,
                     logging.DEBUG,
                     LogCode.EXTRA_FILTERED_OUT,
-                    scope=scope_kv(scope),
+                    scope=profile(scope),
                     stage="send.media",
                     before=sorted(raw_media_kwargs.keys()),
                     after=sorted(filtered_media_kwargs.keys()),
@@ -151,10 +151,10 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             raw = "" if payload.text is None else str(payload.text)
             if not raw.strip():
                 raise EmptyPayload()
-            if len(raw) > TEXT_MAX:
+            if len(raw) > TextLimit:
                 if truncate:
-                    raw = raw[:TEXT_MAX]
-                    jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=scope_kv(scope), stage="send.text")
+                    raw = raw[:TextLimit]
+                    jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.text")
                 else:
                     raise TextTooLong()
             norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=False)
@@ -174,7 +174,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             logger,
             logging.INFO,
             LogCode.GATEWAY_SEND_OK,
-            scope=scope_kv(scope),
+            scope=profile(scope),
             payload=_payload_kind(payload),
             message={"id": sent_message.message_id, "extra_len": 0},
         )
@@ -188,7 +188,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             logger,
             logging.WARNING,
             LogCode.GATEWAY_SEND_FAIL,
-            scope=scope_kv(scope),
+            scope=profile(scope),
             payload=_payload_kind(payload),
             note=str(note)[:300],
         )

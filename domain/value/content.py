@@ -1,40 +1,45 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Optional, List, Union, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+import warnings
 
 from ..entity.markup import Markup
 from ..entity.media import MediaItem
 from ..types import Extra
 
 if TYPE_CHECKING:
-    pass
+    from ..entity.history import Entry
 
 
 @dataclass(frozen=True, slots=True)
 class Preview:
-    url: Optional[str] = None
+    url: str | None = None
     small: bool = False
     large: bool = False
     above: bool = False
-    disabled: Optional[bool] = None
+    disabled: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class Payload:
-    text: Optional[str] = None
-    media: Optional[MediaItem] = None
-    group: Optional[List[MediaItem]] = None
-    reply: Optional[Markup] = None
-    preview: Optional[Preview] = None
-    extra: Optional[Extra] = None
+    text: str | None = None
+    media: MediaItem | None = None
+    group: list[MediaItem] | None = None
+    reply: Markup | None = None
+    preview: Preview | None = None
+    extra: Extra | None = None
     clear_caption: bool = False
 
-    def with_(self, **kw: Any) -> "Payload":
+    def morph(self, **kw: Any) -> Payload:
         return replace(self, **kw)
 
+    def with_(self, **kw: Any) -> Payload:
+        warnings.warn("Payload.with_ is deprecated; use Payload.morph", DeprecationWarning, stacklevel=2)
+        return self.morph(**kw)
 
-def resolve_content(payload: Payload) -> Payload:
+
+def normalize(payload: Payload) -> Payload:
     media = payload.media
     group = payload.group
     if group and len(group) == 1:
@@ -54,7 +59,7 @@ def resolve_content(payload: Payload) -> Payload:
     )
 
 
-def caption_of(x: Union[Payload, "Entry", None]) -> Optional[str]:
+def caption(x: Payload | Entry | None) -> str | None:
     """
     Возвращает подпись к медиа с приоритетом источника:
     1) Если есть group — возвращает None.
@@ -64,8 +69,8 @@ def caption_of(x: Union[Payload, "Entry", None]) -> Optional[str]:
     Лишние пробелы по краям отбрасываются.
 
     Инвариант: прямые вызовы с «сырым» Entry не предназначены для клиентского кода.
-    Для сравнения старого и нового представления используйте нормализованный вид (см. decision._view_of)
-    или передавайте Payload.
+    Для сравнения старого и нового представления используйте нормализованный вид
+    (см. decision._view_of) или передавайте Payload.
     """
     if x is None:
         return None
@@ -84,3 +89,13 @@ def caption_of(x: Union[Payload, "Entry", None]) -> Optional[str]:
         s = str(c).strip()
         return s if s else None
     return None
+
+
+def resolve_content(payload: Payload) -> Payload:
+    warnings.warn("resolve_content is deprecated; use normalize", DeprecationWarning, stacklevel=2)
+    return normalize(payload)
+
+
+def caption_of(x: Payload | Entry | None) -> str | None:
+    warnings.warn("caption_of is deprecated; use caption", DeprecationWarning, stacklevel=2)
+    return caption(x)

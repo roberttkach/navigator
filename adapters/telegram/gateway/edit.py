@@ -7,13 +7,13 @@ from .util import targets as _targets
 from .. import media as media_mapper
 from .. import serializer
 from ..keyfilter import accept_for
-from ....domain.constants import TEXT_MAX, CAPTION_MAX
+from ....domain.constants import CaptionLimit, TextLimit
 from ....domain.error import MessageEditForbidden, EmptyPayload, TextTooLong, CaptionTooLong
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
 from ....domain.port.message import Result
 from ....domain.service.rendering.helpers import payload_kind as _payload_kind
-from ....domain.service.scope import scope_kv
+from ....domain.service.scope import profile
 from ....domain.value.message import Scope
 from ....domain.log.code import LogCode
 
@@ -25,10 +25,10 @@ async def do_edit_text(bot, codec: MarkupCodec, scope: Scope, message_id: int, p
     raw = "" if payload.text is None else str(payload.text)
     if not raw.strip():
         raise EmptyPayload()
-    if len(raw) > TEXT_MAX:
+    if len(raw) > TextLimit:
         if truncate:
-            raw = raw[:TEXT_MAX]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=scope_kv(scope), stage="edit.text")
+            raw = raw[:TextLimit]
+            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.text")
         else:
             raise TextTooLong()
     norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=True)
@@ -57,7 +57,7 @@ async def do_edit_media(bot, codec: MarkupCodec, scope: Scope, message_id: int, 
         raise ValueError("Cannot edit media without a media payload")
     norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=True)
     caption = serializer.caption_for(payload)
-    allow_local = not bool(scope.inline_id)
+    allow_local = not bool(scope.inline)
     try:
         tg_media = media_mapper.to_input_media(
             payload.media, caption, extra=norm_extra, allow_local=allow_local, truncate=truncate
@@ -67,7 +67,7 @@ async def do_edit_media(bot, codec: MarkupCodec, scope: Scope, message_id: int, 
             logger,
             logging.WARNING,
             LogCode.GATEWAY_EDIT_FAIL,
-            scope=scope_kv(scope),
+            scope=profile(scope),
             payload=_payload_kind(payload),
             note="inline_upload_forbidden",
         )
@@ -97,10 +97,10 @@ async def do_edit_caption(bot, codec: MarkupCodec, scope: Scope, message_id: int
     )
     trg = _targets(scope, message_id)
     # caption=None — не изменяем подпись; caption="" — очищаем подпись (см. serializer.caption_for_edit).
-    if caption is not None and len(caption) > CAPTION_MAX:
+    if caption is not None and len(caption) > CaptionLimit:
         if truncate:
-            caption = caption[:CAPTION_MAX]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=scope_kv(scope), stage="edit.caption")
+            caption = caption[:CaptionLimit]
+            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.caption")
         else:
             raise CaptionTooLong()
     try:
@@ -121,7 +121,7 @@ async def do_edit_caption(bot, codec: MarkupCodec, scope: Scope, message_id: int
                 logger,
                 logging.DEBUG,
                 LogCode.EXTRA_FILTERED_OUT,
-                scope=scope_kv(scope),
+                scope=profile(scope),
                 stage="edit.caption.media",
                 before=sorted(raw_media_kwargs.keys()),
                 after=sorted(filtered_media_kwargs.keys()),

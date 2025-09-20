@@ -6,7 +6,7 @@ from typing import Optional, List, Any
 from ..view.inline import InlineStrategy
 from .policy import payload_with_allowed_reply
 from ...internal import policy as _pol
-from ...internal.policy import inline_guard
+from ...internal.policy import shield
 from ...log.decorators import log_io
 from ...log.emit import jlog
 from ....domain.entity.history import Entry, Msg
@@ -18,7 +18,7 @@ from ....domain.service.rendering import decision
 from ....domain.service.rendering.config import RenderingConfig
 from ....domain.service.rendering.album import album_compatible
 from ....domain.service.rendering.helpers import payload_kind, reply_equal
-from ....domain.util.path import is_http_url, is_local_path
+from ....domain.util.path import remote, local
 from ....domain.value.content import Payload
 from ....domain.value.message import Scope
 from ....domain.log.code import LogCode
@@ -73,7 +73,7 @@ class ViewOrchestrator:
         return None
 
     def _album_ids(self, base_msg: Msg) -> List[int]:
-        return [int(base_msg.id)] + [int(x) for x in (base_msg.aux_ids or [])]
+        return [int(base_msg.id)] + [int(x) for x in (base_msg.extras or [])]
 
     def _needs_edit_media(self, old: MediaItem, new: MediaItem) -> bool:
         if old.type != new.type:
@@ -103,7 +103,7 @@ class ViewOrchestrator:
             # file_id fallback: сперва пробуем взять новый file_id из payload, иначе старый
             if m.get("file_id") is None:
                 pth = getattr(getattr(payload, "media", None), "path", None)
-                if isinstance(pth, str) and not is_http_url(pth) and not is_local_path(pth):
+                if isinstance(pth, str) and not remote(pth) and not local(pth):
                     m["file_id"] = pth  # новый file_id из payload
                 elif isinstance(getattr(base_msg.media, "path", None), str):
                     m["file_id"] = base_msg.media.path  # прежний file_id из истории
@@ -111,7 +111,7 @@ class ViewOrchestrator:
             # caption fallback с поддержкой очистки
             if m.get("caption") is None:
                 # Для EDIT_MEDIA и EDIT_MEDIA_CAPTION берём подпись из payload; учитываем очистку
-                from ....domain.value.content import caption_of as _cap  # локальный импорт
+                from ....domain.value.content import caption as _cap  # локальный импорт
                 new_cap = _cap(payload)
                 if new_cap is not None:
                     m["caption"] = new_cap
@@ -143,7 +143,7 @@ class ViewOrchestrator:
             last: Optional[Entry | Msg],
             dec: decision.Decision,
     ) -> Optional[RenderResult]:
-        inline_guard(scope, payload)
+        shield(scope, payload)
         payload = payload_with_allowed_reply(scope, payload)
 
         def _head_msg(e):
@@ -167,7 +167,7 @@ class ViewOrchestrator:
             rr = await self._gateway.send(scope, payload)
             if base_msg:
                 ids_to_delete: List[int] = [int(base_msg.id)]
-                ids_to_delete.extend(int(x) for x in (getattr(base_msg, "aux_ids", []) or []))
+                ids_to_delete.extend(int(x) for x in (getattr(base_msg, "extras", []) or []))
                 try:
                     await self._gateway.delete(scope, ids_to_delete)
                 except Exception:
@@ -179,12 +179,12 @@ class ViewOrchestrator:
             def _has_media_single_local(x):
                 return bool(getattr(x, "media", None))
 
-            if _pol.IMPLICIT_MEDIA_TO_CAPTION and (dec is decision.Decision.DELETE_SEND) and (not scope.inline_id):
+            if _pol.ImplicitCaption and (dec is decision.Decision.DELETE_SEND) and (not scope.inline):
                 base_msg2 = _head_msg(last)
                 if base_msg2 and _has_media_single_local(base_msg2) and (payload.text is not None) and (
                         not payload.media) and (not payload.group):
                     dec = decision.Decision.EDIT_MEDIA_CAPTION
-                    payload = payload.with_(media=base_msg2.media)  # чтобы caption_of(payload) вычислился как text
+                    payload = payload.morph(media=base_msg2.media)  # чтобы caption(payload) вычислился как text
 
             if dec is decision.Decision.NO_CHANGE:
                 return None
@@ -231,35 +231,35 @@ class ViewOrchestrator:
                 return None
         except EmptyPayload:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="empty_payload", skip=True)
-            if _pol.STRICT_VALIDATION_FAIL:
+            if _pol.StrictAbort:
                 raise
             return None
         except ExtraKeyForbidden:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="extra_validation_failed", skip=True)
-            if _pol.STRICT_VALIDATION_FAIL:
+            if _pol.StrictAbort:
                 raise
             return None
         except (TextTooLong, CaptionTooLong):
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="too_long", skip=True)
-            if _pol.STRICT_VALIDATION_FAIL:
+            if _pol.StrictAbort:
                 raise
             return None
         except MessageEditForbidden:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="edit_forbidden")
-            if scope.inline_id:
+            if scope.inline:
                 jlog(logger, logging.INFO, LogCode.RERENDER_INLINE_NO_FALLBACK, note="inline_no_fallback", skip=True)
                 return None
-            if not _pol.RESEND_FALLBACK_ON_FORBIDDEN:
+            if not _pol.ResendOnBan:
                 return None
             base_msg = self._head_msg(last)
             rr_fallback = await _fallback_resend_delete(base_msg)
             return rr_fallback
         except MessageNotChanged:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="not_modified")
-            if scope.inline_id:
+            if scope.inline:
                 jlog(logger, logging.INFO, LogCode.RERENDER_INLINE_NO_FALLBACK, note="inline_no_fallback", skip=True)
                 return None
-            if not _pol.RESEND_FALLBACK_ON_NOT_MODIFIED:
+            if not _pol.ResendOnIdle:
                 return None
             base_msg = self._head_msg(last)
             rr_fallback = await _fallback_resend_delete(base_msg)
@@ -293,7 +293,7 @@ class ViewOrchestrator:
                 p0 = new[0]
                 if getattr(p0, "group", None):
                     first = p0.group[0]
-                    new[0] = p0.with_(media=first, group=None)
+                    new[0] = p0.morph(media=first, group=None)
 
         def _meta_from_msg(o: Msg) -> dict:
             if o.group:
@@ -314,7 +314,7 @@ class ViewOrchestrator:
                 }
             return {"kind": "text", "text": o.text, "inline_id": o.inline_id}
 
-        inline_guard(scope, new[0] if new else Payload())
+        shield(scope, new[0] if new else Payload())
         old: List[Msg] = list(last_node.messages) if last_node else []
 
         # Выходные буферы доступны и для ветки альбомов
@@ -329,7 +329,7 @@ class ViewOrchestrator:
         # - Используется один «глобальный» extra для всей группы. Per-item extra не поддержан по контракту DTO/истории.
         # - Подпись и её позиция изменяются только на первом элементе (edit_caption/markup по id первого сообщения).
         # - Медиа-уровень (spoiler/start/thumb*) применяется поэлементно, но только если файл не менялся,
-        #   либо включён detect_thumb_change и задан thumb.
+        #   либо включён thumb_watch и задан thumb.
         # - Для metas.group_items file_id берётся из нового payload, если это уже file_id (строка и не путь/URL),
         #   иначе из истории (старый file_id). Это гарантирует консистентность истории.
         if (not inline) and old and new and getattr(old[0], "group", None) and getattr(new[0], "group", None):
@@ -373,7 +373,7 @@ class ViewOrchestrator:
                 media_extra_changed = _media_affects_changed(old_e, new_e)
 
                 # thumb: корректный триггер по факту снятия/добавления миниатюры
-                if self._rendering_config.detect_thumb_change:
+                if self._rendering_config.thumb_watch:
                     if bool(old_e.get("has_thumb")) != bool(new_e.get("thumb") is not None):
                         media_extra_changed = True
 
@@ -382,7 +382,7 @@ class ViewOrchestrator:
                 if caption_changed:
                     # Явная очистка подписи: если новая caption пустая — передаём text="".
                     cap = (new_group[0].caption or "")
-                    p_for_cap = new[0].with_(media=new_group[0], group=None, text=("" if cap == "" else None))
+                    p_for_cap = new[0].morph(media=new_group[0], group=None, text=("" if cap == "" else None))
                     await self._gateway.edit_caption(scope, ids[0], p_for_cap)
                     changed = True
                 if reply_changed:
@@ -403,13 +403,13 @@ class ViewOrchestrator:
                     need_file_switch = self._needs_edit_media(oi, ni)
                     need_extra_switch = (not need_file_switch) and media_extra_changed and _same_file(oi, ni)
                     if need_file_switch or need_extra_switch:
-                        await self._gateway.edit_media(scope, target_id, new[0].with_(media=ni, group=None))
+                        await self._gateway.edit_media(scope, target_id, new[0].morph(media=ni, group=None))
                         changed = True
 
                 # --- 3) meta.group_items с актуальным file_id ---
                 def _pick_file_id(i):
                     p = getattr(new_group[i], "path", None)
-                    if isinstance(p, str) and not is_http_url(p) and not is_local_path(p):
+                    if isinstance(p, str) and not remote(p) and not local(p):
                         return p  # новый file_id
                     return old_group[i].path  # старый file_id
 
@@ -426,7 +426,7 @@ class ViewOrchestrator:
 
                 # 1 логический элемент для «головы» группы
                 out_ids.append(ids[0])
-                out_extras.append(list(old[0].aux_ids))
+                out_extras.append(list(old[0].extras))
                 out_metas.append(
                     self._require_kind({"kind": "group", "group_items": group_items, "inline_id": old[0].inline_id})
                 )
@@ -457,7 +457,7 @@ class ViewOrchestrator:
             dec = decision.decide(_adapt(o), p, self._rendering_config)
             if dec is decision.Decision.NO_CHANGE:
                 out_ids.append(o.id)
-                out_extras.append(list(getattr(o, "aux_ids", []) or []))
+                out_extras.append(list(getattr(o, "extras", []) or []))
                 out_metas.append(self._require_kind(_meta_from_msg(o)))
                 continue
             if dec in (
@@ -476,7 +476,7 @@ class ViewOrchestrator:
                         rendering_config=self._rendering_config,
                     )
                     out_ids.append(rr.id if rr else o.id)
-                    out_extras.append(list(rr.extra if rr else getattr(o, "aux_ids", []) or []))
+                    out_extras.append(list(rr.extra if rr else getattr(o, "extras", []) or []))
                     nm = dict(rr.meta) if rr else _meta_from_msg(o)
                     nm = self._normalize_meta(nm, o, dec, p)
                     out_metas.append(self._require_kind(nm))
@@ -495,16 +495,16 @@ class ViewOrchestrator:
                                 markup=o.markup,
                                 preview=o.preview,
                                 extra=o.extra,
-                                aux_ids=getattr(o, "aux_ids", []),
+                                extras=getattr(o, "extras", []),
                                 inline_id=o.inline_id,
-                                by_bot=o.by_bot,
+                                automated=o.automated,
                                 ts=o.ts,
                             )
                         ],
                     )
                     rr = await self.swap(scope, p, dummy, dec)
                     out_ids.append(rr.id if rr else o.id)
-                    out_extras.append(list(rr.extra if rr else getattr(o, "aux_ids", []) or []))
+                    out_extras.append(list(rr.extra if rr else getattr(o, "extras", []) or []))
                     meta_src = dict(rr.meta) if rr else _meta_from_msg(o)
                     out_metas.append(self._require_kind(meta_src))
                     if rr:
@@ -521,7 +521,7 @@ class ViewOrchestrator:
                         rendering_config=self._rendering_config,
                     )
                     out_ids.append(rr.id if rr else o.id)
-                    out_extras.append(list(rr.extra if rr else getattr(o, "aux_ids", []) or []))
+                    out_extras.append(list(rr.extra if rr else getattr(o, "extras", []) or []))
                     nm = dict(rr.meta) if rr else _meta_from_msg(o)
                     nm = self._normalize_meta(nm, o, dec, p)
                     out_metas.append(self._require_kind(nm))
@@ -529,7 +529,7 @@ class ViewOrchestrator:
                         changed = True
                 else:
                     rr = await self._gateway.send(scope, p)
-                    await self._gateway.delete(scope, [o.id] + list(getattr(o, "aux_ids", []) or []))
+                    await self._gateway.delete(scope, [o.id] + list(getattr(o, "extras", []) or []))
                     out_ids.append(rr.id)
                     out_extras.append(list(rr.extra))
                     meta = {
@@ -563,7 +563,7 @@ class ViewOrchestrator:
             to_delete: List[int] = []
             for m in old[n_new:]:
                 to_delete.append(m.id)
-                to_delete.extend(list(getattr(m, "aux_ids", []) or []))
+                to_delete.extend(list(getattr(m, "extras", []) or []))
             if to_delete and not inline:
                 await self._gateway.delete(scope, to_delete)
                 changed = True

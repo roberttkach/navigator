@@ -79,7 +79,7 @@ def test_entry_mapper_maps_media_metadata() -> None:
     assert msg.text is None
     assert msg.group is None
     assert msg.inline_id == "inline"
-    assert msg.aux_ids == [42]
+    assert msg.extras == [42]
 
 
 def test_entry_mapper_maps_group_metadata() -> None:

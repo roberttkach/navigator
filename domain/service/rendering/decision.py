@@ -5,7 +5,7 @@ from typing import Optional, Any
 from .helpers import reply_equal as _reply_equal_markups
 from ...entity.history import Entry
 from ...entity.media import MediaType
-from ...value.content import Payload, caption_of
+from ...value.content import Payload, caption
 from .config import RenderingConfig
 
 
@@ -103,7 +103,7 @@ def _media_opts_split(e, config: RenderingConfig) -> tuple[_MediaCaptionOpts, _M
     edt = _MediaEditOpts(
         spoiler=bool(x.get("spoiler")),
         start=st,
-        thumb_present=(present if config.detect_thumb_change else False),
+        thumb_present=(present if config.thumb_watch else False),
     )
     return cap, edt
 
@@ -222,7 +222,7 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
             if edt_o != edt_n:
                 return Decision.EDIT_MEDIA
 
-            same_caption_text = (caption_of(o) or "") == (caption_of(n) or "")
+            same_caption_text = (caption(o) or "") == (caption(n) or "")
             same_caption_extra = _caption_extra_equal(o, n)
             same_caption_pos = (cap_o == cap_n)
             if same_caption_text and same_caption_extra and same_caption_pos:

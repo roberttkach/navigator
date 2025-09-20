@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from ...log.emit import jlog
-from ...util.entities import validate_entities
+from ...util.entities import sanitize as sanitize_entities
 from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def sanitize_extra(extra: Any, *, text_len: int) -> Optional[Dict[str, Any]]:
         cleaned["has_thumb"] = True
 
     if "entities" in cleaned:
-        valid_entities = validate_entities(cleaned.get("entities"), text_len)
+        valid_entities = sanitize_entities(cleaned.get("entities"), text_len)
         if valid_entities:
             cleaned["entities"] = valid_entities
         else:

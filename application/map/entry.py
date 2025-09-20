@@ -90,9 +90,9 @@ class EntryMapper:
                     markup=payload.reply,
                     preview=payload.preview,
                     extra=extra,
-                    aux_ids=list(aux),
+                    extras=list(aux),
                     inline_id=inline_id,
-                    by_bot=True,
+                    automated=True,
                     ts=now,
                 )
             )

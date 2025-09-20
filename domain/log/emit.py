@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 from .code import LogCode
 
-REDACT_KEYS = {"path", "inline_id", "biz_id", "url", "caption", "thumb"}
+REDACT_KEYS = {"path", "inline", "business", "url", "caption", "thumb"}
 # Режимы:
 # - debug: без редактирования;
 # - safe (по умолчанию): редактируются ключи из REDACT_KEYS;
