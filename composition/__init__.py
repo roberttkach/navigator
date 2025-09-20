@@ -2,7 +2,7 @@ from typing import Optional, Any
 
 from ..adapters.factory.registry import default as reg_default
 from ..application.log.emit import set_redaction_mode
-from ..composition import migrate
+from .migrate import purge_invalid_views
 from ..infrastructure.config import SETTINGS
 from ..infrastructure.di.container import AppContainer
 from ..infrastructure.locks import configure_from_env
@@ -14,7 +14,7 @@ async def create_navigator(event: Any, state: Any, registry: Optional[Any] = Non
     set_redaction_mode(SETTINGS.log_redaction_mode)
     configure_from_env()
     reg = registry if registry is not None else reg_default
-    await migrate.run(state, reg)
+    await purge_invalid_views(state, reg)
     container = AppContainer(event=event, state=state, registry=reg)
     scope = make_scope(event)
     return Navigator(
