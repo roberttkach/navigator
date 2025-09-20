@@ -24,9 +24,9 @@ class Content:
     - Попытка изменить только эффект без изменения текста/медиа/markup логически приводит к NO_CHANGE.
 
     Очистка подписи:
-    - Если media и clear_caption=True и text в значении None/"" →
+    - Если media и erase=True и text в значении None/"" →
       в payload.text будет установлен "" и установлен маркер явной очистки.
-    - Если media и text == "" при clear_caption=False → выбрасывается ValueError.
+    - Если media и text == "" при erase=False → выбрасывается ValueError.
     """
     text: Optional[str] = None
     media: Optional[Media] = None
@@ -34,7 +34,7 @@ class Content:
     reply: Optional[Markup] = None
     preview: Optional[Preview] = None
     extra: Optional[Extra] = None
-    clear_caption: bool = False
+    erase: bool = False
 
 
 @dataclass(frozen=True, slots=True)
