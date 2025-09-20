@@ -1,9 +1,9 @@
 from typing import Optional, Any
 
 from ..adapters.factory.registry import default as reg_default
-from ..application.locks import configure_from_env
 from ..composition import migrate
 from ..infrastructure.di.container import AppContainer
+from ..infrastructure.locks import configure_from_env
 from ..presentation.navigator import Navigator
 from ..presentation.telegram.scope import make_scope
 
