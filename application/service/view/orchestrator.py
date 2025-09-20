@@ -126,6 +126,15 @@ class ViewOrchestrator:
                 m["text"] = base_msg.text
         return m
 
+    @staticmethod
+    def _require_kind(meta: dict) -> dict:
+        kind = meta.get("kind")
+        if not isinstance(kind, str):
+            raise ValueError("render_meta_missing_kind")
+        if kind not in {"text", "media", "group"}:
+            raise ValueError(f"render_meta_unsupported_kind:{kind}")
+        return meta
+
     @log_io(LogCode.RENDER_START, LogCode.RENDER_OK, LogCode.RENDER_SKIP)
     async def swap(
             self,
@@ -151,7 +160,7 @@ class ViewOrchestrator:
                 "inline_id": getattr(r, "inline_id", None),
             }
             norm_meta = self._normalize_meta(raw_meta, base_msg, dec, payload)
-            return RenderResult(id=r.id, extra=r.extra, meta=norm_meta)
+            return RenderResult(id=r.id, extra=r.extra, meta=self._require_kind(norm_meta))
 
         async def _fallback_resend_delete(base_msg: Optional[Msg]) -> Optional[RenderResult]:
             # resend + delete(base_id + aux)
@@ -418,7 +427,9 @@ class ViewOrchestrator:
                 # 1 логический элемент для «головы» группы
                 out_ids.append(ids[0])
                 out_extras.append(list(old[0].aux_ids))
-                out_metas.append({"kind": "group", "group_items": group_items, "inline_id": old[0].inline_id})
+                out_metas.append(
+                    self._require_kind({"kind": "group", "group_items": group_items, "inline_id": old[0].inline_id})
+                )
 
                 # продолжить обработку узла с индекса 1
                 start_idx = 1
@@ -447,7 +458,7 @@ class ViewOrchestrator:
             if dec is decision.Decision.NO_CHANGE:
                 out_ids.append(o.id)
                 out_extras.append(list(getattr(o, "aux_ids", []) or []))
-                out_metas.append(_meta_from_msg(o))
+                out_metas.append(self._require_kind(_meta_from_msg(o)))
                 continue
             if dec in (
                     decision.Decision.EDIT_TEXT,
@@ -468,7 +479,7 @@ class ViewOrchestrator:
                     out_extras.append(list(rr.extra if rr else getattr(o, "aux_ids", []) or []))
                     nm = dict(rr.meta) if rr else _meta_from_msg(o)
                     nm = self._normalize_meta(nm, o, dec, p)
-                    out_metas.append(nm)
+                    out_metas.append(self._require_kind(nm))
                     if rr:
                         changed = True
                 else:
@@ -494,7 +505,8 @@ class ViewOrchestrator:
                     rr = await self.swap(scope, p, dummy, dec)
                     out_ids.append(rr.id if rr else o.id)
                     out_extras.append(list(rr.extra if rr else getattr(o, "aux_ids", []) or []))
-                    out_metas.append(rr.meta if rr else _meta_from_msg(o))
+                    meta_src = dict(rr.meta) if rr else _meta_from_msg(o)
+                    out_metas.append(self._require_kind(meta_src))
                     if rr:
                         changed = True
                 continue
@@ -512,7 +524,7 @@ class ViewOrchestrator:
                     out_extras.append(list(rr.extra if rr else getattr(o, "aux_ids", []) or []))
                     nm = dict(rr.meta) if rr else _meta_from_msg(o)
                     nm = self._normalize_meta(nm, o, dec, p)
-                    out_metas.append(nm)
+                    out_metas.append(self._require_kind(nm))
                     if rr:
                         changed = True
                 else:
@@ -520,7 +532,7 @@ class ViewOrchestrator:
                     await self._gateway.delete(scope, [o.id] + list(getattr(o, "aux_ids", []) or []))
                     out_ids.append(rr.id)
                     out_extras.append(list(rr.extra))
-                    out_metas.append({
+                    meta = {
                         "kind": getattr(rr, "kind", None),
                         "media_type": getattr(rr, "media_type", None),
                         "file_id": getattr(rr, "file_id", None),
@@ -528,13 +540,14 @@ class ViewOrchestrator:
                         "text": getattr(rr, "text", None),
                         "group_items": getattr(rr, "group_items", None),
                         "inline_id": getattr(rr, "inline_id", None),
-                    })
+                    }
+                    out_metas.append(self._require_kind(meta))
                     changed = True
                 continue
             r = await self._gateway.send(scope, p)
             out_ids.append(r.id)
             out_extras.append(list(r.extra))
-            out_metas.append({
+            meta = {
                 "kind": getattr(r, "kind", None),
                 "media_type": getattr(r, "media_type", None),
                 "file_id": getattr(r, "file_id", None),
@@ -542,7 +555,8 @@ class ViewOrchestrator:
                 "text": getattr(r, "text", None),
                 "group_items": getattr(r, "group_items", None),
                 "inline_id": getattr(r, "inline_id", None),
-            })
+            }
+            out_metas.append(self._require_kind(meta))
             changed = True
 
         if n_old > n_new:
@@ -559,7 +573,7 @@ class ViewOrchestrator:
                     r = await self._gateway.send(scope, p)
                     out_ids.append(r.id)
                     out_extras.append(list(r.extra))
-                    out_metas.append({
+                    meta = {
                         "kind": getattr(r, "kind", None),
                         "media_type": getattr(r, "media_type", None),
                         "file_id": getattr(r, "file_id", None),
@@ -567,7 +581,8 @@ class ViewOrchestrator:
                         "text": getattr(r, "text", None),
                         "group_items": getattr(r, "group_items", None),
                         "inline_id": getattr(r, "inline_id", None),
-                    })
+                    }
+                    out_metas.append(self._require_kind(meta))
                     changed = True
         if not out_ids:
             return None
