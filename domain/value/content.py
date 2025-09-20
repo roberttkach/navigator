@@ -28,6 +28,7 @@ class Payload:
     reply: Optional[Markup] = None
     preview: Optional[Preview] = None
     extra: Optional[Extra] = None
+    clear_caption: bool = False
 
     def with_(self, **kw: Any) -> "Payload":
         return replace(self, **kw)
@@ -49,6 +50,7 @@ def resolve_content(payload: Payload) -> Payload:
         reply=payload.reply,
         preview=payload.preview,
         extra=payload.extra,
+        clear_caption=payload.clear_caption and not bool(group),
     )
 
 
