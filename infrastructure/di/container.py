@@ -47,7 +47,12 @@ class AppContainer(containers.DeclarativeContainer):
 
     temp_repo = providers.Factory(TempRepo, state=state)
     entry_mapper = providers.Factory(EntryMapper, registry=registry)
-    inline_strategy = providers.Factory(InlineStrategy, gateway=gateway, is_url_input_file=is_url_input_file)
+    inline_strategy = providers.Factory(
+        InlineStrategy,
+        gateway=gateway,
+        is_url_input_file=is_url_input_file,
+        strict_inline_media_path=providers.Object(SETTINGS.strict_inline_media_path),
+    )
     view_orchestrator = providers.Factory(ViewOrchestrator, gateway=gateway, inline=inline_strategy)
     view_restorer = providers.Factory(
         ViewRestorer, markup_codec=markup_codec, factory_registry=registry
