@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from ...log.emit import jlog
-from ...util.entities import sanitize as sanitize_entities
+from ...util.entities import sanitize
 from ....domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ _ALLOWED_EXTRA_KEYS = {
 }
 
 
-def sanitize_extra(extra: Any, *, text_len: int) -> Optional[Dict[str, Any]]:
+def cleanse(extra: Any, *, length: int) -> Optional[Dict[str, Any]]:
     """Validate and normalize a history entry ``extra`` payload.
 
     The sanitizer mirrors the behaviour that historically lived in the storage
@@ -39,22 +39,22 @@ def sanitize_extra(extra: Any, *, text_len: int) -> Optional[Dict[str, Any]]:
         return None
 
     unknown = sorted(k for k in extra.keys() if k not in _ALLOWED_EXTRA_KEYS)
-    cleaned: Dict[str, Any] = {k: extra[k] for k in _ALLOWED_EXTRA_KEYS if k in extra}
+    filtered: Dict[str, Any] = {k: extra[k] for k in _ALLOWED_EXTRA_KEYS if k in extra}
 
     if extra.get("thumb") is not None:
-        cleaned["has_thumb"] = True
+        filtered["has_thumb"] = True
 
-    if "entities" in cleaned:
-        valid_entities = sanitize_entities(cleaned.get("entities"), text_len)
-        if valid_entities:
-            cleaned["entities"] = valid_entities
+    if "entities" in filtered:
+        vetted = sanitize(filtered.get("entities"), length)
+        if vetted:
+            filtered["entities"] = vetted
         else:
-            cleaned.pop("entities", None)
+            filtered.pop("entities", None)
 
     if unknown:
         jlog(logger, logging.DEBUG, LogCode.EXTRA_UNKNOWN_DROPPED, filtered_keys=unknown)
 
-    return cleaned or None
+    return filtered or None
 
 
-__all__ = ["sanitize_extra"]
+__all__ = ["cleanse"]

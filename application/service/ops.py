@@ -18,7 +18,7 @@ def keep_preview_extra(p, e):
 
 
 async def save_history_and_last(history_repo, last_repo, history_policy, history_limit, new_history, *, op: str):
-    trimmed = history_policy.trim(new_history, history_limit)
+    trimmed = history_policy.prune(new_history, history_limit)
     if len(trimmed) != len(new_history):
         jlog(
             logger,
