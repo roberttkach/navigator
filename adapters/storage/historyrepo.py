@@ -9,7 +9,6 @@ from ...domain.entity.history import Entry, Msg
 from ...domain.entity.markup import Markup
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.log.emit import jlog
-from ...domain.util.entities import validate_entities  # moved to domain
 from ...domain.value.content import Preview
 from ...logging.code import LogCode
 
@@ -151,54 +150,7 @@ class HistoryRepo:
         )
         return datetime.now(timezone.utc)
 
-    def _sanitize_extra(self, extra: Optional[Dict[str, Any]], *, text_len: int) -> Optional[Dict[str, Any]]:
-        """
-        Санитизация extra перед сохранением в историю:
-        - удаляем несериализуемые поля: thumb;
-        - message_effect_id сохраняется (нормализуется на этапе отправки/редактирования);
-        - оставляем только JSON-совместимые ключи: mode, entities, spoiler, show_caption_above_media, start, message_effect_id,
-          title, performer, duration, width, height, has_thumb;
-        - entities очищаются и валидируются по длине текста/подписи.
-        - факт передачи миниатюры (thumb) проецируется в булев признак has_thumb=True.
-        """
-        if not isinstance(extra, dict):
-            return None
-        allowed = {
-            "mode", "entities", "spoiler", "show_caption_above_media", "start", "message_effect_id",
-            "title", "performer", "duration", "width", "height",
-            "has_thumb",
-        }
-        unknown = sorted([k for k in extra.keys() if k not in allowed])
-        out = {k: v for k, v in extra.items() if k in allowed}
-
-        # Отражаем сам факт передачи миниатюры
-        if extra.get("thumb") is not None:
-            out["has_thumb"] = True
-
-        if "entities" in out:
-            cleaned = validate_entities(out.get("entities"), text_len)
-            if cleaned:
-                out["entities"] = cleaned
-            else:
-                out.pop("entities", None)
-        if unknown:
-            jlog(logger, logging.DEBUG, LogCode.EXTRA_UNKNOWN_DROPPED, filtered_keys=unknown)
-        return out or None
-
     def _to_dict(self, entry: Entry) -> Dict[str, Any]:
-        def _caption_len(m) -> int:
-            if getattr(m, "group", None):
-                try:
-                    first = m.group[0] if m.group else None
-                    return len((getattr(first, "caption", None) or ""))
-                except Exception:
-                    return 0
-            if getattr(m, "media", None):
-                return len((getattr(m.media, "caption", None) or ""))
-            if (m.text is not None) and not getattr(m, "group", None) and not getattr(m, "media", None):
-                return len(m.text)
-            return 0
-
         return {
             "state": entry.state,
             "view": entry.view,
@@ -211,7 +163,7 @@ class HistoryRepo:
                     "group": self._encode_group(m.group),
                     "markup": self._encode_reply(m.markup),
                     "preview": self._encode_preview(m.preview),
-                    "extra": self._sanitize_extra(m.extra, text_len=_caption_len(m)),
+                    "extra": m.extra,
                     "aux_ids": list(m.aux_ids),
                     "inline_id": m.inline_id,
                     "by_bot": m.by_bot,

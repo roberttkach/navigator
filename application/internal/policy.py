@@ -3,6 +3,7 @@ from typing import Literal
 
 from ...domain.entity.history import Entry, Msg
 from ...domain.entity.media import MediaItem
+from ...domain.service.history.extra import sanitize_extra
 from ...domain.value.content import Payload, caption_of
 
 INLINE_GUARD_MESSAGE = "Inline message does not support media groups"
@@ -12,6 +13,18 @@ def make_dummy_entry_for_last(id: int, payload: Payload) -> Entry:
     media = None
     if payload.media:
         media = MediaItem(type=payload.media.type, path=payload.media.path, caption=caption_of(payload))
+
+    if payload.group:
+        first = payload.group[0] if payload.group else None
+        text_len = len((getattr(first, "caption", None) or ""))
+    elif payload.media:
+        text_len = len((caption_of(payload) or ""))
+    elif isinstance(payload.text, str):
+        text_len = len(payload.text)
+    else:
+        text_len = 0
+
+    extra = sanitize_extra(payload.extra, text_len=text_len)
     msg = Msg(
         id=id,
         text=None if (payload.media or payload.group) else payload.text,
@@ -19,7 +32,7 @@ def make_dummy_entry_for_last(id: int, payload: Payload) -> Entry:
         group=payload.group,
         markup=None,
         preview=payload.preview,
-        extra=payload.extra,
+        extra=extra,
         by_bot=True,
         ts=datetime.now(timezone.utc),
     )
