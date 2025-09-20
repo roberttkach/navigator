@@ -175,12 +175,13 @@ class HistoryRepo:
 
     def _from_dict(self, data: Dict[str, Any]) -> Entry:
         msgs = data.get("messages")
+        root_flag = bool(data.get("root", False))
         if isinstance(msgs, list) and not msgs:
             return Entry(
                 state=data.get("state"),
                 view=data.get("view"),
                 messages=[],
-                root=bool(data.get("root", False) or data.get("is_main", False)),
+                root=root_flag,
             )
         if isinstance(msgs, list):
             messages: List[Msg] = []
@@ -206,23 +207,11 @@ class HistoryRepo:
                 state=data.get("state"),
                 view=data.get("view"),
                 messages=messages,
-                root=bool(data.get("root", False) or data.get("is_main", False)),
+                root=root_flag,
             )
-        legacy_mid = data.get("id")
-        legacy = Msg(
-            id=_to_int(legacy_mid, 0),
-            text=data.get("text"),
-            media=self._decode_media(data.get("media")),
-            group=self._decode_group(data.get("group")),
-            markup=self._decode_reply(data.get("markup")),
-            preview=self._decode_preview(data.get("preview")),
-            extra=data.get("extra"),
-            by_bot=bool(data.get("by_bot", True)),
-            ts=self._decode_dt(data.get("ts")),
-        )
         return Entry(
             state=data.get("state"),
             view=data.get("view"),
-            messages=[legacy],
-            root=bool(data.get("root", False) or data.get("is_main", False)),
+            messages=[],
+            root=root_flag,
         )
