@@ -1,0 +1,84 @@
+[importlinter]
+root_package = navigator
+
+[contract:layers]
+name = Clean layering
+type = layers
+layers =
+    navigator.logging
+    navigator.domain
+    navigator.application
+    navigator.adapters
+    navigator.infrastructure
+    navigator.presentation
+allowed_dependencies =
+    navigator.logging ->
+    navigator.domain -> navigator.logging
+    navigator.application -> navigator.domain,navigator.logging
+    navigator.adapters -> navigator.domain,navigator.logging
+    navigator.infrastructure -> navigator.adapters,navigator.application,navigator.domain,navigator.logging
+    navigator.presentation -> navigator.application,navigator.domain,navigator.logging
+
+[contract:forbid_presentation_to_adapters]
+name = Presentation must not import adapters
+type = forbidden
+source_modules =
+    navigator.presentation
+forbidden_modules =
+    navigator.adapters
+
+[contract:forbid_domain_outbound]
+name = Domain must be independent
+type = forbidden
+source_modules =
+    navigator.domain
+forbidden_modules =
+    navigator.adapters,navigator.application,navigator.infrastructure,navigator.presentation
+
+[contract:forbid_application_to_adapters]
+name = Application must not import adapters
+type = forbidden
+source_modules =
+    navigator.application
+forbidden_modules =
+    navigator.adapters
+
+[contract:forbid_infrastructure_to_presentation]
+name = Infrastructure must not import presentation
+type = forbidden
+source_modules =
+    navigator.infrastructure
+forbidden_modules =
+    navigator.presentation
+
+[contract:forbid_application_to_aiogram]
+name = Application must not import aiogram
+type = forbidden
+source_modules =
+    navigator.application
+forbidden_modules =
+    aiogram
+
+[contract:forbid_presentation_to_infrastructure]
+name = Presentation must not import infrastructure
+type = forbidden
+source_modules =
+    navigator.presentation
+forbidden_modules =
+    navigator.infrastructure
+
+[contract:forbid_domain_to_aiogram]
+name = Domain must not import aiogram
+type = forbidden
+source_modules =
+    navigator.domain
+forbidden_modules =
+    aiogram
+
+[contract:forbid_adapters_outbound]
+name = Adapters depend only on domain (no outward to app/infra/presentation)
+type = forbidden
+source_modules =
+    navigator.adapters
+forbidden_modules =
+    navigator.application,navigator.infrastructure,navigator.presentation
