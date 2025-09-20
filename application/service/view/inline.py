@@ -8,6 +8,7 @@ from ....domain.entity.history import Entry
 from ....domain.entity.media import MediaType
 from ....domain.log.emit import jlog
 from ....domain.service.rendering import decision as _d
+from ....domain.service.rendering.config import RenderingConfig
 from ....domain.util.path import is_local_path, is_http_url
 from ....logging.code import LogCode
 
@@ -69,7 +70,16 @@ class InlineStrategy:
         except Exception:
             return True
 
-    async def handle_element(self, *, scope, payload, last_message, inline, swap):
+    async def handle_element(
+            self,
+            *,
+            scope,
+            payload,
+            last_message,
+            inline,
+            swap,
+            rendering_config: RenderingConfig,
+    ):
         if inline:
             p = keep_preview_extra(payload, last_message)
             if getattr(p, "group", None):
@@ -94,7 +104,7 @@ class InlineStrategy:
                     return None
                 # Редактируемое медиа: решаем точный тип правки.
                 base = Entry(state=None, view=None, messages=[last_message]) if last_message else None
-                dec0 = _d.decide(base, p)
+                dec0 = _d.decide(base, p, rendering_config)
                 if dec0 is _d.Decision.DELETE_SEND:
                     dec1 = _inline_remap(base_msg, p, inline=True)
                     jlog(self._logger, logging.INFO, LogCode.INLINE_REMAP_DELETE_SEND, from_="DELETE_SEND",

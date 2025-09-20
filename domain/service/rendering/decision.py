@@ -3,10 +3,10 @@ from enum import Enum, auto
 from typing import Optional, Any
 
 from .helpers import reply_equal as _reply_equal_markups
-from ...constants import DETECT_THUMB_CHANGE
 from ...entity.history import Entry
 from ...entity.media import MediaType
 from ...value.content import Payload, caption_of
+from .config import RenderingConfig
 
 
 class Decision(Enum):
@@ -86,7 +86,7 @@ def _caption_extra_equal(a, b) -> bool:
     return _norm_text_caption_extra(a) == _norm_text_caption_extra(b)
 
 
-def _media_opts_split(e) -> tuple[_MediaCaptionOpts, _MediaEditOpts]:
+def _media_opts_split(e, config: RenderingConfig) -> tuple[_MediaCaptionOpts, _MediaEditOpts]:
     """
     Делит медиа-опции на:
       - влияющие на подпись/её позицию (EDIT_MEDIA_CAPTION),
@@ -103,7 +103,7 @@ def _media_opts_split(e) -> tuple[_MediaCaptionOpts, _MediaEditOpts]:
     edt = _MediaEditOpts(
         spoiler=bool(x.get("spoiler")),
         start=st,
-        thumb_present=(present if DETECT_THUMB_CHANGE else False),
+        thumb_present=(present if config.detect_thumb_change else False),
     )
     return cap, edt
 
@@ -175,7 +175,7 @@ def _same_media_file(o, n) -> bool:
     return isinstance(old_id, str) and isinstance(new_path, str) and (old_id == new_path)
 
 
-def decide(old: Optional[object], new: Payload) -> Decision:
+def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Decision:
     """
     Контракт:
     - Любые группы в old/new ⇒ DELETE_SEND.
@@ -215,8 +215,8 @@ def decide(old: Optional[object], new: Payload) -> Decision:
     if _has_any_media(o) and _has_any_media(n):
         # Сравниваем только по file_id и типу
         if _same_media_file(o, n):
-            cap_o, edt_o = _media_opts_split(o)
-            cap_n, edt_n = _media_opts_split(n)
+            cap_o, edt_o = _media_opts_split(o, config)
+            cap_n, edt_n = _media_opts_split(n, config)
 
             # Любое изменение медиа-уровня (spoiler/start/thumb*) требует EDIT_MEDIA.
             if edt_o != edt_n:
