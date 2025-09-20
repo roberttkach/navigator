@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import re
 
 from ..ops import keep_preview_extra
@@ -17,7 +16,6 @@ def _canon(d):  # noqa: ANN001
     return json.dumps(d, sort_keys=True, separators=(",", ":")) if isinstance(d, dict) else None
 
 
-STRICT_INLINE_MEDIA_PATH = os.getenv("NAV_STRICT_INLINE_MEDIA_PATH", "1").lower() in {"1", "true", "yes"}
 # Ослабленный шаблон: допускаем '.', ':', '='
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-=]{20,}$")
 
@@ -27,10 +25,11 @@ def _looks_like_file_id(s: str) -> bool:
 
 
 class InlineStrategy:
-    def __init__(self, gateway, is_url_input_file):
+    def __init__(self, gateway, is_url_input_file, strict_inline_media_path):
         self._gateway = gateway
         self._is_url_input_file = is_url_input_file
         self._logger = logging.getLogger(__name__)
+        self._strict_inline_media_path = strict_inline_media_path
 
     def _media_editable_inline(self, p) -> bool:
         """
@@ -52,7 +51,7 @@ class InlineStrategy:
             if is_http_url(path):
                 return True
             if not is_local_path(path):
-                return _looks_like_file_id(path) if STRICT_INLINE_MEDIA_PATH else True
+                return _looks_like_file_id(path) if self._strict_inline_media_path else True
         return False
 
     def _reply_changed(self, base_msg, p) -> bool:
