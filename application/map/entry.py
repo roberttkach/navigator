@@ -4,6 +4,7 @@ from typing import Optional, List
 from ...domain.entity.history import Entry, Msg
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.port.factory import ViewFactoryRegistry
+from ...domain.service.history.extra import sanitize_extra
 from ...domain.value.content import Payload
 
 
@@ -41,7 +42,6 @@ class EntryMapper:
 
             if k == "text":
                 text, media, group = meta.get("text"), None, None
-                extra = payload.extra if (payload.extra is not None) else prev_extra
             elif k == "media":
                 mt_raw = meta.get("media_type")
                 if payload.media:
@@ -52,7 +52,6 @@ class EntryMapper:
                     raise ValueError("meta_missing_media_type")
                 mi = MediaItem(type=mtype, path=meta.get("file_id"), caption=meta.get("caption"))
                 text, media, group = None, mi, None
-                extra = payload.extra if (payload.extra is not None) else prev_extra
             elif k == "group":
                 items = []
                 for it in (meta.get("group_items") or []):
@@ -63,11 +62,23 @@ class EntryMapper:
                         MediaItem(type=MediaType(mt_raw), path=it.get("file_id"), caption=it.get("caption"))
                     )
                 text, media, group = None, None, items
-                extra = payload.extra if (payload.extra is not None) else prev_extra
             else:
                 # Fallback: считать текстом
                 text, media, group = payload.text, None, None
-                extra = payload.extra if (payload.extra is not None) else prev_extra
+
+            extra_source = payload.extra if (payload.extra is not None) else prev_extra
+
+            if group:
+                first = group[0] if group else None
+                text_len = len((getattr(first, "caption", None) or ""))
+            elif media:
+                text_len = len((getattr(media, "caption", None) or ""))
+            elif isinstance(text, str) and not group and not media:
+                text_len = len(text)
+            else:
+                text_len = 0
+
+            extra = sanitize_extra(extra_source, text_len=text_len)
             aux = result.extras[idx] if idx < len(result.extras) else []
             msgs.append(
                 Msg(
