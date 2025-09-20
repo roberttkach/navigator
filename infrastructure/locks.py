@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import warnings
 import os
 from typing import TYPE_CHECKING, Any
 
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 else:  # pragma: no cover
     RedisClient = Any
 
-from ..application.locks import LockBox, LockProvider, set_lock_provider
+from ..application.locks import Latch, Locksmith, appoint
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class _RedisLockAdapter:
         return bool(self._locked)
 
 
-class RedisLockProvider(LockProvider):
+class RedisLocksmith(Locksmith):
     """Distributed lock provider backed by redis."""
 
     def __init__(self, url: str, ttl: float, blocking: float) -> None:
@@ -70,10 +71,10 @@ class RedisLockProvider(LockProvider):
         self._ttl = float(ttl)
         self._blocking = float(blocking)
 
-    def box_for(self, key: tuple[object, object | None]) -> LockBox:  # type: ignore[override]
+    def box_for(self, key: tuple[object, object | None]) -> Latch:  # type: ignore[override]
         name = f"nav:lock:{key[0]}:{key[1]}"
         adapter = _RedisLockAdapter(self._redis, name, self._ttl, self._blocking)
-        return LockBox(lock=adapter)
+        return Latch(lock=adapter)
 
 
 def configure_from_env() -> None:
@@ -85,8 +86,14 @@ def configure_from_env() -> None:
     url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     ttl = float(os.getenv("NAV_LOCK_TTL", "20"))
     blocking = float(os.getenv("NAV_LOCK_BLOCKING", "5"))
-    set_lock_provider(RedisLockProvider(url, ttl, blocking))
+    appoint(RedisLocksmith(url, ttl, blocking))
 
 
-__all__ = ["RedisLockProvider", "configure_from_env"]
+class RedisLockProvider(RedisLocksmith):
+    def __init__(self, url: str, ttl: float, blocking: float) -> None:
+        warnings.warn("RedisLockProvider is deprecated; use RedisLocksmith", DeprecationWarning, stacklevel=2)
+        super().__init__(url, ttl, blocking)
+
+
+__all__ = ["RedisLocksmith", "RedisLockProvider", "configure_from_env"]
 

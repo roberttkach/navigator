@@ -1,32 +1,35 @@
 from __future__ import annotations
 
+from __future__ import annotations
+
 import asyncio
+import warnings
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 from weakref import WeakValueDictionary
 
 """
-Ограничение: InMemory реализация процесс-локальная. Для межпроцессной синхронизации
-используйте set_lock_provider() с адаптером из инфраструктурного слоя.
-Ключ блокировки: (inline_id|chat, biz_id).
+Ограничение: MemoryLocksmith процесс-локальная. Для межпроцессной синхронизации
+используйте appoint() с адаптером из инфраструктурного слоя.
+Ключ блокировки: (inline|chat, business).
 """
 
 
-class ScopeLike(Protocol):
-    inline_id: object | None
+class ScopeForm(Protocol):
+    inline: object | None
     chat: object | None
-    biz_id: object | None
+    business: object | None
 
 
-def _key(scope: ScopeLike) -> tuple[object | None, object | None]:
+def _key(scope: ScopeForm) -> tuple[object | None, object | None]:
     return (
-        getattr(scope, "inline_id", None) or getattr(scope, "chat", None),
-        getattr(scope, "biz_id", None),
+        getattr(scope, "inline", None) or getattr(scope, "chat", None),
+        getattr(scope, "business", None),
     )
 
 
 @runtime_checkable
-class _LockLike(Protocol):
+class _LatchLike(Protocol):
     async def acquire(self) -> bool: ...
 
     def release(self) -> None: ...
@@ -37,15 +40,15 @@ class _LockLike(Protocol):
 
 
 @dataclass
-class LockBox:
-    lock: _LockLike
+class Latch:
+    lock: _LatchLike
 
 
-class LockProvider(Protocol):
-    def box_for(self, key: tuple[object, object | None]) -> LockBox: ...
+class Locksmith(Protocol):
+    def box_for(self, key: tuple[object, object | None]) -> Latch: ...
 
 
-class _MemLockAdapter:
+class _LatchAdapter:
     def __init__(self) -> None:
         self._l = asyncio.Lock()
 
@@ -64,35 +67,35 @@ class _MemLockAdapter:
         return self._l.locked()
 
 
-class InMemoryLockProvider:
+class MemoryLocksmith:
     def __init__(self) -> None:
         self._locks: WeakValueDictionary[
-            tuple[object, object | None], LockBox
+            tuple[object, object | None], Latch
         ] = WeakValueDictionary()
 
-    def box_for(self, key: tuple[object, object | None]) -> LockBox:  # type: ignore[override]
+    def box_for(self, key: tuple[object, object | None]) -> Latch:  # type: ignore[override]
         box = self._locks.get(key)
         if box is None:
-            box = LockBox(lock=_MemLockAdapter())
+            box = Latch(lock=_LatchAdapter())
             self._locks[key] = box
         return box
 
 
-_PROVIDER: list[LockProvider] = [InMemoryLockProvider()]
+_PROVIDER: list[Locksmith] = [MemoryLocksmith()]
 
 
-def _current_provider() -> LockProvider:
+def _current() -> Locksmith:
     return _PROVIDER[0]
 
 
-def set_lock_provider(p: LockProvider) -> None:
+def appoint(p: Locksmith) -> None:
     _PROVIDER[0] = p
 
 
 class Guard:
-    def __init__(self, scope: ScopeLike) -> None:
+    def __init__(self, scope: ScopeForm) -> None:
         k = _key(scope)
-        self._box = _current_provider().box_for(k)
+        self._box = _current().box_for(k)
 
     async def __aenter__(self) -> None:
         await self._box.lock.acquire()
@@ -107,16 +110,48 @@ class Guard:
             self._box.lock.release()
 
 
-def guard(scope: ScopeLike) -> Guard:
+def guard(scope: ScopeForm) -> Guard:
     return Guard(scope)
 
 
 __all__ = [
-    "LockBox",
-    "LockProvider",
-    "InMemoryLockProvider",
-    "ScopeLike",
+    "Latch",
+    "Locksmith",
+    "MemoryLocksmith",
+    "ScopeForm",
     "Guard",
     "guard",
+    "appoint",
+]
+
+
+# --- Legacy aliases -------------------------------------------------------
+
+ScopeLike = ScopeForm
+LockProvider = Locksmith
+
+
+@dataclass
+class LockBox(Latch):
+    def __post_init__(self) -> None:  # pragma: no cover - compatibility shim
+        warnings.warn("LockBox is deprecated; use Latch", DeprecationWarning, stacklevel=2)
+
+
+class InMemoryLockProvider(MemoryLocksmith):
+    def __init__(self) -> None:
+        warnings.warn("InMemoryLockProvider is deprecated; use MemoryLocksmith", DeprecationWarning, stacklevel=2)
+        super().__init__()
+
+
+def set_lock_provider(p: Locksmith) -> None:
+    warnings.warn("set_lock_provider is deprecated; use appoint", DeprecationWarning, stacklevel=2)
+    appoint(p)
+
+
+__all__ += [
+    "ScopeLike",
+    "LockProvider",
+    "LockBox",
+    "InMemoryLockProvider",
     "set_lock_provider",
 ]

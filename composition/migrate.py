@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Any
 
 from ..adapters.factory.registry import default as _default_registry
@@ -11,7 +12,7 @@ from ..domain.log.emit import jlog
 logger = logging.getLogger(__name__)
 
 
-async def purge_invalid_views(state: Any, registry=_default_registry) -> None:
+async def cleanse(state: Any, registry=_default_registry) -> None:
     """Clear history entries that point to unregistered views."""
 
     registry_to_use = registry if registry is not None else _default_registry
@@ -42,3 +43,8 @@ async def purge_invalid_views(state: Any, registry=_default_registry) -> None:
         keys=cleared,
         note="views_purged",
     )
+
+
+async def purge_invalid_views(state: Any, registry=_default_registry) -> None:
+    warnings.warn("purge_invalid_views is deprecated; use cleanse", DeprecationWarning, stacklevel=2)
+    await cleanse(state, registry)

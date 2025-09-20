@@ -12,7 +12,7 @@ from ....domain.error import InlineUnsupported
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
 from ....domain.port.message import MessageGateway, Result
-from ....domain.service.scope import scope_kv
+from ....domain.service.scope import profile
 from ....domain.value.content import Payload
 from ....presentation.telegram.lexicon import lexeme
 from ....domain.value.message import Scope
@@ -29,7 +29,7 @@ class TelegramGateway(MessageGateway):
         self._truncate = bool(truncate)
 
     async def send(self, scope: Scope, payload: Payload) -> Result:
-        if scope.inline_id:
+        if scope.inline:
             raise InlineUnsupported("inline_send_not_supported")
         return await do_send(self._bot, self._codec, scope, payload, truncate=self._truncate)
 
@@ -50,13 +50,13 @@ class TelegramGateway(MessageGateway):
         await runner.run(scope, ids)
 
     async def notify_empty(self, scope: Scope) -> None:
-        if not scope.inline_id:
+        if not scope.inline:
             await self._bot.send_message(scope.chat, lexeme("prev_not_found", scope.lang or "en"))
             jlog(
                 logger,
                 logging.INFO,
                 LogCode.GATEWAY_NOTIFY_EMPTY,
-                scope=scope_kv(scope),
+                scope=profile(scope),
             )
 
 

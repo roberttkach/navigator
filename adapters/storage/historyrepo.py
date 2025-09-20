@@ -164,9 +164,9 @@ class HistoryRepo:
                     "markup": self._encode_reply(m.markup),
                     "preview": self._encode_preview(m.preview),
                     "extra": m.extra,
-                    "aux_ids": list(m.aux_ids),
+                    "extras": list(m.extras),
                     "inline_id": m.inline_id,
-                    "by_bot": m.by_bot,
+                    "automated": m.automated,
                     "ts": self._encode_dt(m.ts),
                 }
                 for m in entry.messages
@@ -197,9 +197,22 @@ class HistoryRepo:
                         markup=self._decode_reply(d.get("markup")),
                         preview=self._decode_preview(d.get("preview")),
                         extra=d.get("extra"),
-                        aux_ids=[int(x) for x in (d.get("aux_ids") or [])],
+                        extras=[
+                            int(x)
+                            for x in (
+                                d.get("extras")
+                                if d.get("extras") is not None
+                                else d.get("aux_ids")
+                                or []
+                            )
+                        ],
                         inline_id=d.get("inline_id"),
-                        by_bot=bool(d.get("by_bot", True)),
+                        automated=bool(
+                            d.get(
+                                "automated",
+                                d.get("by_bot", True),
+                            )
+                        ),
                         ts=self._decode_dt(d.get("ts")),
                     )
                 )

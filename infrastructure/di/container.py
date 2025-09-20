@@ -13,14 +13,14 @@ from ...application.map.entry import EntryMapper
 from ...application.service.view.inline import InlineStrategy
 from ...application.service.view.orchestrator import ViewOrchestrator
 from ...application.service.view.restorer import ViewRestorer
-from ...application.usecase.add import AddUseCase
-from ...application.usecase.back import BackUseCase
-from ...application.usecase.last import LastUseCase
-from ...application.usecase.notify_history_empty import NotifyHistoryEmptyUseCase
-from ...application.usecase.pop import PopUseCase
-from ...application.usecase.rebase import RebaseUseCase
-from ...application.usecase.replace import ReplaceUseCase
-from ...application.usecase.set import SetUseCase
+from ...application.usecase.add import Appender
+from ...application.usecase.back import Rewinder
+from ...application.usecase.last import Tailer
+from ...application.usecase.notify_history_empty import Alarm
+from ...application.usecase.pop import Trimmer
+from ...application.usecase.rebase import Shifter
+from ...application.usecase.replace import Swapper
+from ...application.usecase.set import Setter
 from ...domain.port.factory import ViewFactoryRegistry
 from ...domain.service.rendering.config import RenderingConfig
 from ...infrastructure.config import SETTINGS
@@ -55,7 +55,7 @@ class AppContainer(containers.DeclarativeContainer):
         is_url_input_file=is_url_input_file,
         strict_inline_media_path=providers.Object(SETTINGS.strict_inline_media_path),
     )
-    rendering_config = providers.Object(RenderingConfig(detect_thumb_change=SETTINGS.detect_thumb_change))
+    rendering_config = providers.Object(RenderingConfig(thumb_watch=SETTINGS.thumb_watch))
     view_orchestrator = providers.Factory(
         ViewOrchestrator,
         gateway=gateway,
@@ -66,37 +66,37 @@ class AppContainer(containers.DeclarativeContainer):
         ViewRestorer, markup_codec=markup_codec, factory_registry=registry
     )
 
-    add_uc = providers.Factory(
-        AddUseCase,
+    appender = providers.Factory(
+        Appender,
         history_repo=history_repo, state_repo=state_repo, last_repo=last_repo,
         orchestrator=view_orchestrator,
         mapper=entry_mapper, history_limit=history_limit,
     )
-    replace_uc = providers.Factory(
-        ReplaceUseCase,
+    swapper = providers.Factory(
+        Swapper,
         history_repo=history_repo, state_repo=state_repo, last_repo=last_repo,
         orchestrator=view_orchestrator,
         mapper=entry_mapper, history_limit=history_limit,
     )
-    back_uc = providers.Factory(
-        BackUseCase,
+    rewinder = providers.Factory(
+        Rewinder,
         history_repo=history_repo, state_repo=state_repo,
         gateway=gateway, restorer=view_restorer,
         orchestrator=view_orchestrator, last_repo=last_repo,
     )
-    set_uc = providers.Factory(
-        SetUseCase,
+    setter = providers.Factory(
+        Setter,
         history_repo=history_repo, state_repo=state_repo,
         gateway=gateway, restorer=view_restorer,
         orchestrator=view_orchestrator, last_repo=last_repo,
     )
-    pop_uc = providers.Factory(PopUseCase, history_repo=history_repo, last_repo=last_repo)
-    rebase_uc = providers.Factory(RebaseUseCase, history_repo=history_repo, temp_repo=temp_repo, last_repo=last_repo)
-    last_uc = providers.Factory(
-        LastUseCase, last_repo=last_repo, history_repo=history_repo, gateway=gateway,
+    trimmer = providers.Factory(Trimmer, history_repo=history_repo, last_repo=last_repo)
+    shifter = providers.Factory(Shifter, history_repo=history_repo, temp_repo=temp_repo, last_repo=last_repo)
+    tailer = providers.Factory(
+        Tailer, last_repo=last_repo, history_repo=history_repo, gateway=gateway,
         orchestrator=view_orchestrator,
     )
-    notify_history_empty_uc = providers.Factory(
-        NotifyHistoryEmptyUseCase,
+    alarm = providers.Factory(
+        Alarm,
         gateway=gateway,
     )

@@ -7,7 +7,7 @@ def make_scope(event) -> Scope:
     inline_id = getattr(event, "inline_message_id", None)
     if inline_id:
         user_id = getattr(getattr(event, "from_user", None), "id", None)
-        return Scope(chat=None, lang=lang, user_id=user_id, inline_id=inline_id, chat_kind=None)
+        return Scope(chat=None, lang=lang, user=user_id, inline=inline_id, category=None)
     msg = event.message if hasattr(event, "message") else event
     chat_obj = getattr(msg, "chat", None)
     chat_id = getattr(chat_obj, "id", None)
@@ -20,9 +20,9 @@ def make_scope(event) -> Scope:
     return Scope(
         chat=chat_id,
         lang=lang,
-        user_id=user_id,
+        user=user_id,
         id=mid,
-        inline_id=None,
-        biz_id=biz,
-        chat_kind=chat_kind,
+        inline=None,
+        business=biz,
+        category=chat_kind,
     )

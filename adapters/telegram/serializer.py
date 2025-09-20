@@ -10,8 +10,8 @@ from .extra import validate_extra, ALLOWED_TEXT, ALLOWED_CAPTION_TEXT
 from .keyfilter import accept_for
 from ...domain.entity.markup import Markup
 from ...domain.log.emit import jlog
-from ...domain.util.entities import validate_entities
-from ...domain.value.content import Payload, caption_of
+from ...domain.util.entities import sanitize
+from ...domain.value.content import Payload, caption
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
@@ -38,19 +38,19 @@ def map_preview(preview):
 
 
 def caption_for(payload: Payload):
-    return caption_of(payload)
+    return caption(payload)
 
 
 def caption_for_edit(payload: Payload) -> Optional[str]:
     """
     Правило для edit_caption:
-    - вернуть текст подписи, если он вычисляется (caption_of(payload));
+    - вернуть текст подписи, если он вычисляется (caption(payload));
     - если payload.clear_caption установлен — вернуть "" для очистки подписи;
     - иначе вернуть None (не менять подпись).
     Пустая строка → явная очистка подписи на стороне Telegram.
     Примечание: пустая строка из payload.text без маркера clear_caption игнорируется и приводит к no-op.
     """
-    cap = caption_of(payload)
+    cap = caption(payload)
     if cap is not None:
         return cap
     if payload.clear_caption:
@@ -82,7 +82,7 @@ def sanitize_text_kwargs(
     validate_extra(extra, allowed)
     kv = dict(extra or {})
     if "entities" in kv:
-        cleaned = validate_entities(kv.get("entities"), text_len or 0)
+        cleaned = sanitize(kv.get("entities"), text_len or 0)
         if cleaned:
             kv["entities"] = cleaned
         else:
@@ -119,7 +119,7 @@ def normalize_extra_for(scope, extra: Dict[str, Any] | None, *, is_edit: bool) -
     if not extra:
         return None
     d = dict(extra)
-    ct = getattr(scope, "chat_kind", None)
+    ct = getattr(scope, "category", None)
     if "message_effect_id" in d and (is_edit or ct != "private"):
         d.pop("message_effect_id", None)
         # Лог-маркер: эффект удалён нормализацией

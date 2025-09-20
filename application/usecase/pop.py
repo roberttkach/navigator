@@ -9,7 +9,7 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-class PopUseCase:
+class Trimmer:
     def __init__(self, history_repo: HistoryRepository, last_repo: LastMessageRepository):
         self._history_repo = history_repo
         self._last_repo = last_repo

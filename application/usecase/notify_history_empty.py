@@ -8,7 +8,7 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-class NotifyHistoryEmptyUseCase:
+class Alarm:
     def __init__(self, gateway: MessageGateway) -> None:
         self._gateway = gateway
 
@@ -19,5 +19,5 @@ class NotifyHistoryEmptyUseCase:
             logging.INFO,
             LogCode.GATEWAY_NOTIFY_EMPTY,
             op="notify_history_empty",
-            scope={"chat": scope.chat, "inline": bool(scope.inline_id)},
+            scope={"chat": scope.chat, "inline": bool(scope.inline)},
         )

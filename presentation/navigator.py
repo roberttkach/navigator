@@ -33,10 +33,10 @@ Navigator API — ключевые контракты:
 8) Inline: ремап DELETE_SEND:
    - В inline DELETE_SEND ремапится в EDIT_MEDIA; в EDIT_TEXT — только когда база и новый — текст.
    - Если медиа не редактируется, но меняется только клавиатура — допускается EDIT_MARKUP.
-   - Точки ремапа: InlineStrategy.handle_element и LastUseCase.edit.
+    - Точки ремапа: InlineStrategy.handle_element и Tailer.edit.
    - Лог-маркер: INLINE_REMAP_DELETE_SEND.
 
-9) Inline: last.delete без biz_id — удаляет только из истории при INLINE_DELETE_TRIMS_HISTORY=True.
+9) Inline: last.delete без business — удаляет только из истории при TailPrune=True.
    Удаления в Telegram не выполняются.
 
 10) Inline: при edit_media, когда Telegram возвращает True, история фиксирует актуальную подпись и новый file_id
@@ -45,21 +45,22 @@ Navigator API — ключевые контракты:
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Optional, Dict, Any, Union, SupportsInt
 
 from ..application import locks
 from ..application.dto.content import Content, Node
 from ..application.log.emit import jlog
 from ..application.map.payload import to_node_payload, to_payload
-from ..application.usecase.add import AddUseCase
-from ..application.usecase.back import BackUseCase
-from ..application.usecase.last import LastUseCase
-from ..application.usecase.notify_history_empty import NotifyHistoryEmptyUseCase
-from ..application.usecase.pop import PopUseCase
-from ..application.usecase.rebase import RebaseUseCase
-from ..application.usecase.replace import ReplaceUseCase
-from ..application.usecase.set import SetUseCase
-from ..domain.service.scope import scope_kv
+from ..application.usecase.add import Appender
+from ..application.usecase.back import Rewinder
+from ..application.usecase.last import Tailer
+from ..application.usecase.notify_history_empty import Alarm
+from ..application.usecase.pop import Trimmer
+from ..application.usecase.rebase import Shifter
+from ..application.usecase.replace import Swapper
+from ..application.usecase.set import Setter
+from ..domain.service.scope import profile
 from ..domain.value.message import Scope
 from ..domain.log.code import LogCode
 from .types import StateLike
@@ -67,25 +68,25 @@ from .types import StateLike
 logger = logging.getLogger(__name__)
 
 
-class _LastAPI:
-    def __init__(self, use_case: LastUseCase, scope: Scope):
+class _Tail:
+    def __init__(self, use_case: Tailer, scope: Scope):
         self._uc = use_case
         self._scope = scope
 
     async def get(self) -> Optional[Dict[str, Any]]:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.get", scope=scope_kv(self._scope))
+        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.get", scope=profile(self._scope))
         async with locks.guard(self._scope):
             mid = await self._uc.get_id()
         if mid is None:
             return None
         return {
             "id": mid,
-            "inline": bool(self._scope.inline_id),
+            "inline": bool(self._scope.inline),
             "chat": self._scope.chat,
         }
 
     async def delete(self) -> None:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.delete", scope=scope_kv(self._scope))
+        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.delete", scope=profile(self._scope))
         async with locks.guard(self._scope):
             await self._uc.delete(self._scope)
 
@@ -95,7 +96,7 @@ class _LastAPI:
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="last.edit",
-            scope=scope_kv(self._scope),
+            scope=profile(self._scope),
             payload={"text": bool(content.text), "media": bool(content.media), "group": bool(content.group)},
         )
         async with locks.guard(self._scope):
@@ -107,25 +108,26 @@ class Navigator:
     def __init__(
             self,
             *,
-            add_uc: AddUseCase,
-            replace_uc: ReplaceUseCase,
-            back_uc: BackUseCase,
-            set_uc: SetUseCase,
-            pop_uc: PopUseCase,
-            rebase_uc: RebaseUseCase,
-            last_uc: LastUseCase,
-            notify_history_empty_uc: NotifyHistoryEmptyUseCase,
+            appender: Appender,
+            swapper: Swapper,
+            rewinder: Rewinder,
+            setter: Setter,
+            trimmer: Trimmer,
+            shifter: Shifter,
+            tailer: Tailer,
+            alarm: Alarm,
             scope: Scope,
     ):
-        self._add = add_uc
-        self._replace = replace_uc
-        self._back = back_uc
-        self._set = set_uc
-        self._pop = pop_uc
-        self._rebase = rebase_uc
-        self._notify_history_empty = notify_history_empty_uc
+        self._appender = appender
+        self._swapper = swapper
+        self._rewinder = rewinder
+        self._setter = setter
+        self._trimmer = trimmer
+        self._shifter = shifter
+        self._tailer = tailer
+        self._alarm = alarm
         self._scope = scope
-        self.last = _LastAPI(use_case=last_uc, scope=scope)
+        self.last = _Tail(use_case=tailer, scope=scope)
 
     async def add(self, content: Union[Content, Node], *, key: Optional[str] = None, root: bool = False) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
@@ -135,13 +137,13 @@ class Navigator:
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="add",
-            scope=scope_kv(self._scope),
+            scope=profile(self._scope),
             key=key,
             root=root,
             payload={"count": len(payloads)},
         )
         async with locks.guard(self._scope):
-            await self._add.execute(self._scope, payloads, key, root=root)
+            await self._appender.execute(self._scope, payloads, key, root=root)
 
     async def replace(self, content: Union[Content, Node]) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
@@ -151,11 +153,11 @@ class Navigator:
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="replace",
-            scope=scope_kv(self._scope),
+            scope=profile(self._scope),
             payload={"count": len(payloads)},
         )
         async with locks.guard(self._scope):
-            await self._replace.execute(self._scope, payloads)
+            await self._swapper.execute(self._scope, payloads)
 
     async def rebase(self, message: int | SupportsInt) -> None:
         mid = getattr(message, "id", message)
@@ -164,11 +166,11 @@ class Navigator:
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="rebase",
-            scope=scope_kv(self._scope),
+            scope=profile(self._scope),
             message={"id": int(mid)},
         )
         async with locks.guard(self._scope):
-            await self._rebase.execute(int(mid))
+            await self._shifter.execute(int(mid))
 
     async def back(self, handler_data: Dict[str, Any]) -> None:
         jlog(
@@ -176,24 +178,32 @@ class Navigator:
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="back",
-            scope=scope_kv(self._scope),
+            scope=profile(self._scope),
             handler_keys=sorted(list(handler_data.keys())) if isinstance(handler_data, dict) else None,
         )
         async with locks.guard(self._scope):
-            await self._back.execute(self._scope, handler_data)
+            await self._rewinder.execute(self._scope, handler_data)
 
     async def set(self, state: Union[str, StateLike], handler_data: Dict[str, Any] | None = None) -> None:
         st = getattr(state, "state", state)
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=scope_kv(self._scope), state=st)
+        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=st)
         async with locks.guard(self._scope):
-            await self._set.execute(self._scope, st, handler_data or {})
+            await self._setter.execute(self._scope, st, handler_data or {})
 
     async def pop(self, count: int = 1) -> None:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=scope_kv(self._scope), count=count)
+        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=profile(self._scope), count=count)
         async with locks.guard(self._scope):
-            await self._pop.execute(count)
+            await self._trimmer.execute(count)
+
+    async def alert(self) -> None:
+        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="notify_empty", scope=profile(self._scope))
+        async with locks.guard(self._scope):
+            await self._alarm.execute(self._scope)
 
     async def inform_history_is_empty(self) -> None:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="notify_empty", scope=scope_kv(self._scope))
-        async with locks.guard(self._scope):
-            await self._notify_history_empty.execute(self._scope)
+        warnings.warn(
+            "Navigator.inform_history_is_empty is deprecated; use Navigator.alert",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        await self.alert()

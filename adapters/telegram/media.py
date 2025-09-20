@@ -17,12 +17,12 @@ from aiogram.types import (
 from .extra import validate_extra, ALLOWED_MEDIA_EXTRA
 from .keyfilter import accept_for
 from .serializer import sanitize_text_kwargs, split_extra
-from ...domain.constants import CAPTION_MAX
+from ...domain.constants import CaptionLimit
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.error import MessageEditForbidden, NavigatorError, CaptionTooLong
 from ...domain.log.emit import jlog
 from ...domain.service.rendering.album import validate_group, MediaGroupInvalid
-from ...domain.util.path import is_http_url, is_local_path
+from ...domain.util.path import local, remote
 from ...domain.log.code import LogCode
 
 InputFile = Union[str, FSInputFile, BufferedInputFile, URLInputFile]
@@ -40,9 +40,9 @@ def as_input_file(x: object, *, allow_local: bool) -> InputFile:
     if not isinstance(x, (FSInputFile, BufferedInputFile, URLInputFile, str)):
         raise ValueError("unsupported input file descriptor")
     s = x
-    if isinstance(s, str) and is_http_url(s):
+    if isinstance(s, str) and remote(s):
         return URLInputFile(s)
-    if isinstance(s, str) and is_local_path(s):
+    if isinstance(s, str) and local(s):
         if not allow_local:
             raise MessageEditForbidden("inline_local_path_forbidden")
         return FSInputFile(s)
@@ -112,9 +112,9 @@ def to_input_media(
         if opts.get("duration") is not None:
             kv["duration"] = int(opts.get("duration"))
 
-    if cap is not None and len(str(cap)) > CAPTION_MAX:
+    if cap is not None and len(str(cap)) > CaptionLimit:
         if truncate:
-            cap = str(cap)[:CAPTION_MAX]
+            cap = str(cap)[:CaptionLimit]
         else:
             raise CaptionTooLong()
     # Фильтрация ключей под сигнатуру конкретного InputMedia* класса

@@ -1,24 +1,25 @@
 from datetime import datetime, timezone
 from typing import Literal
+import warnings
 
 from ...domain.entity.history import Entry, Msg
 from ...domain.entity.media import MediaItem
 from ...domain.service.history.extra import sanitize_extra
-from ...domain.value.content import Payload, caption_of
+from ...domain.value.content import Payload, caption
 
-INLINE_GUARD_MESSAGE = "Inline message does not support media groups"
+SHIELD_MESSAGE = "Inline message does not support media groups"
 
 
-def make_dummy_entry_for_last(id: int, payload: Payload) -> Entry:
+def prime(id: int, payload: Payload) -> Entry:
     media = None
     if payload.media:
-        media = MediaItem(type=payload.media.type, path=payload.media.path, caption=caption_of(payload))
+        media = MediaItem(type=payload.media.type, path=payload.media.path, caption=caption(payload))
 
     if payload.group:
         first = payload.group[0] if payload.group else None
         text_len = len((getattr(first, "caption", None) or ""))
     elif payload.media:
-        text_len = len((caption_of(payload) or ""))
+        text_len = len((caption(payload) or ""))
     elif isinstance(payload.text, str):
         text_len = len(payload.text)
     else:
@@ -33,7 +34,7 @@ def make_dummy_entry_for_last(id: int, payload: Payload) -> Entry:
         markup=None,
         preview=payload.preview,
         extra=extra,
-        by_bot=True,
+        automated=True,
         ts=datetime.now(timezone.utc),
     )
     return Entry(
@@ -43,32 +44,50 @@ def make_dummy_entry_for_last(id: int, payload: Payload) -> Entry:
     )
 
 
-def inline_guard(scope, payload):
-    if getattr(scope, "inline_id", None) and getattr(payload, "group", None):
+def shield(scope, payload):
+    if getattr(scope, "inline", None) and getattr(payload, "group", None):
         from ...domain.error import InlineUnsupported
-        raise InlineUnsupported(INLINE_GUARD_MESSAGE)
+        raise InlineUnsupported(SHIELD_MESSAGE)
 
 
 # Если True: при inline last.delete без удаления в Telegram
 # выполняется срез последнего Entry из истории и сброс last_id.
-INLINE_DELETE_TRIMS_HISTORY: bool = True
+TailPrune: bool = True
 
 # Политика «хвоста» при inline back/set:
 # keep   — оставлять как есть;
-# delete — пытаться удалить «хвост» (только при наличии biz_id);
-# collapse — синоним delete (удаление при biz_id; иначе поведение как keep).
-INLINE_TAIL_MODE: Literal["keep", "delete", "collapse"] = "keep"
+# delete — пытаться удалить «хвост» (только при наличии business);
+# collapse — синоним delete (удаление при business; иначе поведение как keep).
+TailMode: Literal["keep", "delete", "collapse"] = "keep"
 
 # --- Флаги resend-фоллбека при неуспешном edit (не для inline) ---
 
-# При MessageEditForbidden в non-inline выполняется send(new) + delete(old_id + aux_ids)
-RESEND_FALLBACK_ON_FORBIDDEN: bool = True
+# При MessageEditForbidden в non-inline выполняется send(new) + delete(old_id + extras)
+ResendOnBan: bool = True
 
 # При MessageNotChanged фоллбек по умолчанию выключен, чтобы не плодить дубликаты
-RESEND_FALLBACK_ON_NOT_MODIFIED: bool = False
+ResendOnIdle: bool = False
 
 # Разрешать имплицитный EDIT_MEDIA_CAPTION вместо DELETE_SEND при last.edit (non-inline)?
-IMPLICIT_MEDIA_TO_CAPTION: bool = True  # для сохранения текущего поведения
+ImplicitCaption: bool = True  # для сохранения текущего поведения
 
 # Поднимать исключения в swap() вместо тихого skip?
-STRICT_VALIDATION_FAIL: bool = False  # для сохранения текущей семантики
+StrictAbort: bool = False  # для сохранения текущей семантики
+
+
+def make_dummy_entry_for_last(id: int, payload: Payload) -> Entry:
+    warnings.warn("make_dummy_entry_for_last is deprecated; use prime", DeprecationWarning, stacklevel=2)
+    return prime(id, payload)
+
+
+def inline_guard(scope, payload):
+    warnings.warn("inline_guard is deprecated; use shield", DeprecationWarning, stacklevel=2)
+    return shield(scope, payload)
+
+
+INLINE_DELETE_TRIMS_HISTORY = TailPrune
+INLINE_TAIL_MODE = TailMode
+RESEND_FALLBACK_ON_FORBIDDEN = ResendOnBan
+RESEND_FALLBACK_ON_NOT_MODIFIED = ResendOnIdle
+IMPLICIT_MEDIA_TO_CAPTION = ImplicitCaption
+STRICT_VALIDATION_FAIL = StrictAbort

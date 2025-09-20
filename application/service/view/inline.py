@@ -9,7 +9,7 @@ from ....domain.entity.media import MediaType
 from ....domain.log.emit import jlog
 from ....domain.service.rendering import decision as _d
 from ....domain.service.rendering.config import RenderingConfig
-from ....domain.util.path import is_local_path, is_http_url
+from ....domain.util.path import local, remote
 from ....domain.log.code import LogCode
 
 
@@ -49,9 +49,9 @@ class InlineStrategy:
         if self._is_url_input_file(path):
             return True
         if isinstance(path, str):
-            if is_http_url(path):
+            if remote(path):
                 return True
-            if not is_local_path(path):
+            if not local(path):
                 return _looks_like_file_id(path) if self._strict_inline_media_path else True
         return False
 
@@ -83,7 +83,7 @@ class InlineStrategy:
         if inline:
             p = keep_preview_extra(payload, last_message)
             if getattr(p, "group", None):
-                p = p.with_(media=p.group[0], group=None)
+                p = p.morph(media=p.group[0], group=None)
 
             base_msg = last_message
             m = getattr(p, "media", None)
@@ -96,7 +96,7 @@ class InlineStrategy:
                     if base_msg and self._reply_changed(base_msg, p):
                         return await swap(
                             scope,
-                            p.with_(media=base_msg.media if base_msg else None, group=None),
+                            p.morph(media=base_msg.media if base_msg else None, group=None),
                             last_message,
                             _d.Decision.EDIT_MARKUP,
                         )
@@ -110,8 +110,12 @@ class InlineStrategy:
                     jlog(self._logger, logging.INFO, LogCode.INLINE_REMAP_DELETE_SEND, from_="DELETE_SEND",
                          to_=dec1.name)
                     if dec1 is _d.Decision.EDIT_MARKUP:
-                        return await swap(scope, p.with_(media=base_msg.media, group=None), last_message,
-                                          _d.Decision.EDIT_MARKUP)
+                        return await swap(
+                            scope,
+                            p.morph(media=base_msg.media, group=None),
+                            last_message,
+                            _d.Decision.EDIT_MARKUP,
+                        )
                     if dec1 is _d.Decision.EDIT_TEXT:
                         return await swap(scope, p, last_message, _d.Decision.EDIT_TEXT)
                     if dec1 is _d.Decision.EDIT_MEDIA:
@@ -136,14 +140,14 @@ class InlineStrategy:
                 if has_caption_change:
                     return await swap(
                         scope,
-                        p.with_(media=base_msg.media, group=None),
+                        p.morph(media=base_msg.media, group=None),
                         last_message,
                         _d.Decision.EDIT_MEDIA_CAPTION,
                     )
                 if self._reply_changed(base_msg, p):
                     return await swap(
                         scope,
-                        p.with_(media=base_msg.media, group=None),
+                        p.morph(media=base_msg.media, group=None),
                         last_message,
                         _d.Decision.EDIT_MARKUP,
                     )

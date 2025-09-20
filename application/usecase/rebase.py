@@ -12,7 +12,7 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-class RebaseUseCase:
+class Shifter:
     def __init__(self, history_repo: HistoryRepository, temp_repo: TemporaryRepository,
                  last_repo: LastMessageRepository):
         self._history_repo = history_repo
@@ -45,9 +45,9 @@ class RebaseUseCase:
             markup=first.markup,
             preview=first.preview,
             extra=first.extra,
-            aux_ids=first.aux_ids,
+            extras=first.extras,
             inline_id=first.inline_id,
-            by_bot=first.by_bot,
+            automated=first.automated,
             ts=first.ts,
         )
         rebased_last = Entry(
