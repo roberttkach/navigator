@@ -102,7 +102,7 @@ class LastUseCase:
                 break
 
         if last_entry is not None:
-            dec = decision.decide(last_entry, p)
+            dec = decision.decide(last_entry, p, self._orchestrator.rendering_config)
         else:
             if p.media:
                 dec = decision.Decision.EDIT_MEDIA
@@ -149,7 +149,12 @@ class LastUseCase:
         ):
             lm = base.messages[0] if base and base.messages else None
             result = await self._orchestrator._inline.handle_element(
-                scope=scope, payload=p, last_message=lm, inline=True, swap=self._orchestrator.swap
+                scope=scope,
+                payload=p,
+                last_message=lm,
+                inline=True,
+                swap=self._orchestrator.swap,
+                rendering_config=self._orchestrator.rendering_config,
             )
         else:
             result = await self._orchestrator.swap(scope, p, base, dec)

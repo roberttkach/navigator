@@ -21,6 +21,7 @@ from ...application.usecase.rebase import RebaseUseCase
 from ...application.usecase.replace import ReplaceUseCase
 from ...application.usecase.set import SetUseCase
 from ...domain.port.factory import ViewFactoryRegistry
+from ...domain.service.rendering.config import RenderingConfig
 from ...infrastructure.config import SETTINGS
 
 
@@ -53,7 +54,13 @@ class AppContainer(containers.DeclarativeContainer):
         is_url_input_file=is_url_input_file,
         strict_inline_media_path=providers.Object(SETTINGS.strict_inline_media_path),
     )
-    view_orchestrator = providers.Factory(ViewOrchestrator, gateway=gateway, inline=inline_strategy)
+    rendering_config = providers.Object(RenderingConfig(detect_thumb_change=SETTINGS.detect_thumb_change))
+    view_orchestrator = providers.Factory(
+        ViewOrchestrator,
+        gateway=gateway,
+        inline=inline_strategy,
+        rendering_config=rendering_config,
+    )
     view_restorer = providers.Factory(
         ViewRestorer, markup_codec=markup_codec, factory_registry=registry
     )

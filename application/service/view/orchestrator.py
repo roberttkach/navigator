@@ -8,13 +8,13 @@ from ...internal import policy as _pol
 from ...internal.policy import inline_guard
 from ...log.decorators import log_io
 from ...log.emit import jlog
-from ....domain.constants import DETECT_THUMB_CHANGE
 from ....domain.entity.history import Entry, Msg
 from ....domain.entity.media import MediaItem
 from ....domain.error import ExtraKeyForbidden, TextTooLong, CaptionTooLong
 from ....domain.error import MessageNotChanged, MessageEditForbidden, EmptyPayload
 from ....domain.port.message import MessageGateway, Result
 from ....domain.service.rendering import decision
+from ....domain.service.rendering.config import RenderingConfig
 from ....domain.service.rendering.album import album_compatible
 from ....domain.service.rendering.helpers import payload_kind, reply_equal
 from ....domain.util.path import is_http_url, is_local_path
@@ -41,9 +41,14 @@ class RenderResultNode:
 
 
 class ViewOrchestrator:
-    def __init__(self, gateway: MessageGateway, inline: InlineStrategy):
+    def __init__(self, gateway: MessageGateway, inline: InlineStrategy, rendering_config: RenderingConfig):
         self._gateway = gateway
         self._inline = inline
+        self._rendering_config = rendering_config
+
+    @property
+    def rendering_config(self) -> RenderingConfig:
+        return self._rendering_config
 
     # === Helpers (локальные, без изменения контрактов) ===
 
@@ -313,7 +318,7 @@ class ViewOrchestrator:
         # - Используется один «глобальный» extra для всей группы. Per-item extra не поддержан по контракту DTO/истории.
         # - Подпись и её позиция изменяются только на первом элементе (edit_caption/markup по id первого сообщения).
         # - Медиа-уровень (spoiler/start/thumb*) применяется поэлементно, но только если файл не менялся,
-        #   либо DETECT_THUMB_CHANGE=1 и задан thumb.
+        #   либо включён detect_thumb_change и задан thumb.
         # - Для metas.group_items file_id берётся из нового payload, если это уже file_id (строка и не путь/URL),
         #   иначе из истории (старый file_id). Это гарантирует консистентность истории.
         if (not inline) and old and new and getattr(old[0], "group", None) and getattr(new[0], "group", None):
@@ -357,7 +362,7 @@ class ViewOrchestrator:
                 media_extra_changed = _media_affects_changed(old_e, new_e)
 
                 # thumb: корректный триггер по факту снятия/добавления миниатюры
-                if DETECT_THUMB_CHANGE:
+                if self._rendering_config.detect_thumb_change:
                     if bool(old_e.get("has_thumb")) != bool(new_e.get("thumb") is not None):
                         media_extra_changed = True
 
@@ -436,7 +441,7 @@ class ViewOrchestrator:
         for i in range(start_idx, n_common):
             o = old[i]
             p = new[i]
-            dec = decision.decide(_adapt(o), p)
+            dec = decision.decide(_adapt(o), p, self._rendering_config)
             if dec is decision.Decision.NO_CHANGE:
                 out_ids.append(o.id)
                 out_extras.append(list(getattr(o, "aux_ids", []) or []))
@@ -450,7 +455,12 @@ class ViewOrchestrator:
             ):
                 if inline:
                     rr = await self._inline.handle_element(
-                        scope=scope, payload=p, last_message=o, inline=True, swap=self.swap
+                        scope=scope,
+                        payload=p,
+                        last_message=o,
+                        inline=True,
+                        swap=self.swap,
+                        rendering_config=self._rendering_config,
                     )
                     out_ids.append(rr.id if rr else o.id)
                     out_extras.append(list(rr.extra if rr else getattr(o, "aux_ids", []) or []))
@@ -489,7 +499,12 @@ class ViewOrchestrator:
             if dec == decision.Decision.DELETE_SEND:
                 if inline:
                     rr = await self._inline.handle_element(
-                        scope=scope, payload=p, last_message=o, inline=True, swap=self.swap
+                        scope=scope,
+                        payload=p,
+                        last_message=o,
+                        inline=True,
+                        swap=self.swap,
+                        rendering_config=self._rendering_config,
                     )
                     out_ids.append(rr.id if rr else o.id)
                     out_extras.append(list(rr.extra if rr else getattr(o, "aux_ids", []) or []))
