@@ -140,7 +140,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             call_kwargs: Dict[str, Any] = {
                 **context,
                 **{payload.media.type.value: tg_media},
-                "reply_markup": reply_for_send(codec, scope, payload.reply),
+                "reply_markup": reply_for_send(codec, payload.reply),
                 **caption_kwargs,
                 **media_kwargs,
             }
@@ -166,7 +166,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                 bot.send_message,
                 **context,
                 text=raw,
-                reply_markup=reply_for_send(codec, scope, payload.reply),
+                reply_markup=reply_for_send(codec, payload.reply),
                 link_preview_options=serializer.map_preview(payload.preview),
                 **text_kwargs,
             )
