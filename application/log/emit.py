@@ -1,6 +1,6 @@
 import logging
 
-from ...domain.log.emit import jlog
+from ...domain.log.emit import jlog, set_redaction_mode
 
 
 def debug(logger, code, **fields):
@@ -19,4 +19,4 @@ def error(logger, code, **fields):
     jlog(logger, logging.ERROR, code, **fields)
 
 
-__all__ = ["jlog", "debug", "info", "warning", "error"]
+__all__ = ["jlog", "debug", "info", "warning", "error", "set_redaction_mode"]
