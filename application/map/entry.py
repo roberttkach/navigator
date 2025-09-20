@@ -31,6 +31,10 @@ class EntryMapper:
             mid = result.ids[idx]
             meta = result.metas[idx] if idx < len(result.metas) else {}
             k = meta.get("kind")
+            if not isinstance(k, str):
+                raise ValueError("meta_missing_kind")
+            if k not in ("text", "media", "group"):
+                raise ValueError(f"meta_unsupported_kind:{k}")
             inline_id = meta.get("inline_id")
 
             prev_extra = None
@@ -62,9 +66,6 @@ class EntryMapper:
                         MediaItem(type=MediaType(mt_raw), path=it.get("file_id"), caption=it.get("caption"))
                     )
                 text, media, group = None, None, items
-            else:
-                # Fallback: считать текстом
-                text, media, group = payload.text, None, None
 
             extra_source = payload.extra if (payload.extra is not None) else prev_extra
 
