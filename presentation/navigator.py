@@ -47,8 +47,6 @@ from __future__ import annotations
 import logging
 from typing import Optional, Dict, Any, Union, SupportsInt
 
-from aiogram.fsm.state import State
-
 from ..application import locks
 from ..application.dto.content import Content, Node
 from ..application.log.emit import jlog
@@ -64,6 +62,7 @@ from ..application.usecase.set import SetUseCase
 from ..domain.service.scope import scope_kv
 from ..domain.value.message import Scope
 from ..logging.code import LogCode
+from .types import StateLike
 
 logger = logging.getLogger(__name__)
 
@@ -183,8 +182,8 @@ class Navigator:
         async with locks.guard(self._scope):
             await self._back.execute(self._scope, handler_data)
 
-    async def set(self, state: Union[str, State], handler_data: Dict[str, Any] | None = None) -> None:
-        st = state.state if hasattr(state, "state") else state
+    async def set(self, state: Union[str, StateLike], handler_data: Dict[str, Any] | None = None) -> None:
+        st = getattr(state, "state", state)
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=scope_kv(self._scope), state=st)
         async with locks.guard(self._scope):
             await self._set.execute(self._scope, st, handler_data or {})
