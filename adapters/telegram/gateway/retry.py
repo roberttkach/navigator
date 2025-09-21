@@ -16,49 +16,49 @@ T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
-def _extract_retry_after(e: TelegramRetryAfter) -> int | None:
-    val = getattr(e, "retry_after", None)
-    if isinstance(val, int):
-        return val
-    params = getattr(e, "parameters", None)
-    pa = getattr(params, "retry_after", None)
-    if isinstance(pa, int):
-        return pa
+def _delay(error: TelegramRetryAfter) -> int | None:
+    value = getattr(error, "retry_after", None)
+    if isinstance(value, int):
+        return value
+    params = getattr(error, "parameters", None)
+    param = getattr(params, "retry_after", None)
+    if isinstance(param, int):
+        return param
     return None
 
 
-async def call_tg(fn: Callable[..., Awaitable[T]], *a, **kw) -> T:
-    attempts = 0
-    max_attempts = 6
+async def invoke(action: Callable[..., Awaitable[T]], *values, **labels) -> T:
+    tries = 0
+    quota = 6
     base = 1.5
     cap = 120.0
-    max_total = 180.0
+    timeout = 180.0
     waited = 0.0
     while True:
         try:
-            return await fn(*a, **kw)
-        except TelegramRetryAfter as e:
-            ra = _extract_retry_after(e)
-            if ra is not None:
-                jlog(logger, logging.WARNING, LogCode.TELEGRAM_RETRY, retry_after=ra)
-                sleep_for = float(ra)
+            return await action(*values, **labels)
+        except TelegramRetryAfter as error:
+            delay = _delay(error)
+            if delay is not None:
+                jlog(logger, logging.WARNING, LogCode.TELEGRAM_RETRY, retry=delay)
+                pause = float(delay)
             else:
                 jlog(logger, logging.WARNING, LogCode.TELEGRAM_RETRY)
-                sleep_for = min(cap, base ** attempts) + random.uniform(0.0, 0.5)
-            if waited + sleep_for > max_total:
+                pause = min(cap, base ** tries) + random.uniform(0.0, 0.5)
+            if waited + pause > timeout:
                 raise
-            if ra is None and attempts + 1 > max_attempts:
+            if delay is None and tries + 1 > quota:
                 raise
-            await asyncio.sleep(sleep_for)
-            waited += sleep_for
-            attempts += 1
+            await asyncio.sleep(pause)
+            waited += pause
+            tries += 1
             continue
-        except Exception as e:
-            raw = getattr(e, "message", e)
-            msg = str(raw)
-            ml = msg.lower()
-            if any(p in ml for p in NOT_MODIFIED):
-                raise MessageNotChanged() from e
-            if any(p in ml for p in EDIT_FORBIDDEN):
-                raise MessageEditForbidden("gateway_edit_forbidden") from e
+        except Exception as error:
+            raw = getattr(error, "message", error)
+            message = str(raw)
+            lower = message.lower()
+            if any(p in lower for p in NOT_MODIFIED):
+                raise MessageNotChanged() from error
+            if any(p in lower for p in EDIT_FORBIDDEN):
+                raise MessageEditForbidden("gateway_edit_forbidden") from error
             raise

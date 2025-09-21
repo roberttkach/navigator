@@ -1,51 +1,51 @@
 from typing import Iterator
 
 
-def soft_ignorable(msg_lc: str) -> bool:
+def dismissible(message: str) -> bool:
     return (
-            "message to delete not found" in msg_lc
-            or "message can't be deleted" in msg_lc
-            or "message cant be deleted" in msg_lc
-            or "cannot be deleted" in msg_lc
-            or "cannot delete" in msg_lc
-            or "cant delete" in msg_lc
-            or "can't be deleted for everyone" in msg_lc
-            or "cant be deleted for everyone" in msg_lc
-            or "message is too old" in msg_lc
-            or "too old" in msg_lc
-            or "not enough rights" in msg_lc
-            or "not enough rights to delete" in msg_lc
-            or "already deleted" in msg_lc
-            or "уже удалено" in msg_lc
-            or "недостаточно прав" in msg_lc
-            or "paid post" in msg_lc
-            or "is_paid_post" in msg_lc
-            or "must not be deleted for 24 hours" in msg_lc
+        "message to delete not found" in message
+        or "message can't be deleted" in message
+        or "message cant be deleted" in message
+        or "cannot be deleted" in message
+        or "cannot delete" in message
+        or "cant delete" in message
+        or "can't be deleted for everyone" in message
+        or "cant be deleted for everyone" in message
+        or "message is too old" in message
+        or "too old" in message
+        or "not enough rights" in message
+        or "not enough rights to delete" in message
+        or "already deleted" in message
+        or "уже удалено" in message
+        or "недостаточно прав" in message
+        or "paid post" in message
+        or "is_paid_post" in message
+        or "must not be deleted for 24 hours" in message
     )
 
 
-def _iter_exc_chain(e: Exception) -> Iterator[Exception]:
+def _cascade(error: Exception) -> Iterator[Exception]:
     seen = set()
-    stack = [e]
+    stack = [error]
     while stack:
-        ex = stack.pop()
-        if not ex:
+        current = stack.pop()
+        if not current:
             continue
-        if id(ex) in seen:
+        if id(current) in seen:
             continue
-        seen.add(id(ex))
-        yield ex
-        cause = getattr(ex, "__cause__", None)
-        ctx = getattr(ex, "__context__", None)
+        seen.add(id(current))
+        yield current
+        cause = getattr(current, "__cause__", None)
+        context = getattr(current, "__context__", None)
         if cause:
             stack.append(cause)
-        if ctx:
-            stack.append(ctx)
+        if context:
+            stack.append(context)
 
 
-def any_soft_ignorable_exc(e: Exception) -> bool:
-    for ex in _iter_exc_chain(e):
-        msg = (getattr(ex, "message", "") or str(ex)).lower()
-        if soft_ignorable(msg):
+def excusable(error: Exception) -> bool:
+    for current in _cascade(error):
+        message = (getattr(current, "message", "") or str(current)).lower()
+        if dismissible(message):
             return True
     return False

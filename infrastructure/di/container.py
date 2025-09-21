@@ -39,7 +39,7 @@ class AppContainer(containers.DeclarativeContainer):
         TelegramGateway,
         bot=event.provided.bot,
         markup_codec=markup_codec,
-        chunk_size=chunk,
+        chunk=chunk,
         truncate=providers.Object(SETTINGS.truncate),
     )
     history_repo = providers.Factory(HistoryRepo, state=state)

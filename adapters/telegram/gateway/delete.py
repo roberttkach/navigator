@@ -5,8 +5,8 @@ import logging
 import os
 from typing import List
 
-from .retry import call_tg
-from ..errors import any_soft_ignorable_exc
+from .retry import invoke
+from ..errors import excusable
 from ....domain.log.emit import jlog
 from ....domain.service.scope import profile
 from ....domain.value.ids import order as _order
@@ -18,9 +18,9 @@ _DELAY_SEC = max(0.0, float(int(os.getenv("NAV_DELETE_DELAY_MS", "50"))) / 1000.
 
 
 class BatchDeleteRunner:
-    def __init__(self, bot, chunk_size: int):
+    def __init__(self, bot, chunk: int):
         self._bot = bot
-        self._chunk = min(int(chunk_size), 100)
+        self._chunk = min(int(chunk), 100)
 
     async def run(self, scope: Scope, ids: List[int]) -> None:
         if scope.inline and not scope.business:
@@ -35,85 +35,88 @@ class BatchDeleteRunner:
             return
         if not ids:
             return
-        uniq_ids = _order(ids)
-        if not uniq_ids:
+        unique = _order(ids)
+        if not unique:
             return
-        parts = [uniq_ids[i:i + self._chunk] for i in range(0, len(uniq_ids), self._chunk)]
-        total = len(parts)
+        groups = [
+            unique[start:start + self._chunk]
+            for start in range(0, len(unique), self._chunk)
+        ]
+        total = len(groups)
         jlog(
             logger,
             logging.DEBUG,
             LogCode.RERENDER_START,
             note="delete_chunking",
-            count=len(uniq_ids),
+            count=len(unique),
             chunks=total,
-            chunk_size=self._chunk,
+            chunk=self._chunk,
         )
         try:
-            for idx, part in enumerate(parts, start=1):
+            for index, group in enumerate(groups, start=1):
                 try:
                     if scope.business:
                         try:
-                            await call_tg(
+                            await invoke(
                                 self._bot.delete_business_messages,
                                 business_connection_id=scope.business,
-                                message_ids=part,
+                                message_ids=group,
                             )
                             jlog(
                                 logger,
                                 logging.INFO,
                                 LogCode.GATEWAY_DELETE_OK,
                                 scope=profile(scope),
-                                message={"deleted": len(part)},
-                                chunk={"index": idx, "total": total},
+                                message={"deleted": len(group)},
+                                chunk={"index": index, "total": total},
                             )
                             await asyncio.sleep(_DELAY_SEC)
                         except Exception:
                             try:
-                                await call_tg(
+                                await invoke(
                                     self._bot.delete_messages,
                                     chat_id=scope.chat,
-                                    message_ids=part,
+                                    message_ids=group,
                                 )
                                 jlog(
                                     logger,
                                     logging.INFO,
                                     LogCode.GATEWAY_DELETE_OK,
                                     scope=profile(scope),
-                                    message={"deleted": len(part)},
-                                    chunk={"index": idx, "total": total},
+                                    message={"deleted": len(group)},
+                                    chunk={"index": index, "total": total},
                                 )
                                 await asyncio.sleep(_DELAY_SEC)
-                            except Exception as e_fallback:
-                                if any_soft_ignorable_exc(e_fallback):
+                            except Exception as fallback:
+                                if excusable(fallback):
                                     continue
                                 raise
                     else:
-                        await call_tg(
+                        await invoke(
                             self._bot.delete_messages,
                             chat_id=scope.chat,
-                            message_ids=part,
+                            message_ids=group,
                         )
                         jlog(
                             logger,
                             logging.INFO,
                             LogCode.GATEWAY_DELETE_OK,
                             scope=profile(scope),
-                            message={"deleted": len(part)},
-                            chunk={"index": idx, "total": total},
+                            message={"deleted": len(group)},
+                            chunk={"index": index, "total": total},
                         )
                         await asyncio.sleep(_DELAY_SEC)
-                except Exception as e:
-                    if any_soft_ignorable_exc(e):
+                except Exception as error:
+                    if excusable(error):
                         continue
                     raise
-        except Exception as e:
+        except Exception as error:
             jlog(
                 logger,
                 logging.WARNING,
                 LogCode.GATEWAY_DELETE_FAIL,
                 scope=profile(scope),
-                count=len(uniq_ids),
-                note=type(e).__name__,
+                count=len(unique),
+                note=type(error).__name__,
             )
             raise

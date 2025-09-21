@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict
 
 from .common import reply_for_edit, log_edit_fail, finalize
-from .retry import call_tg
+from .retry import invoke
 from .util import targets as _targets
 from .. import media as media_mapper
 from .. import serializer
@@ -37,7 +37,7 @@ async def do_edit_text(bot, codec: MarkupCodec, scope: Scope, message_id: int, p
     )
     trg = _targets(scope, message_id)
     try:
-        result = await call_tg(
+        result = await invoke(
             bot.edit_message_text,
             text=raw,
             reply_markup=reply_for_edit(codec, payload.reply),
@@ -74,7 +74,7 @@ async def do_edit_media(bot, codec: MarkupCodec, scope: Scope, message_id: int, 
         raise
     trg = _targets(scope, message_id)
     try:
-        result = await call_tg(
+        result = await invoke(
             bot.edit_message_media,
             media=tg_media,
             reply_markup=reply_for_edit(codec, payload.reply),
@@ -127,7 +127,7 @@ async def do_edit_caption(bot, codec: MarkupCodec, scope: Scope, message_id: int
                 filtered_keys=sorted(set(raw_media_kwargs) - set(filtered_media_kwargs)),
             )
         call_kwargs.update(filtered_media_kwargs)
-        result = await call_tg(bot.edit_message_caption, **call_kwargs)
+        result = await invoke(bot.edit_message_caption, **call_kwargs)
     except Exception as e:
         log_edit_fail(scope, payload, type(e).__name__)
         raise
@@ -137,7 +137,7 @@ async def do_edit_caption(bot, codec: MarkupCodec, scope: Scope, message_id: int
 async def do_edit_markup(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload) -> Result:
     trg = _targets(scope, message_id)
     try:
-        result = await call_tg(
+        result = await invoke(
             bot.edit_message_reply_markup,
             reply_markup=reply_for_edit(codec, payload.reply),
             **trg,

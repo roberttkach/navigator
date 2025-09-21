@@ -8,14 +8,14 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-def _make_key(func: ViewFactory) -> str:
+def _stamp(func: ViewFactory) -> str:
     module = getattr(func, "__module__", "")
     qualname = getattr(func, "__qualname__", getattr(func, "__name__", ""))
     return f"{module}:{qualname}"
 
 
 def key(factory_func: ViewFactory) -> str:
-    return _make_key(factory_func)
+    return _stamp(factory_func)
 
 
 class ViewFactoryRegistry(ViewFactoryRegistryProtocol):
@@ -29,8 +29,8 @@ class ViewFactoryRegistry(ViewFactoryRegistryProtocol):
         self._registry[name] = factory
         jlog(logger, logging.INFO, LogCode.REGISTRY_REGISTER, key=name, note="ok")
 
-    def register_fn(self, factory: ViewFactory) -> str:
-        k = _make_key(factory)
+    def enlist(self, factory: ViewFactory) -> str:
+        k = _stamp(factory)
         self.register(k, factory)
         return k
 

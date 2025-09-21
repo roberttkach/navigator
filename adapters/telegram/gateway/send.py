@@ -3,7 +3,7 @@ from inspect import signature
 from typing import Any, Dict
 
 from .common import reply_for_send
-from .retry import call_tg
+from .retry import invoke
 from .util import extract_meta
 from .util import targets as _targets
 from .. import media as media_mapper
@@ -33,7 +33,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                 payload.group, extra=norm_extra, allow_local=allow_local, truncate=truncate
             )
             ctx = accept_for(bot.send_media_group, context)
-            sent_messages = await call_tg(bot.send_media_group, media=tg_group, **ctx)
+            sent_messages = await invoke(bot.send_media_group, media=tg_group, **ctx)
             items = []
             for m in sent_messages:
                 if m.photo:
@@ -142,7 +142,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             }
             if caption is not None and "caption" in signature(sender).parameters:
                 call_kwargs["caption"] = caption
-            sent_message = await call_tg(sender, **call_kwargs)
+            sent_message = await invoke(sender, **call_kwargs)
         else:
             raw = "" if payload.text is None else str(payload.text)
             if not raw.strip():
@@ -158,7 +158,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             text_kwargs = serializer.sanitize_text_kwargs(
                 norm_extra, is_caption=False, target=bot.send_message, text_len=raw_len
             )
-            sent_message = await call_tg(
+            sent_message = await invoke(
                 bot.send_message,
                 **context,
                 text=raw,
