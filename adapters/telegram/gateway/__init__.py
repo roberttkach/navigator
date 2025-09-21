@@ -8,6 +8,7 @@ from aiogram import Bot
 from .delete import BatchDeleteRunner
 from .edit import do_edit_text, do_edit_media, do_edit_caption, do_edit_markup
 from .send import do_send
+from .util import targets
 from ....domain.error import InlineUnsupported
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
@@ -51,7 +52,11 @@ class TelegramGateway(MessageGateway):
 
     async def alert(self, scope: Scope) -> None:
         if not scope.inline:
-            await self._bot.send_message(scope.chat, lexeme("prev_not_found", scope.lang or "en"))
+            kwargs = targets(scope)
+            await self._bot.send_message(
+                text=lexeme("prev_not_found", scope.lang or "en"),
+                **kwargs,
+            )
             jlog(
                 logger,
                 logging.INFO,
