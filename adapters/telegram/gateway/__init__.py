@@ -6,8 +6,8 @@ from typing import List
 from aiogram import Bot
 
 from .delete import BatchDeleteRunner
-from .edit import do_edit_text, do_edit_media, do_edit_caption, do_edit_markup
-from .send import do_send
+from .edit import rewrite, recast, retitle, remap
+from .send import dispatch
 from .util import targets
 from ....domain.error import InlineUnsupported
 from ....domain.log.emit import jlog
@@ -32,19 +32,19 @@ class TelegramGateway(MessageGateway):
     async def send(self, scope: Scope, payload: Payload) -> Result:
         if scope.inline:
             raise InlineUnsupported("inline_send_not_supported")
-        return await do_send(self._bot, self._codec, scope, payload, truncate=self._truncate)
+        return await dispatch(self._bot, self._codec, scope, payload, truncate=self._truncate)
 
     async def edit_text(self, scope: Scope, message_id: int, payload: Payload) -> Result:
-        return await do_edit_text(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
+        return await rewrite(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
 
     async def edit_media(self, scope: Scope, message_id: int, payload: Payload) -> Result:
-        return await do_edit_media(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
+        return await recast(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
 
     async def edit_caption(self, scope: Scope, message_id: int, payload: Payload) -> Result:
-        return await do_edit_caption(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
+        return await retitle(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
 
     async def edit_markup(self, scope: Scope, message_id: int, payload: Payload) -> Result:
-        return await do_edit_markup(self._bot, self._codec, scope, message_id, payload)
+        return await remap(self._bot, self._codec, scope, message_id, payload)
 
     async def delete(self, scope: Scope, ids: List[int]) -> None:
         runner = BatchDeleteRunner(bot=self._bot, chunk=self._chunk)
