@@ -15,14 +15,12 @@ def make_scope(event) -> Scope:
     category = "group" if chat_type == "supergroup" else (
         chat_type if chat_type in {"private", "group", "channel"} else None)
     user = getattr(getattr(event, "from_user", None), "id", None)
-    message_id = getattr(message, "message_id", None)
     business = getattr(message, "business_connection_id", None)
     topic = getattr(getattr(message, "direct_messages_topic", None), "topic_id", None)
     return Scope(
         chat=chat,
         lang=language,
         user=user,
-        id=message_id,
         inline=None,
         business=business,
         category=category,

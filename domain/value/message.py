@@ -8,7 +8,6 @@ class Scope:
     chat: int | None
     lang: str | None = None
     user: int | None = None
-    id: int | None = None
     inline: str | None = None
     business: str | None = None
     category: str | None = None
