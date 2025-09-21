@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict
 
-from .common import reply_for_edit, log_edit_fail, finalize
+from .common import markup, finalize
 from .retry import invoke
 from .util import targets as _targets
 from .. import media as media_mapper
@@ -20,15 +20,15 @@ from ....domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-async def do_edit_text(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
-                       truncate: bool = False) -> Result:
+async def rewrite(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
+                  truncate: bool = False) -> Result:
     raw = "" if payload.text is None else str(payload.text)
     if not raw.strip():
         raise EmptyPayload()
     if len(raw) > TextLimit:
         if truncate:
             raw = raw[:TextLimit]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.text")
+            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="rewrite")
         else:
             raise TextTooLong()
     norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=True)
@@ -40,19 +40,26 @@ async def do_edit_text(bot, codec: MarkupCodec, scope: Scope, message_id: int, p
         result = await invoke(
             bot.edit_message_text,
             text=raw,
-            reply_markup=reply_for_edit(codec, payload.reply),
+            reply_markup=markup(codec, payload.reply, edit=True),
             link_preview_options=serializer.map_preview(payload.preview),
             **trg,
             **kwargs,
         )
     except Exception as e:
-        log_edit_fail(scope, payload, type(e).__name__)
+        jlog(
+            logger,
+            logging.WARNING,
+            LogCode.GATEWAY_EDIT_FAIL,
+            scope=profile(scope),
+            payload=_classify(payload),
+            note=type(e).__name__,
+        )
         raise
     return finalize(scope, payload, message_id, result)
 
 
-async def do_edit_media(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
-                        truncate: bool = False) -> Result:
+async def recast(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
+                 truncate: bool = False) -> Result:
     if not payload.media:
         raise ValueError("Cannot edit media without a media payload")
     norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=True)
@@ -77,17 +84,24 @@ async def do_edit_media(bot, codec: MarkupCodec, scope: Scope, message_id: int, 
         result = await invoke(
             bot.edit_message_media,
             media=tg_media,
-            reply_markup=reply_for_edit(codec, payload.reply),
+            reply_markup=markup(codec, payload.reply, edit=True),
             **trg,
         )
     except Exception as e:
-        log_edit_fail(scope, payload, type(e).__name__)
+        jlog(
+            logger,
+            logging.WARNING,
+            LogCode.GATEWAY_EDIT_FAIL,
+            scope=profile(scope),
+            payload=_classify(payload),
+            note=type(e).__name__,
+        )
         raise
     return finalize(scope, payload, message_id, result)
 
 
-async def do_edit_caption(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
-                          truncate: bool = False) -> Result:
+async def retitle(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
+                  truncate: bool = False) -> Result:
     norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=True)
     cap_extra, media_extra = serializer.split_extra(norm_extra)
     caption = serializer.caption_for_edit(payload)
@@ -99,12 +113,12 @@ async def do_edit_caption(bot, codec: MarkupCodec, scope: Scope, message_id: int
     if caption is not None and len(caption) > CaptionLimit:
         if truncate:
             caption = caption[:CaptionLimit]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.caption")
+            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="retitle")
         else:
             raise CaptionTooLong()
     try:
         call_kwargs: Dict[str, Any] = {
-            "reply_markup": reply_for_edit(codec, payload.reply),
+            "reply_markup": markup(codec, payload.reply, edit=True),
             **trg,
             **kwargs,
         }
@@ -129,20 +143,34 @@ async def do_edit_caption(bot, codec: MarkupCodec, scope: Scope, message_id: int
         call_kwargs.update(filtered_media_kwargs)
         result = await invoke(bot.edit_message_caption, **call_kwargs)
     except Exception as e:
-        log_edit_fail(scope, payload, type(e).__name__)
+        jlog(
+            logger,
+            logging.WARNING,
+            LogCode.GATEWAY_EDIT_FAIL,
+            scope=profile(scope),
+            payload=_classify(payload),
+            note=type(e).__name__,
+        )
         raise
     return finalize(scope, payload, message_id, result)
 
 
-async def do_edit_markup(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload) -> Result:
+async def remap(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload) -> Result:
     trg = _targets(scope, message_id)
     try:
         result = await invoke(
             bot.edit_message_reply_markup,
-            reply_markup=reply_for_edit(codec, payload.reply),
+            reply_markup=markup(codec, payload.reply, edit=True),
             **trg,
         )
     except Exception as e:
-        log_edit_fail(scope, payload, type(e).__name__)
+        jlog(
+            logger,
+            logging.WARNING,
+            LogCode.GATEWAY_EDIT_FAIL,
+            scope=profile(scope),
+            payload=_classify(payload),
+            note=type(e).__name__,
+        )
         raise
     return finalize(scope, payload, message_id, result)

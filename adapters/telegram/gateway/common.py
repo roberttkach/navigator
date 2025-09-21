@@ -13,34 +13,26 @@ from ....domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-def reply_for_send(codec, reply):
-    return serializer.decode_reply(codec, reply)
-
-
-def reply_for_edit(codec, reply):
+def markup(codec, reply, *, edit: bool):
     obj = serializer.decode_reply(codec, reply)
+    if not edit:
+        return obj
     return obj if isinstance(obj, InlineKeyboardMarkup) else None
 
 
-def actual_id(scope, fallback, result):
+def finalize(scope, payload, identifier, result):
     if scope.inline:
-        return fallback
-    mid = getattr(result, "message_id", None)
-    return mid if mid is not None else fallback
-
-
-def log_edit_fail(scope, payload, note):
-    jlog(logger, logging.WARNING, LogCode.GATEWAY_EDIT_FAIL, scope=profile(scope), payload=classify(payload),
-         note=note)
-
-
-def log_edit_ok(scope, payload, mid):
-    jlog(logger, logging.INFO, LogCode.GATEWAY_EDIT_OK, scope=profile(scope), payload=classify(payload),
-         message={"id": mid, "extra_len": 0})
-
-
-def finalize(scope, payload, id, result):
-    mid = actual_id(scope, id, result)
+        mid = identifier
+    else:
+        fallback = getattr(result, "message_id", None)
+        mid = fallback if fallback is not None else identifier
     meta = extract_meta(result, payload, scope)
-    log_edit_ok(scope, payload, mid)
+    jlog(
+        logger,
+        logging.INFO,
+        LogCode.GATEWAY_EDIT_OK,
+        scope=profile(scope),
+        payload=classify(payload),
+        message={"id": mid, "extra_len": 0},
+    )
     return Result(id=mid, extra=[], **meta)

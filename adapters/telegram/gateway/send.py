@@ -2,7 +2,7 @@ import logging
 from inspect import signature
 from typing import Any, Dict
 
-from .common import reply_for_send
+from .common import markup
 from .retry import invoke
 from .util import extract_meta
 from .util import targets as _targets
@@ -22,7 +22,7 @@ from ....domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: bool = False) -> Result:
+async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: bool = False) -> Result:
     context = _targets(scope)
     inline = bool(scope.inline)
     allow_local = not inline
@@ -136,7 +136,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             call_kwargs: Dict[str, Any] = {
                 **context,
                 **{payload.media.type.value: tg_media},
-                "reply_markup": reply_for_send(codec, payload.reply),
+                "reply_markup": markup(codec, payload.reply, edit=False),
                 **caption_kwargs,
                 **media_kwargs,
             }
@@ -162,7 +162,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                 bot.send_message,
                 **context,
                 text=raw,
-                reply_markup=reply_for_send(codec, payload.reply),
+                reply_markup=markup(codec, payload.reply, edit=False),
                 link_preview_options=serializer.map_preview(payload.preview),
                 **text_kwargs,
             )
