@@ -103,7 +103,7 @@ def _media_opts_split(e, config: RenderingConfig) -> tuple[_MediaCaptionOpts, _M
     edt = _MediaEditOpts(
         spoiler=bool(x.get("spoiler")),
         start=st,
-        thumb_present=(present if config.thumb_watch else False),
+        thumb_present=(present if config.thumbguard else False),
     )
     return cap, edt
 
