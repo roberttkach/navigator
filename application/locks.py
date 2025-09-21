@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 import asyncio
-import warnings
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 from weakref import WeakValueDictionary
@@ -121,34 +118,4 @@ __all__ = [
     "Guard",
     "guard",
     "appoint",
-]
-
-
-ScopeLike = ScopeForm
-LockProvider = Locksmith
-
-
-@dataclass
-class LockBox(Latch):
-    def __post_init__(self) -> None:
-        warnings.warn("LockBox is deprecated; use Latch", DeprecationWarning, stacklevel=2)
-
-
-class InMemoryLockProvider(MemoryLocksmith):
-    def __init__(self) -> None:
-        warnings.warn("InMemoryLockProvider is deprecated; use MemoryLocksmith", DeprecationWarning, stacklevel=2)
-        super().__init__()
-
-
-def reappoint(p: Locksmith) -> None:
-    warnings.warn("set_lock_provider is deprecated; use appoint", DeprecationWarning, stacklevel=2)
-    appoint(p)
-
-
-__all__ += [
-    "ScopeLike",
-    "LockProvider",
-    "LockBox",
-    "InMemoryLockProvider",
-    "reappoint",
 ]
