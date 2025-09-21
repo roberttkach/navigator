@@ -197,22 +197,9 @@ class HistoryRepo:
                         markup=self._decode_reply(d.get("markup")),
                         preview=self._decode_preview(d.get("preview")),
                         extra=d.get("extra"),
-                        extras=[
-                            int(x)
-                            for x in (
-                                d.get("extras")
-                                if d.get("extras") is not None
-                                else d.get("aux_ids")
-                                or []
-                            )
-                        ],
-                        inline=d.get("inline", d.get("inline_id")),
-                        automated=bool(
-                            d.get(
-                                "automated",
-                                d.get("by_bot", True),
-                            )
-                        ),
+                        extras=[int(x) for x in (d.get("extras") or [])],
+                        inline=d.get("inline"),
+                        automated=bool(d.get("automated", True)),
                         ts=self._decode_dt(d.get("ts")),
                     )
                 )
