@@ -16,6 +16,8 @@
 - Message gateway protocol promotes edit verbs to `rewrite`/`recast`/`retitle`/`remap`, with orchestrator dispatch updated to the new names.
 - Telegram gateway internals now use single-word identifiers throughout dispatch/edit/delete flows, including the extras bundle handling, `DeleteBatch` runner, and the shared `targets`/`extract` helpers with `sanitize` alignment.
 - Inline editing helpers remove the `handle_element`/`_media_editable_inline`/`_reply_changed` names in favour of `handle`, `_inlineable`, and `_replydelta`, dropping the auxiliary `_inline_remap` alias for a streamlined `_inline` import.
+- Rebase flow shifter dependencies shorten to `ledger`/`buffer`/`latest`, with the pivot message handled through `marker`/`patched`/`trailer`/`rebuilt` terminology.
+- Tail use-case adopts `latest`/`ledger` storage naming, exposes the public `peek` verb, and keeps inline decisions readable through `normal`/`choice`/`mapped`/`targets`/`resend` markers.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.
@@ -37,6 +39,38 @@
 | Telegram reply helpers | `reply_for_send`/`reply_for_edit` | `markup(codec, reply, *, edit)` |
 | Gateway logging helpers | Inline replacements for `log_edit_fail`/`log_edit_ok` | Inline `jlog` calls |
 | Telegram batch delete runner | `BatchDeleteRunner` | `DeleteBatch` |
+
+## Tail Use-Case Renaming Plan
+
+| Scope | Legacy Identifier | Replacement |
+|-------|-------------------|-------------|
+| Last message flow | `last_repo` | `latest` |
+| Last message flow | `_last_repo` | `_latest` |
+| Last message flow | `history_repo` | `ledger` |
+| Last message flow | `_history_repo` | `_ledger` |
+| Last message flow | `get_id` | `peek` |
+| Last message flow | `new_history` | `trimmed` |
+| Last message flow | `new_last_id` | `marker` |
+| Last message flow | `last_node` | `tail` |
+| Last message flow | `last_entry` | `anchor` |
+| Last message flow | `base_msg` | `stem` |
+| Last message flow | `ids_to_del` | `targets` |
+| Last message flow | `resend_result` | `resend` |
+
+## Rebase Use-Case Renaming Plan
+
+| Scope | Legacy Identifier | Replacement |
+|-------|-------------------|-------------|
+| Rebase flow | `history_repo` | `ledger` |
+| Rebase flow | `_history_repo` | `_ledger` |
+| Rebase flow | `temp_repo` | `buffer` |
+| Rebase flow | `_temp_repo` | `_buffer` |
+| Rebase flow | `last_repo` | `latest` |
+| Rebase flow | `_last_repo` | `_latest` |
+| Rebase flow | `new_id` | `marker` |
+| Rebase flow | `patched_first` | `patched` |
+| Rebase flow | `rebased_last` | `trailer` |
+| Rebase flow | `rebased` | `rebuilt` |
 
 ## Upcoming Protocol Updates
 

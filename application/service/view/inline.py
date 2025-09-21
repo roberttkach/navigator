@@ -100,8 +100,8 @@ class InlineStrategy:
                 verdict = _d.decide(anchor, entry, config)
                 if verdict is _d.Decision.DELETE_SEND:
                     remap = _inline(base, entry, inline=True)
-                    jlog(self._logger, logging.INFO, LogCode.INLINE_REMAP_DELETE_SEND, from_="DELETE_SEND",
-                         to_=remap.name)
+                    jlog(self._logger, logging.INFO, LogCode.INLINE_REMAP_DELETE_SEND, origin="DELETE_SEND",
+                         target=remap.name)
                     if remap is _d.Decision.EDIT_MARKUP:
                         return await swap(
                             scope,

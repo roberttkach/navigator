@@ -75,7 +75,7 @@ class _Tail:
     async def get(self) -> Optional[Dict[str, Any]]:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.get", scope=profile(self._scope))
         async with locks.guard(self._scope):
-            identifier = await self._tailer.get_id()
+            identifier = await self._tailer.peek()
         if identifier is None:
             return None
         return {

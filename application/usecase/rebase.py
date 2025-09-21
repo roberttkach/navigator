@@ -13,32 +13,32 @@ logger = logging.getLogger(__name__)
 
 
 class Shifter:
-    def __init__(self, history_repo: HistoryRepository, temp_repo: TemporaryRepository,
-                 last_repo: LastMessageRepository):
-        self._history_repo = history_repo
-        self._temp_repo = temp_repo
-        self._last_repo = last_repo
+    def __init__(self, ledger: HistoryRepository, buffer: TemporaryRepository,
+                 latest: LastMessageRepository):
+        self._ledger = ledger
+        self._buffer = buffer
+        self._latest = latest
 
     @trace(None, None, None)
-    async def execute(self, new_id: int) -> None:
-        history = await self._history_repo.recall()
+    async def execute(self, marker: int) -> None:
+        history = await self._ledger.recall()
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, op="rebase", history={"len": len(history)})
         if not history:
             return
 
         last = history[-1]
         if not last.messages:
-            await self._temp_repo.stash([])
+            await self._buffer.stash([])
             jlog(logger, logging.INFO, LogCode.TEMP_SAVE, op="rebase", temp={"len": 0})
-            await self._last_repo.mark(int(new_id))
-            jlog(logger, logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(new_id)})
+            await self._latest.mark(int(marker))
+            jlog(logger, logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(marker)})
             jlog(logger, logging.INFO, LogCode.REBASE_SUCCESS, op="rebase",
-                 message={"id": int(new_id)}, history={"len": len(history)})
+                 message={"id": int(marker)}, history={"len": len(history)})
             return
 
         first = last.messages[0]
-        patched_first = Msg(
-            id=int(new_id),
+        patched = Msg(
+            id=int(marker),
             text=first.text,
             media=first.media,
             group=first.group,
@@ -50,22 +50,22 @@ class Shifter:
             automated=first.automated,
             ts=first.ts,
         )
-        rebased_last = Entry(
+        trailer = Entry(
             state=last.state,
             view=last.view,
-            messages=[patched_first] + last.messages[1:],
+            messages=[patched] + last.messages[1:],
             root=last.root,
         )
-        rebased: List[Entry] = history[:-1] + [rebased_last]
+        rebuilt: List[Entry] = history[:-1] + [trailer]
 
-        await self._history_repo.archive(rebased)
-        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="rebase", history={"len": len(rebased)})
+        await self._ledger.archive(rebuilt)
+        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="rebase", history={"len": len(rebuilt)})
 
-        await self._temp_repo.stash([])
+        await self._buffer.stash([])
         jlog(logger, logging.INFO, LogCode.TEMP_SAVE, op="rebase", temp={"len": 0})
 
-        await self._last_repo.mark(int(new_id))
-        jlog(logger, logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(new_id)})
+        await self._latest.mark(int(marker))
+        jlog(logger, logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(marker)})
 
         jlog(logger, logging.INFO, LogCode.REBASE_SUCCESS, op="rebase",
-             message={"id": int(new_id)}, history={"len": len(rebased)})
+             message={"id": int(marker)}, history={"len": len(rebuilt)})
