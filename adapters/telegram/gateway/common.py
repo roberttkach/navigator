@@ -22,10 +22,10 @@ def markup(codec, reply, *, edit: bool):
 
 def finalize(scope, payload, identifier, result):
     if scope.inline:
-        mid = identifier
+        marker = identifier
     else:
         fallback = getattr(result, "message_id", None)
-        mid = fallback if fallback is not None else identifier
+        marker = fallback if fallback is not None else identifier
     meta = extract(result, payload, scope)
     jlog(
         logger,
@@ -33,6 +33,6 @@ def finalize(scope, payload, identifier, result):
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),
         payload=classify(payload),
-        message={"id": mid, "extra_len": 0},
+        message={"id": marker, "extra_len": 0},
     )
-    return Result(id=mid, extra=[], **meta)
+    return Result(id=marker, extra=[], **meta)

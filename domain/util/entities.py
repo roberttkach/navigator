@@ -29,37 +29,37 @@ _ALLOWED_ENTITY_TYPES = {
 }
 
 
-def sanitize(entities: Any, text_len: int) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
+def sanitize(entities: Any, length: int) -> List[Dict[str, Any]]:
+    result: List[Dict[str, Any]] = []
     if not isinstance(entities, list):
-        return out
-    for e in entities:
-        if not isinstance(e, dict):
+        return result
+    for entity in entities:
+        if not isinstance(entity, dict):
             continue
-        t = e.get("type")
-        off = e.get("offset")
-        ln = e.get("length")
-        if t not in _ALLOWED_ENTITY_TYPES:
+        kind = entity.get("type")
+        offset = entity.get("offset")
+        span = entity.get("length")
+        if kind not in _ALLOWED_ENTITY_TYPES:
             continue
         try:
-            off_i = int(off)
-            ln_i = int(ln)
+            offset_value = int(offset)
+            span_value = int(span)
         except Exception:
             continue
-        if off_i < 0 or ln_i < 1:
+        if offset_value < 0 or span_value < 1:
             continue
-        if (off_i + ln_i) > max(0, int(text_len)):
+        if (offset_value + span_value) > max(0, int(length)):
             continue
-        cleaned = {"type": t, "offset": off_i, "length": ln_i}
-        if t == "text_link" and isinstance(e.get("url"), str):
-            cleaned["url"] = e["url"]
-        if t == "text_mention" and e.get("user") is not None:
-            cleaned["user"] = e["user"]
-        if t == "pre" and isinstance(e.get("language"), str):
-            cleaned["language"] = e["language"]
-        if t == "custom_emoji" and isinstance(e.get("custom_emoji_id"), str):
-            cleaned["custom_emoji_id"] = e["custom_emoji_id"]
-        out.append(cleaned)
-    if entities and not out:
+        entry = {"type": kind, "offset": offset_value, "length": span_value}
+        if kind == "text_link" and isinstance(entity.get("url"), str):
+            entry["url"] = entity["url"]
+        if kind == "text_mention" and entity.get("user") is not None:
+            entry["user"] = entity["user"]
+        if kind == "pre" and isinstance(entity.get("language"), str):
+            entry["language"] = entity["language"]
+        if kind == "custom_emoji" and isinstance(entity.get("custom_emoji_id"), str):
+            entry["custom_emoji_id"] = entity["custom_emoji_id"]
+        result.append(entry)
+    if entities and not result:
         jlog(logging.getLogger(__name__), logging.DEBUG, LogCode.EXTRA_UNKNOWN_DROPPED, note="entities_dropped_all")
-    return out
+    return result

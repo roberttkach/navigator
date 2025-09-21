@@ -59,57 +59,68 @@ def restate(payload: Payload) -> Optional[str]:
     return None
 
 
-def divide(extra: dict | None) -> tuple[dict, dict]:
+def divide(extra: dict | None) -> dict[str, dict]:
     extra = extra or {}
-    cap = {k: extra[k] for k in ("mode", "entities", "message_effect_id") if k in extra}
-    med = {k: extra[k] for k in (
-        "spoiler", "show_caption_above_media", "start", "thumb",
-        "title", "performer", "duration", "width", "height"
-    ) if k in extra}
-    return cap, med
+    caption = {k: extra[k] for k in ("mode", "entities", "message_effect_id") if k in extra}
+    media = {
+        k: extra[k]
+        for k in (
+            "spoiler",
+            "show_caption_above_media",
+            "start",
+            "thumb",
+            "title",
+            "performer",
+            "duration",
+            "width",
+            "height",
+        )
+        if k in extra
+    }
+    return {"caption": caption, "media": media}
 
 
 def cleanse(
-        extra: Dict[str, Any] | None,
-        is_caption: bool,
-        target=None,
-        *,
-        text_len: int | None = None,
+    extra: Dict[str, Any] | None,
+    captioning: bool,
+    target=None,
+    *,
+    length: int | None = None,
 ) -> Dict[str, Any]:
-    if (text_len or 0) <= 0:
+    if (length or 0) <= 0:
         return {}
-    allowed = ALLOWED_CAPTION_TEXT if is_caption else ALLOWED_TEXT
+    allowed = ALLOWED_CAPTION_TEXT if captioning else ALLOWED_TEXT
     audit(extra, allowed)
-    kv = dict(extra or {})
-    if "entities" in kv:
-        cleaned = sanitize(kv.get("entities"), text_len or 0)
-        if cleaned:
-            kv["entities"] = cleaned
+    mapping = dict(extra or {})
+    if "entities" in mapping:
+        sanitized = sanitize(mapping.get("entities"), length or 0)
+        if sanitized:
+            mapping["entities"] = sanitized
         else:
-            kv.pop("entities", None)
-    if "mode" in kv and "entities" not in kv:
-        kv["parse_mode"] = kv.pop("mode")
-    if is_caption and "entities" in kv:
-        kv["caption_entities"] = kv.pop("entities")
+            mapping.pop("entities", None)
+    if "mode" in mapping and "entities" not in mapping:
+        mapping["parse_mode"] = mapping.pop("mode")
+    if captioning and "entities" in mapping:
+        mapping["caption_entities"] = mapping.pop("entities")
     if target is not None:
-        filtered = screen(target, kv)
-        if set(kv.keys()) != set(filtered.keys()):
-            tgt = getattr(target, "__name__", str(target))
+        screened = screen(target, mapping)
+        if set(mapping.keys()) != set(screened.keys()):
+            target_name = getattr(target, "__name__", str(target))
             jlog(
                 logger,
                 logging.DEBUG,
                 LogCode.EXTRA_FILTERED_OUT,
-                stage=f"{'edit' if 'edit' in tgt.lower() else 'send'}.{'caption' if is_caption else 'text'}",
-                target=tgt,
-                before=sorted(kv.keys()),
-                after=sorted(filtered.keys()),
-                filtered_keys=sorted(set(kv) - set(filtered)),
+                stage=f"{'edit' if 'edit' in target_name.lower() else 'send'}.{'caption' if captioning else 'text'}",
+                target=target_name,
+                before=sorted(mapping.keys()),
+                after=sorted(screened.keys()),
+                filtered_keys=sorted(set(mapping) - set(screened)),
             )
-        return filtered
-    return kv
+        return screened
+    return mapping
 
 
-def scrub(scope, extra: Dict[str, Any] | None, *, is_edit: bool) -> Optional[Dict[str, Any]]:
+def scrub(scope, extra: Dict[str, Any] | None, *, editing: bool) -> Optional[Dict[str, Any]]:
     """
     Нормализация extra:
     - message_effect_id удаляется при edit и во всех чатах, кроме private.
@@ -118,9 +129,9 @@ def scrub(scope, extra: Dict[str, Any] | None, *, is_edit: bool) -> Optional[Dic
     """
     if not extra:
         return None
-    d = dict(extra)
-    ct = getattr(scope, "category", None)
-    if "message_effect_id" in d and (is_edit or ct != "private"):
-        d.pop("message_effect_id", None)
+    mapping = dict(extra)
+    category = getattr(scope, "category", None)
+    if "message_effect_id" in mapping and (editing or category != "private"):
+        mapping.pop("message_effect_id", None)
         jlog(logger, logging.DEBUG, LogCode.EXTRA_EFFECT_STRIPPED, note="effect_stripped")
-    return d
+    return mapping

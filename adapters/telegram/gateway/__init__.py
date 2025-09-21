@@ -5,7 +5,7 @@ from typing import List
 
 from aiogram import Bot
 
-from .delete import BatchDeleteRunner
+from .delete import DeleteBatch
 from .edit import rewrite, recast, retitle, remap
 from .send import dispatch
 from .util import targets
@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramGateway(MessageGateway):
-    def __init__(self, bot: Bot, markup_codec: MarkupCodec, chunk: int = 100, truncate: bool = False):
+    def __init__(self, bot: Bot, codec: MarkupCodec, chunk: int = 100, truncate: bool = False):
         self._bot = bot
-        self._codec = markup_codec
+        self._codec = codec
         self._chunk = int(chunk)
         self._truncate = bool(truncate)
 
@@ -34,21 +34,21 @@ class TelegramGateway(MessageGateway):
             raise InlineUnsupported("inline_send_not_supported")
         return await dispatch(self._bot, self._codec, scope, payload, truncate=self._truncate)
 
-    async def rewrite(self, scope: Scope, message_id: int, payload: Payload) -> Result:
-        return await rewrite(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
+    async def rewrite(self, scope: Scope, message: int, payload: Payload) -> Result:
+        return await rewrite(self._bot, self._codec, scope, message, payload, truncate=self._truncate)
 
-    async def recast(self, scope: Scope, message_id: int, payload: Payload) -> Result:
-        return await recast(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
+    async def recast(self, scope: Scope, message: int, payload: Payload) -> Result:
+        return await recast(self._bot, self._codec, scope, message, payload, truncate=self._truncate)
 
-    async def retitle(self, scope: Scope, message_id: int, payload: Payload) -> Result:
-        return await retitle(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
+    async def retitle(self, scope: Scope, message: int, payload: Payload) -> Result:
+        return await retitle(self._bot, self._codec, scope, message, payload, truncate=self._truncate)
 
-    async def remap(self, scope: Scope, message_id: int, payload: Payload) -> Result:
-        return await remap(self._bot, self._codec, scope, message_id, payload)
+    async def remap(self, scope: Scope, message: int, payload: Payload) -> Result:
+        return await remap(self._bot, self._codec, scope, message, payload)
 
-    async def delete(self, scope: Scope, ids: List[int]) -> None:
-        runner = BatchDeleteRunner(bot=self._bot, chunk=self._chunk)
-        await runner.run(scope, ids)
+    async def delete(self, scope: Scope, identifiers: List[int]) -> None:
+        runner = DeleteBatch(bot=self._bot, chunk=self._chunk)
+        await runner.run(scope, identifiers)
 
     async def alert(self, scope: Scope) -> None:
         if not scope.inline:

@@ -38,7 +38,7 @@ class AppContainer(containers.DeclarativeContainer):
     gateway = providers.Singleton(
         TelegramGateway,
         bot=event.provided.bot,
-        markup_codec=markup_codec,
+        codec=markup_codec,
         chunk=chunk,
         truncate=providers.Object(SETTINGS.truncate),
     )
@@ -63,7 +63,7 @@ class AppContainer(containers.DeclarativeContainer):
         rendering_config=rendering_config,
     )
     view_restorer = providers.Factory(
-        ViewRestorer, markup_codec=markup_codec, ledger=ledger
+        ViewRestorer, codec=markup_codec, ledger=ledger
     )
 
     appender = providers.Factory(

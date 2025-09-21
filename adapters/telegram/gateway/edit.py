@@ -20,7 +20,7 @@ from ....domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-async def rewrite(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
+async def rewrite(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *,
                   truncate: bool = False) -> Result:
     raw = "" if payload.text is None else str(payload.text)
     if not raw.strip():
@@ -31,19 +31,19 @@ async def rewrite(bot, codec: MarkupCodec, scope: Scope, message_id: int, payloa
             jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="rewrite")
         else:
             raise TextTooLong()
-    norm_extra = serializer.scrub(scope, payload.extra, is_edit=True)
-    kwargs = serializer.cleanse(
-        norm_extra, is_caption=False, target=bot.edit_message_text, text_len=len(raw)
+    extras = serializer.scrub(scope, payload.extra, editing=True)
+    cleaned = serializer.cleanse(
+        extras, captioning=False, target=bot.edit_message_text, length=len(raw)
     )
-    trg = _targets(scope, message_id)
+    target = _targets(scope, message)
     try:
         result = await invoke(
             bot.edit_message_text,
             text=raw,
             reply_markup=markup(codec, payload.reply, edit=True),
             link_preview_options=serializer.preview(payload.preview),
-            **trg,
-            **kwargs,
+            **target,
+            **cleaned,
         )
     except Exception as e:
         jlog(
@@ -55,19 +55,19 @@ async def rewrite(bot, codec: MarkupCodec, scope: Scope, message_id: int, payloa
             note=type(e).__name__,
         )
         raise
-    return finalize(scope, payload, message_id, result)
+    return finalize(scope, payload, message, result)
 
 
-async def recast(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
+async def recast(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *,
                  truncate: bool = False) -> Result:
     if not payload.media:
         raise ValueError("Cannot edit media without a media payload")
-    norm_extra = serializer.scrub(scope, payload.extra, is_edit=True)
+    extras = serializer.scrub(scope, payload.extra, editing=True)
     caption = serializer.caption(payload)
-    allow_local = not bool(scope.inline)
+    local = not bool(scope.inline)
     try:
-        tg_media = media_mapper.compose(
-            payload.media, caption, extra=norm_extra, allow_local=allow_local, truncate=truncate
+        medium = media_mapper.compose(
+            payload.media, caption, extra=extras, allow_local=local, truncate=truncate
         )
     except MessageEditForbidden:
         jlog(
@@ -79,13 +79,13 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload
             note="inline_upload_forbidden",
         )
         raise
-    trg = _targets(scope, message_id)
+    target = _targets(scope, message)
     try:
         result = await invoke(
             bot.edit_message_media,
-            media=tg_media,
+            media=medium,
             reply_markup=markup(codec, payload.reply, edit=True),
-            **trg,
+            **target,
         )
     except Exception as e:
         jlog(
@@ -97,19 +97,19 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload
             note=type(e).__name__,
         )
         raise
-    return finalize(scope, payload, message_id, result)
+    return finalize(scope, payload, message, result)
 
 
-async def retitle(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
+async def retitle(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *,
                   truncate: bool = False) -> Result:
-    norm_extra = serializer.scrub(scope, payload.extra, is_edit=True)
-    cap_extra, media_extra = serializer.divide(norm_extra)
+    extras = serializer.scrub(scope, payload.extra, editing=True)
+    bundle = serializer.divide(extras)
     caption = serializer.restate(payload)
-    cap_len = len(caption) if caption is not None else 0
-    kwargs = serializer.cleanse(
-        cap_extra, is_caption=True, target=bot.edit_message_caption, text_len=cap_len
+    length = len(caption) if caption is not None else 0
+    cleaned = serializer.cleanse(
+        bundle["caption"], captioning=True, target=bot.edit_message_caption, length=length
     )
-    trg = _targets(scope, message_id)
+    target = _targets(scope, message)
     if caption is not None and len(caption) > CaptionLimit:
         if truncate:
             caption = caption[:CaptionLimit]
@@ -117,31 +117,31 @@ async def retitle(bot, codec: MarkupCodec, scope: Scope, message_id: int, payloa
         else:
             raise CaptionTooLong()
     try:
-        call_kwargs: Dict[str, Any] = {
+        arguments: Dict[str, Any] = {
             "reply_markup": markup(codec, payload.reply, edit=True),
-            **trg,
-            **kwargs,
+            **target,
+            **cleaned,
         }
         if caption is not None:
-            call_kwargs["caption"] = caption
-        media_kwargs: Dict[str, Any] = {}
-        if (media_extra or {}).get("show_caption_above_media") is not None:
-            media_kwargs["show_caption_above_media"] = bool((media_extra or {}).get("show_caption_above_media"))
-        raw_media_kwargs = dict(media_kwargs)
-        filtered_media_kwargs = screen(bot.edit_message_caption, media_kwargs)
-        if set(raw_media_kwargs.keys()) != set(filtered_media_kwargs.keys()):
+            arguments["caption"] = caption
+        settings: Dict[str, Any] = {}
+        if (bundle["media"] or {}).get("show_caption_above_media") is not None:
+            settings["show_caption_above_media"] = bool((bundle["media"] or {}).get("show_caption_above_media"))
+        initial = dict(settings)
+        screened = screen(bot.edit_message_caption, settings)
+        if set(initial.keys()) != set(screened.keys()):
             jlog(
                 logger,
                 logging.DEBUG,
                 LogCode.EXTRA_FILTERED_OUT,
                 scope=profile(scope),
                 stage="edit.caption.media",
-                before=sorted(raw_media_kwargs.keys()),
-                after=sorted(filtered_media_kwargs.keys()),
-                filtered_keys=sorted(set(raw_media_kwargs) - set(filtered_media_kwargs)),
+                before=sorted(initial.keys()),
+                after=sorted(screened.keys()),
+                filtered_keys=sorted(set(initial) - set(screened)),
             )
-        call_kwargs.update(filtered_media_kwargs)
-        result = await invoke(bot.edit_message_caption, **call_kwargs)
+        arguments.update(screened)
+        result = await invoke(bot.edit_message_caption, **arguments)
     except Exception as e:
         jlog(
             logger,
@@ -152,16 +152,16 @@ async def retitle(bot, codec: MarkupCodec, scope: Scope, message_id: int, payloa
             note=type(e).__name__,
         )
         raise
-    return finalize(scope, payload, message_id, result)
+    return finalize(scope, payload, message, result)
 
 
-async def remap(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload) -> Result:
-    trg = _targets(scope, message_id)
+async def remap(bot, codec: MarkupCodec, scope: Scope, message: int, payload) -> Result:
+    target = _targets(scope, message)
     try:
         result = await invoke(
             bot.edit_message_reply_markup,
             reply_markup=markup(codec, payload.reply, edit=True),
-            **trg,
+            **target,
         )
     except Exception as e:
         jlog(
@@ -173,4 +173,4 @@ async def remap(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload)
             note=type(e).__name__,
         )
         raise
-    return finalize(scope, payload, message_id, result)
+    return finalize(scope, payload, message, result)
