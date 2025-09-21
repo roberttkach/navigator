@@ -9,7 +9,7 @@ def classify(p: Payload) -> Dict[str, Any]:
     if p.group:
         return {"kind": "group", "group_len": len(p.group)}
     if p.media:
-        return {"kind": "media", "media_type": getattr(p.media.type, "value", None)}
+        return {"kind": "media", "medium": getattr(p.media.type, "value", None)}
     return {"kind": "text"}
 
 

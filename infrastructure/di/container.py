@@ -60,7 +60,7 @@ class AppContainer(containers.DeclarativeContainer):
         ViewOrchestrator,
         gateway=gateway,
         inline=strategy,
-        rendering_config=rendering,
+        rendering=rendering,
     )
     restorer = providers.Factory(
         ViewRestorer, codec=codec, ledger=ledger

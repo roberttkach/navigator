@@ -12,11 +12,11 @@ class Result:
     id: int
     extra: List[int]
     kind: Literal["text", "media", "group"]
-    media_type: Optional[str] = None
-    file_id: Optional[str] = None
+    medium: Optional[str] = None
+    file: Optional[str] = None
     caption: Optional[str] = None
     text: Optional[str] = None
-    group_items: Optional[List[dict]] = None
+    clusters: Optional[List[dict]] = None
     inline: Optional[str] = None
 
 

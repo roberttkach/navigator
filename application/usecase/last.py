@@ -102,7 +102,7 @@ class Tailer:
                 break
 
         if anchor is not None:
-            choice = decision.decide(anchor, normal, self._orchestrator.rendering_config)
+            choice = decision.decide(anchor, normal, self._orchestrator.rendering)
         else:
             if normal.media:
                 choice = decision.Decision.EDIT_MEDIA
@@ -157,7 +157,7 @@ class Tailer:
                 tail=head,
                 inline=True,
                 swap=self._orchestrator.swap,
-                config=self._orchestrator.rendering_config,
+                config=self._orchestrator.rendering,
             )
         else:
             result = await self._orchestrator.swap(scope, normal, base, choice)

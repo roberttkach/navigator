@@ -20,6 +20,7 @@
 - Tail use-case adopts `latest`/`ledger` storage naming, exposes the public `peek` verb, and keeps inline decisions readable through `normal`/`choice`/`mapped`/`targets`/`resend` markers.
 - Logging decorator utilities now rely on `_capture` and `_snapshot`, with the `trace` decorator exposing the public `begin`/`success`/`skip` argument trio for clarity.
 - Gateway error pattern builders collapse to the classmethod `collect`, removing the final `from_phrases` snake-case entry point.
+- Gateway result metadata now settles on single-word keys `medium`/`file`/`clusters`, with the view orchestrator mirroring the terminology through its `rendering` profile accessor.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.
@@ -77,7 +78,7 @@
 ## Upcoming Protocol Updates
 
 - Promote `MessageGateway` verbs such as `edit_text`, `edit_media`, `edit_caption`, and `edit_markup` to single-word alternatives once downstream call sites have adopted the helper renames listed above.
-- Consolidate result metadata fields (`media_type`, `file_id`, `group_items`) under single-word terms after aligning storage and rendering pipelines.
+- Audit downstream consumers for the new `medium`/`file`/`clusters` metadata vocabulary to ensure compatibility across storage and presentation layers.
 
 ## View Restoration Plan
 
