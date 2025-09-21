@@ -1,7 +1,7 @@
 from ...domain.value.message import Scope
 
 
-def make_scope(event) -> Scope:
+def outline(event) -> Scope:
     language_source = getattr(getattr(event, "from_user", None), "language_code", None)
     language = (language_source or "en").split("-")[0].lower()
     inline = getattr(event, "inline_message_id", None)

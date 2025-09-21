@@ -19,14 +19,14 @@ BACK_CALLBACK_DATA: Final[str] = "back"
 logger = logging.getLogger(__name__)
 
 
-def _lang_from(obj) -> str:
+def _tongue(obj) -> str:
     u = getattr(obj, "from_user", None)
     code = getattr(u, "language_code", None)
     return (code or "en").split("-")[0].lower()
 
 
 @router.callback_query(F.data == BACK_CALLBACK_DATA)
-async def back_handler(cb: CallbackQuery, navigator: Navigator, **data: Dict[str, Any]) -> None:
+async def retreat(cb: CallbackQuery, navigator: Navigator, **data: Dict[str, Any]) -> None:
     try:
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_ENTER, kind="callback",
              scope={"chat": cb.message.chat.id if cb.message else 0, "inline": bool(cb.inline_message_id)})
@@ -37,20 +37,20 @@ async def back_handler(cb: CallbackQuery, navigator: Navigator, **data: Dict[str
         await cb.answer()
     except HistoryEmpty:
         jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="history_empty")
-        await cb.answer(lexeme("prev_not_found", _lang_from(cb)), show_alert=True)
+        await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
     except InlineUnsupported:
         jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="inline_unsupported")
-        await cb.answer(lexeme("inline_unsupported", _lang_from(cb)), show_alert=True)
+        await cb.answer(lexeme("inline_unsupported", _tongue(cb)), show_alert=True)
     except Exception:
         jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="generic")
-        await cb.answer(lexeme("prev_not_found", _lang_from(cb)), show_alert=True)
+        await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
 
 
 BACK_TEXTS: Final = {lexeme("back", "ru"), lexeme("back", "en")}
 
 
 @router.message(F.func(lambda m: getattr(m, "text", None) in BACK_TEXTS))
-async def back_text_handler(msg: Message, navigator: Navigator, **data: Dict[str, Any]) -> None:
+async def recall(msg: Message, navigator: Navigator, **data: Dict[str, Any]) -> None:
     try:
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_ENTER, kind="text",
              scope={"chat": msg.chat.id, "inline": False})
