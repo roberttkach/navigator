@@ -34,7 +34,7 @@ class _LatchLike(Protocol):
 
     def release(self) -> None: ...
 
-    async def release_async(self) -> None: ...
+    async def untether(self) -> None: ...
 
     def locked(self) -> bool: ...
 
@@ -45,7 +45,7 @@ class Latch:
 
 
 class Locksmith(Protocol):
-    def box_for(self, key: tuple[object, object | None]) -> Latch: ...
+    def latch(self, key: tuple[object, object | None]) -> Latch: ...
 
 
 class _LatchAdapter:
@@ -59,7 +59,7 @@ class _LatchAdapter:
     def release(self) -> None:
         self._l.release()
 
-    async def release_async(self) -> None:
+    async def untether(self) -> None:
         # asyncio.Lock.release() синхронный; для совместимости оставляем await-обёртку
         self._l.release()
 
@@ -73,12 +73,12 @@ class MemoryLocksmith:
             tuple[object, object | None], Latch
         ] = WeakValueDictionary()
 
-    def box_for(self, key: tuple[object, object | None]) -> Latch:  # type: ignore[override]
-        box = self._locks.get(key)
-        if box is None:
-            box = Latch(lock=_LatchAdapter())
-            self._locks[key] = box
-        return box
+    def latch(self, key: tuple[object, object | None]) -> Latch:  # type: ignore[override]
+        latch = self._locks.get(key)
+        if latch is None:
+            latch = Latch(lock=_LatchAdapter())
+            self._locks[key] = latch
+        return latch
 
 
 _PROVIDER: list[Locksmith] = [MemoryLocksmith()]
@@ -95,19 +95,19 @@ def appoint(p: Locksmith) -> None:
 class Guard:
     def __init__(self, scope: ScopeForm) -> None:
         k = _key(scope)
-        self._box = _current().box_for(k)
+        self._latch = _current().latch(k)
 
     async def __aenter__(self) -> None:
-        await self._box.lock.acquire()
+        await self._latch.lock.acquire()
 
     async def __aexit__(
-        self, exc_type: object, exc: object, traceback: object
+        self, kind: object, exc: object, trace: object
     ) -> None:
-        rel = getattr(self._box.lock, "release_async", None)
+        rel = getattr(self._latch.lock, "untether", None)
         if rel:
             await rel()
         else:
-            self._box.lock.release()
+            self._latch.lock.release()
 
 
 def guard(scope: ScopeForm) -> Guard:
@@ -143,7 +143,7 @@ class InMemoryLockProvider(MemoryLocksmith):
         super().__init__()
 
 
-def set_lock_provider(p: Locksmith) -> None:
+def reappoint(p: Locksmith) -> None:
     warnings.warn("set_lock_provider is deprecated; use appoint", DeprecationWarning, stacklevel=2)
     appoint(p)
 
@@ -153,5 +153,5 @@ __all__ += [
     "LockProvider",
     "LockBox",
     "InMemoryLockProvider",
-    "set_lock_provider",
+    "reappoint",
 ]

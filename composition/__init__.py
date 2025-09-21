@@ -6,14 +6,14 @@ from ..application.log.emit import set_redaction_mode
 from .migrate import cleanse
 from ..infrastructure.config import SETTINGS
 from ..infrastructure.di.container import AppContainer
-from ..infrastructure.locks import configure_from_env
+from ..infrastructure.locks import configure
 from ..presentation.navigator import Navigator
 from ..presentation.telegram.scope import make_scope
 
 
 async def assemble(event: Any, state: Any, registry: Optional[Any] = None) -> Navigator:
     set_redaction_mode(SETTINGS.log_redaction_mode)
-    configure_from_env()
+    configure()
     reg = registry if registry is not None else reg_default
     await cleanse(state, reg)
     container = AppContainer(event=event, state=state, registry=reg)
