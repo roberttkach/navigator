@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramGateway(MessageGateway):
-    def __init__(self, bot: Bot, markup_codec: MarkupCodec, chunk_size: int = 100, truncate: bool = False):
+    def __init__(self, bot: Bot, markup_codec: MarkupCodec, chunk: int = 100, truncate: bool = False):
         self._bot = bot
         self._codec = markup_codec
-        self._chunk_size = int(chunk_size)
+        self._chunk = int(chunk)
         self._truncate = bool(truncate)
 
     async def send(self, scope: Scope, payload: Payload) -> Result:
@@ -47,7 +47,7 @@ class TelegramGateway(MessageGateway):
         return await do_edit_markup(self._bot, self._codec, scope, message_id, payload)
 
     async def delete(self, scope: Scope, ids: List[int]) -> None:
-        runner = BatchDeleteRunner(bot=self._bot, chunk_size=self._chunk_size)
+        runner = BatchDeleteRunner(bot=self._bot, chunk=self._chunk)
         await runner.run(scope, ids)
 
     async def alert(self, scope: Scope) -> None:
