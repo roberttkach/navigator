@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
-import warnings
 
 from ..entity.markup import Markup
 from ..entity.media import MediaItem
@@ -33,10 +32,6 @@ class Payload:
 
     def morph(self, **kw: Any) -> Payload:
         return replace(self, **kw)
-
-    def with_(self, **kw: Any) -> Payload:
-        warnings.warn("Payload.with_ is deprecated; use Payload.morph", DeprecationWarning, stacklevel=2)
-        return self.morph(**kw)
 
 
 def normalize(payload: Payload) -> Payload:
@@ -89,13 +84,3 @@ def caption(x: Payload | Entry | None) -> str | None:
         s = str(c).strip()
         return s if s else None
     return None
-
-
-def resolve_content(payload: Payload) -> Payload:
-    warnings.warn("resolve_content is deprecated; use normalize", DeprecationWarning, stacklevel=2)
-    return normalize(payload)
-
-
-def caption_of(x: Payload | Entry | None) -> str | None:
-    warnings.warn("caption_of is deprecated; use caption", DeprecationWarning, stacklevel=2)
-    return caption(x)
