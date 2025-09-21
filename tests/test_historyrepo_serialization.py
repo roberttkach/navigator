@@ -29,7 +29,7 @@ def test_to_dict_uses_canonical_keys():
     )
     entry = Entry(state="s", view="v", messages=[msg], root=True)
 
-    payload = repo._to_dict(entry)
+    payload = repo._dump(entry)
     assert payload["root"] is True
     assert payload["state"] == "s"
     assert payload["view"] == "v"
@@ -61,7 +61,7 @@ def test_from_dict_reads_canonical_keys():
         ],
     }
 
-    entry = repo._from_dict(data)
+    entry = repo._load(data)
     assert entry.state == "s"
     assert entry.view == "v"
     assert entry.root is True
@@ -92,7 +92,7 @@ def test_from_dict_rejects_legacy_keys():
     }
 
     with pytest.raises(ValueError):
-        repo._from_dict(data)
+        repo._load(data)
 
 
 def test_from_dict_requires_automated_flag():
@@ -109,4 +109,4 @@ def test_from_dict_requires_automated_flag():
     }
 
     with pytest.raises(ValueError):
-        repo._from_dict(data)
+        repo._load(data)

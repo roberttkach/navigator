@@ -15,30 +15,16 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-def _to_int(x, default=0):
+def _integral(x, default=0):
     try:
         return int(x)
     except Exception:
         return default
 
 
-class HistoryRepo:
-    def __init__(self, state: FSMContext):
-        self._state = state
-
-    async def get_history(self) -> List[Entry]:
-        data = await self._state.get_data()
-        raw = data.get(FSM_HISTORY_KEY, [])
-        jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, history={"len": len(raw)})
-        return [self._from_dict(d) for d in raw]
-
-    async def save_history(self, history: List[Entry]) -> None:
-        payload = [self._to_dict(entry) for entry in history]
-        await self._state.update_data({FSM_HISTORY_KEY: payload})
-        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, history={"len": len(payload)})
-
+class MediaCodec:
     @staticmethod
-    def _encode_media(item: Optional[MediaItem]) -> Optional[Dict[str, Any]]:
+    def pack(item: Optional[MediaItem]) -> Optional[Dict[str, Any]]:
         if not item:
             return None
         return {
@@ -48,63 +34,61 @@ class HistoryRepo:
         }
 
     @staticmethod
-    def _decode_media(data: Any) -> Optional[MediaItem]:
+    def unpack(data: Any) -> Optional[MediaItem]:
         if not isinstance(data, Dict):
             return None
-        t = data.get("type")
-        f = data.get("file_id")
-        if not (isinstance(t, str) and isinstance(f, str) and f):
+        kind = data.get("type")
+        file_id = data.get("file_id")
+        if not (isinstance(kind, str) and isinstance(file_id, str) and file_id):
             return None
-        return MediaItem(type=MediaType(t), path=f, caption=data.get("caption"))
+        return MediaItem(type=MediaType(kind), path=file_id, caption=data.get("caption"))
 
+
+class GroupCodec:
     @staticmethod
-    def _encode_group(items: Optional[List[MediaItem]]) -> Optional[List[Dict[str, Any]]]:
+    def pack(items: Optional[List[MediaItem]]) -> Optional[List[Dict[str, Any]]]:
         if not items:
             return None
-        out = []
-        for i in items:
-            out.append(
-                {
-                    "type": i.type.value,
-                    "file_id": i.path,
-                    "caption": i.caption,
-                }
-            )
-        return out
+        packed: List[Dict[str, Any]] = []
+        for item in items:
+            encoded = MediaCodec.pack(item)
+            if encoded is not None:
+                packed.append(encoded)
+        return packed or None
 
     @staticmethod
-    def _decode_group(items: Any) -> Optional[List[MediaItem]]:
+    def unpack(items: Any) -> Optional[List[MediaItem]]:
         if not isinstance(items, list):
             return None
         out: List[MediaItem] = []
-        for it in items:
-            if not isinstance(it, Dict):
-                continue
-            t = it.get("type")
-            f = it.get("file_id")
-            if not (isinstance(t, str) and isinstance(f, str) and f):
-                continue
-            out.append(MediaItem(type=MediaType(t), path=f, caption=it.get("caption")))
+        for raw in items:
+            media = MediaCodec.unpack(raw)
+            if media is not None:
+                out.append(media)
         return out or None
 
+
+class ReplyCodec:
     @staticmethod
-    def _encode_reply(rm: Optional[Markup]) -> Optional[Dict[str, Any]]:
+    def pack(rm: Optional[Markup]) -> Optional[Dict[str, Any]]:
         if not rm:
             return None
         return {"kind": rm.kind, "data": rm.data}
 
     @staticmethod
-    def _decode_reply(data: Any) -> Optional[Markup]:
+    def unpack(data: Any) -> Optional[Markup]:
         if not isinstance(data, Dict):
             return None
-        k = data.get("kind")
-        dd = data.get("data")
-        if isinstance(k, str) and isinstance(dd, dict):
-            return Markup(kind=k, data=dd)
+        kind = data.get("kind")
+        payload = data.get("data")
+        if isinstance(kind, str) and isinstance(payload, dict):
+            return Markup(kind=kind, data=payload)
         return None
 
+
+class PreviewCodec:
     @staticmethod
-    def _encode_preview(p: Optional[Preview]) -> Optional[Dict[str, Any]]:
+    def pack(p: Optional[Preview]) -> Optional[Dict[str, Any]]:
         if not p:
             return None
         return {
@@ -116,7 +100,7 @@ class HistoryRepo:
         }
 
     @staticmethod
-    def _decode_preview(p: Any) -> Optional[Preview]:
+    def unpack(p: Any) -> Optional[Preview]:
         if not isinstance(p, Dict):
             return None
         return Preview(
@@ -127,12 +111,14 @@ class HistoryRepo:
             disabled=p.get("disabled"),
         )
 
+
+class TimeCodec:
     @staticmethod
-    def _encode_dt(dt: datetime) -> str:
+    def pack(dt: datetime) -> str:
         return dt.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
     @staticmethod
-    def _decode_dt(raw: Any) -> datetime:
+    def unpack(raw: Any) -> datetime:
         if isinstance(raw, str):
             try:
                 dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
@@ -150,7 +136,23 @@ class HistoryRepo:
         )
         return datetime.now(timezone.utc)
 
-    def _to_dict(self, entry: Entry) -> Dict[str, Any]:
+
+class HistoryRepo:
+    def __init__(self, state: FSMContext):
+        self._state = state
+
+    async def get_history(self) -> List[Entry]:
+        data = await self._state.get_data()
+        raw = data.get(FSM_HISTORY_KEY, [])
+        jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, history={"len": len(raw)})
+        return [self._load(d) for d in raw]
+
+    async def save_history(self, history: List[Entry]) -> None:
+        payload = [self._dump(entry) for entry in history]
+        await self._state.update_data({FSM_HISTORY_KEY: payload})
+        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, history={"len": len(payload)})
+
+    def _dump(self, entry: Entry) -> Dict[str, Any]:
         return {
             "state": entry.state,
             "view": entry.view,
@@ -159,29 +161,29 @@ class HistoryRepo:
                 {
                     "id": m.id,
                     "text": m.text,
-                    "media": self._encode_media(m.media),
-                    "group": self._encode_group(m.group),
-                    "markup": self._encode_reply(m.markup),
-                    "preview": self._encode_preview(m.preview),
+                    "media": MediaCodec.pack(m.media),
+                    "group": GroupCodec.pack(m.group),
+                    "markup": ReplyCodec.pack(m.markup),
+                    "preview": PreviewCodec.pack(m.preview),
                     "extra": m.extra,
                     "extras": list(m.extras),
                     "inline": m.inline,
                     "automated": m.automated,
-                    "ts": self._encode_dt(m.ts),
+                    "ts": TimeCodec.pack(m.ts),
                 }
                 for m in entry.messages
             ],
         }
 
-    def _from_dict(self, data: Dict[str, Any]) -> Entry:
+    def _load(self, data: Dict[str, Any]) -> Entry:
         msgs = data.get("messages")
-        root_flag = bool(data.get("root", False))
+        rootmark = bool(data.get("root", False))
         if isinstance(msgs, list) and not msgs:
             return Entry(
                 state=data.get("state"),
                 view=data.get("view"),
                 messages=[],
-                root=root_flag,
+                root=rootmark,
             )
         if isinstance(msgs, list):
             messages: List[Msg] = []
@@ -189,18 +191,18 @@ class HistoryRepo:
                 if not isinstance(d, Dict):
                     continue
 
-                legacy_keys = {"aux_ids", "inline_id", "by_bot"}.intersection(d.keys())
-                if legacy_keys:
+                legacy = {"aux_ids", "inline_id", "by_bot"}.intersection(d.keys())
+                if legacy:
                     jlog(
                         logger,
                         logging.ERROR,
                         LogCode.HISTORY_LOAD,
                         note="legacy_history_message",
-                        keys=sorted(legacy_keys),
+                        keys=sorted(legacy),
                     )
                     raise ValueError(
                         "Legacy history payload keys are no longer supported: "
-                        + ", ".join(sorted(legacy_keys))
+                        + ", ".join(sorted(legacy))
                     )
 
                 if "automated" not in d:
@@ -214,28 +216,28 @@ class HistoryRepo:
 
                 messages.append(
                     Msg(
-                        id=_to_int(d.get("id"), 0),
+                        id=_integral(d.get("id"), 0),
                         text=d.get("text"),
-                        media=self._decode_media(d.get("media")),
-                        group=self._decode_group(d.get("group")),
-                        markup=self._decode_reply(d.get("markup")),
-                        preview=self._decode_preview(d.get("preview")),
+                        media=MediaCodec.unpack(d.get("media")),
+                        group=GroupCodec.unpack(d.get("group")),
+                        markup=ReplyCodec.unpack(d.get("markup")),
+                        preview=PreviewCodec.unpack(d.get("preview")),
                         extra=d.get("extra"),
                         extras=[int(x) for x in (d.get("extras") or [])],
                         inline=d.get("inline"),
                         automated=bool(d.get("automated")),
-                        ts=self._decode_dt(d.get("ts")),
+                        ts=TimeCodec.unpack(d.get("ts")),
                     )
                 )
             return Entry(
                 state=data.get("state"),
                 view=data.get("view"),
                 messages=messages,
-                root=root_flag,
+                root=rootmark,
             )
         return Entry(
             state=data.get("state"),
             view=data.get("view"),
             messages=[],
-            root=root_flag,
+            root=rootmark,
         )
