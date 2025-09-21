@@ -1,5 +1,4 @@
 from typing import Optional, Any
-import warnings
 
 from ..adapters.factory.registry import default as reg_default
 from ..application.log.emit import set_redaction_mode
@@ -31,6 +30,3 @@ async def assemble(event: Any, state: Any, registry: Optional[Any] = None) -> Na
     )
 
 
-async def create_navigator(event: Any, state: Any, registry: Optional[Any] = None) -> Navigator:
-    warnings.warn("create_navigator is deprecated; use assemble", DeprecationWarning, stacklevel=2)
-    return await assemble(event, state, registry)

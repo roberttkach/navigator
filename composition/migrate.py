@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import Any
 
 from ..adapters.factory.registry import default as _default_registry
@@ -45,6 +44,3 @@ async def cleanse(state: Any, registry=_default_registry) -> None:
     )
 
 
-async def purge_invalid_views(state: Any, registry=_default_registry) -> None:
-    warnings.warn("purge_invalid_views is deprecated; use cleanse", DeprecationWarning, stacklevel=2)
-    await cleanse(state, registry)

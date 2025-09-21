@@ -45,7 +45,6 @@ Navigator API — ключевые контракты:
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import Optional, Dict, Any, Union, SupportsInt
 
 from ..application import locks
@@ -200,10 +199,3 @@ class Navigator:
         async with locks.guard(self._scope):
             await self._alarm.execute(self._scope)
 
-    async def inform_history_is_empty(self) -> None:
-        warnings.warn(
-            "Navigator.inform_history_is_empty is deprecated; use Navigator.alert",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        await self.alert()
