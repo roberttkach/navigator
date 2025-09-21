@@ -74,7 +74,7 @@ class Setter:
         jlog(logger, logging.INFO, LogCode.STATE_SET, op="set", state={"target": target_entry.state})
         memory = await self._state_repo.payload()
         merged = {**memory, **context}
-        restored_payloads = await self._restorer.restore_node(target_entry, merged, inline=is_inline)
+        restored_payloads = await self._restorer.revive(target_entry, merged, inline=is_inline)
         resolved_payloads = [normalize(p) for p in restored_payloads]
         if not is_inline:
             render_result = await self._orchestrator.render_node(
