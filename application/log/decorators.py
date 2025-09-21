@@ -19,8 +19,8 @@ def _extract_scope_payload(fn: Callable[..., Any], args: Tuple[Any, ...], kwargs
     except (AttributeError, ImportError, TypeError, ValueError):
         scope_val = None
     try:
-        from ...domain.service.rendering.helpers import payload_kind
-        payload_val = payload_kind(payload) if payload is not None else None
+        from ...domain.service.rendering.helpers import classify
+        payload_val = classify(payload) if payload is not None else None
     except (AttributeError, ImportError, TypeError, ValueError):
         payload_val = None
     return scope_val, payload_val

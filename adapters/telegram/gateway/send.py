@@ -14,7 +14,7 @@ from ....domain.error import EmptyPayload, MessageEditForbidden, TextTooLong, Ca
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
 from ....domain.port.message import Result
-from ....domain.service.rendering.helpers import payload_kind as _payload_kind
+from ....domain.service.rendering.helpers import classify as _classify
 from ....domain.service.scope import profile
 from ....domain.value.message import Scope
 from ....domain.log.code import LogCode
@@ -51,7 +51,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                 logging.INFO,
                 LogCode.GATEWAY_SEND_OK,
                 scope=profile(scope),
-                payload=_payload_kind(payload),
+                payload=_classify(payload),
                 message={"id": sent_messages[0].message_id, "extra_len": len(sent_messages) - 1},
             )
             meta = {"kind": "group", "group_items": items, "inline": scope.inline}
@@ -69,7 +69,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                     logging.WARNING,
                     LogCode.GATEWAY_SEND_FAIL,
                     scope=profile(scope),
-                    payload=_payload_kind(payload),
+                    payload=_classify(payload),
                     note="inline_upload_forbidden",
                 )
                 raise
@@ -171,7 +171,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             logging.INFO,
             LogCode.GATEWAY_SEND_OK,
             scope=profile(scope),
-            payload=_payload_kind(payload),
+            payload=_classify(payload),
             message={"id": sent_message.message_id, "extra_len": 0},
         )
         meta = extract_meta(sent_message, payload, scope)
@@ -185,7 +185,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             logging.WARNING,
             LogCode.GATEWAY_SEND_FAIL,
             scope=profile(scope),
-            payload=_payload_kind(payload),
+            payload=_classify(payload),
             note=str(note)[:300],
         )
         raise
