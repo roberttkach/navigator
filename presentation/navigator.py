@@ -50,7 +50,7 @@ from typing import Optional, Dict, Any, Union, SupportsInt
 from ..application import locks
 from ..application.dto.content import Content, Node
 from ..application.log.emit import jlog
-from ..application.map.payload import to_node_payload, to_payload
+from ..application.map.payload import collect, convert
 from ..application.usecase.add import Appender
 from ..application.usecase.back import Rewinder
 from ..application.usecase.last import Tailer
@@ -68,8 +68,8 @@ logger = logging.getLogger(__name__)
 
 
 class _Tail:
-    def __init__(self, use_case: Tailer, scope: Scope):
-        self._uc = use_case
+    def __init__(self, flow: Tailer, scope: Scope):
+        self._uc = flow
         self._scope = scope
 
     async def get(self) -> Optional[Dict[str, Any]]:
@@ -99,7 +99,7 @@ class _Tail:
             payload={"text": bool(content.text), "media": bool(content.media), "group": bool(content.group)},
         )
         async with locks.guard(self._scope):
-            result = await self._uc.edit(self._scope, to_payload(content))
+            result = await self._uc.edit(self._scope, convert(content))
         return result
 
 
@@ -126,11 +126,11 @@ class Navigator:
         self._tailer = tailer
         self._alarm = alarm
         self._scope = scope
-        self.last = _Tail(use_case=tailer, scope=scope)
+        self.last = _Tail(flow=tailer, scope=scope)
 
     async def add(self, content: Union[Content, Node], *, key: Optional[str] = None, root: bool = False) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
-        payloads = to_node_payload(node)
+        payloads = collect(node)
         jlog(
             logger,
             logging.INFO,
@@ -146,7 +146,7 @@ class Navigator:
 
     async def replace(self, content: Union[Content, Node]) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
-        payloads = to_node_payload(node)
+        payloads = collect(node)
         jlog(
             logger,
             logging.INFO,
@@ -171,23 +171,23 @@ class Navigator:
         async with locks.guard(self._scope):
             await self._shifter.execute(int(mid))
 
-    async def back(self, handler_data: Dict[str, Any]) -> None:
+    async def back(self, context: Dict[str, Any]) -> None:
         jlog(
             logger,
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="back",
             scope=profile(self._scope),
-            handler_keys=sorted(list(handler_data.keys())) if isinstance(handler_data, dict) else None,
+            handler_keys=sorted(list(context.keys())) if isinstance(context, dict) else None,
         )
         async with locks.guard(self._scope):
-            await self._rewinder.execute(self._scope, handler_data)
+            await self._rewinder.execute(self._scope, context)
 
-    async def set(self, state: Union[str, StateLike], handler_data: Dict[str, Any] | None = None) -> None:
+    async def set(self, state: Union[str, StateLike], context: Dict[str, Any] | None = None) -> None:
         st = getattr(state, "state", state)
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=st)
         async with locks.guard(self._scope):
-            await self._setter.execute(self._scope, st, handler_data or {})
+            await self._setter.execute(self._scope, st, context or {})
 
     async def pop(self, count: int = 1) -> None:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=profile(self._scope), count=count)

@@ -9,7 +9,7 @@ from ....domain.value.message import Scope
 _INLINE_KEYBOARD_KIND = "InlineKeyboardMarkup"
 
 
-def allowed_reply(scope: Scope, reply: Optional[Markup]) -> Optional[Markup]:
+def permit(scope: Scope, reply: Optional[Markup]) -> Optional[Markup]:
     """Return reply markup allowed for the given scope.
 
     Scope-specific restrictions limit business chats and non-private/group chats to
@@ -28,11 +28,11 @@ def allowed_reply(scope: Scope, reply: Optional[Markup]) -> Optional[Markup]:
     return reply if reply.kind == _INLINE_KEYBOARD_KIND else None
 
 
-def payload_with_allowed_reply(scope: Scope, payload: Payload) -> Payload:
-    allowed = allowed_reply(scope, payload.reply)
+def adapt(scope: Scope, payload: Payload) -> Payload:
+    allowed = permit(scope, payload.reply)
     if allowed is payload.reply:
         return payload
     return payload.morph(reply=allowed)
 
 
-__all__ = ["allowed_reply", "payload_with_allowed_reply"]
+__all__ = ["permit", "adapt"]

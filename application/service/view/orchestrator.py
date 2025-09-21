@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional, List, Any
 
 from ..view.inline import InlineStrategy
-from .policy import payload_with_allowed_reply
+from .policy import adapt
 from ...internal import policy as _pol
 from ...internal.policy import shield
 from ...log.decorators import log_io
@@ -138,7 +138,7 @@ class ViewOrchestrator:
             dec: decision.Decision,
     ) -> Optional[RenderResult]:
         shield(scope, payload)
-        payload = payload_with_allowed_reply(scope, payload)
+        payload = adapt(scope, payload)
 
         def _head_msg(e):
             return self._head_msg(e)
@@ -268,7 +268,7 @@ class ViewOrchestrator:
             last_node: Optional[Entry],
             inline: bool,
     ) -> Optional[RenderResultNode]:
-        new = [payload_with_allowed_reply(scope, p) for p in payloads]
+        new = [adapt(scope, p) for p in payloads]
         if inline:
             original_len = len(new)
             if original_len > 1:

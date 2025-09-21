@@ -30,8 +30,8 @@ async def back_handler(cb: CallbackQuery, navigator: Navigator, **data: Dict[str
     try:
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_ENTER, kind="callback",
              scope={"chat": cb.message.chat.id if cb.message else 0, "inline": bool(cb.inline_message_id)})
-        handler_data = {**data, "event": cb}
-        await navigator.back(handler_data=handler_data)
+        context = {**data, "event": cb}
+        await navigator.back(context=context)
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_DONE, kind="callback",
              scope={"chat": cb.message.chat.id if cb.message else 0, "inline": bool(cb.inline_message_id)})
         await cb.answer()
@@ -54,8 +54,8 @@ async def back_text_handler(msg: Message, navigator: Navigator, **data: Dict[str
     try:
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_ENTER, kind="text",
              scope={"chat": msg.chat.id, "inline": False})
-        handler_data = {**data, "event": msg}
-        await navigator.back(handler_data=handler_data)
+        context = {**data, "event": msg}
+        await navigator.back(context=context)
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_DONE, kind="text",
              scope={"chat": msg.chat.id, "inline": False})
     except HistoryEmpty:

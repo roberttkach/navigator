@@ -3,13 +3,13 @@ from typing import Optional, List
 
 from ..log.decorators import log_io
 from ..log.emit import jlog
-from ..map.entry import EntryMapper, NodeResult
+from ..map.entry import EntryMapper, Outcome
 from ..service.view.orchestrator import ViewOrchestrator
-from ..service.view.policy import payload_with_allowed_reply
+from ..service.view.policy import adapt
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LastMessageRepository
 from ...domain.port.state import StateRepository
-from ...domain.service.history import policy as history_policy
+from ...domain.service.history import policy as chronicle
 from ...domain.service.scope import profile
 from ...domain.value.content import Payload, normalize
 from ...domain.value.message import Scope
@@ -21,58 +21,58 @@ logger = logging.getLogger(__name__)
 class Appender:
     def __init__(
             self,
-            history_repo: HistoryRepository,
-            state_repo: StateRepository,
-            last_repo: LastMessageRepository,
+            archive: HistoryRepository,
+            state: StateRepository,
+            tail: LastMessageRepository,
             orchestrator: ViewOrchestrator,
             mapper: EntryMapper,
-            history_limit: int,
+            limit: int,
     ):
-        self._history_repo = history_repo
-        self._state_repo = state_repo
-        self._last_repo = last_repo
+        self._archive = archive
+        self._state = state
+        self._tail = tail
         self._orchestrator = orchestrator
         self._mapper = mapper
-        self._history_limit = history_limit
+        self._limit = limit
 
     @log_io(None, None, None)
     async def execute(
             self,
             scope: Scope,
-            payloads: List[Payload],
+            bundle: List[Payload],
             view: Optional[str],
             root: bool = False,
     ) -> None:
-        resolved = [payload_with_allowed_reply(scope, normalize(p)) for p in payloads]
-        history = await self._history_repo.get_history()
+        adjusted = [adapt(scope, normalize(p)) for p in bundle]
+        records = await self._archive.get_history()
         jlog(
             logger,
             logging.DEBUG,
             LogCode.HISTORY_LOAD,
             op="add",
-            history={"len": len(history)},
+            history={"len": len(records)},
             scope=profile(scope),
         )
-        last_entry = history[-1] if history else None
-        rr = await self._orchestrator.render_node("add", scope, resolved, last_entry, inline=bool(scope.inline))
-        if not rr or not rr.ids or not rr.changed:
+        trail = records[-1] if records else None
+        render = await self._orchestrator.render_node("add", scope, adjusted, trail, inline=bool(scope.inline))
+        if not render or not render.ids or not render.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="add")
             return
-        current_state = await self._state_repo.get_state()
-        jlog(logger, logging.INFO, LogCode.STATE_GET, op="add", state={"current": current_state})
+        status = await self._state.get_state()
+        jlog(logger, logging.INFO, LogCode.STATE_GET, op="add", state={"current": status})
 
-        effective_payloads = resolved[:len(rr.ids)]
-        new_entry = self._mapper.convert(
-            NodeResult(rr.ids, rr.extras, rr.metas),
-            effective_payloads,
-            current_state,
+        usable = adjusted[:len(render.ids)]
+        entry = self._mapper.convert(
+            Outcome(render.ids, render.extras, render.metas),
+            usable,
+            status,
             view,
             root,
             base=None,
         )
 
-        new_history = [new_entry] if root else (history + [new_entry])
+        timeline = [entry] if root else (records + [entry])
         from ..service.store import persist
         await persist(
-            self._history_repo, self._last_repo, history_policy, self._history_limit, new_history, op="add"
+            self._archive, self._tail, chronicle, self._limit, timeline, op="add"
         )
