@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import warnings
 import os
 from typing import TYPE_CHECKING, Any
 
@@ -89,11 +88,5 @@ def configure() -> None:
     appoint(RedisLocksmith(url, ttl, blocking))
 
 
-class RedisLockProvider(RedisLocksmith):
-    def __init__(self, url: str, ttl: float, blocking: float) -> None:
-        warnings.warn("RedisLockProvider is deprecated; use RedisLocksmith", DeprecationWarning, stacklevel=2)
-        super().__init__(url, ttl, blocking)
-
-
-__all__ = ["RedisLocksmith", "RedisLockProvider", "configure"]
+__all__ = ["RedisLocksmith", "configure"]
 
