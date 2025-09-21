@@ -184,36 +184,36 @@ class ViewOrchestrator:
             async def _resend() -> Result:
                 return await self._gateway.send(scope, payload)
 
-            async def _edit_text() -> Optional[Result]:
+            async def _rewrite() -> Optional[Result]:
                 m = _head_msg(last)
                 if not m:
                     return None
-                return await self._gateway.edit_text(scope, m.id, payload)
+                return await self._gateway.rewrite(scope, m.id, payload)
 
-            async def _edit_media() -> Optional[Result]:
+            async def _recast() -> Optional[Result]:
                 m = _head_msg(last)
                 if not m:
                     return None
-                return await self._gateway.edit_media(scope, m.id, payload)
+                return await self._gateway.recast(scope, m.id, payload)
 
-            async def _edit_caption() -> Optional[Result]:
+            async def _retitle() -> Optional[Result]:
                 m = _head_msg(last)
                 if not m:
                     return None
-                return await self._gateway.edit_caption(scope, m.id, payload)
+                return await self._gateway.retitle(scope, m.id, payload)
 
-            async def _edit_markup() -> Optional[Result]:
+            async def _remap() -> Optional[Result]:
                 m = _head_msg(last)
                 if not m:
                     return None
-                return await self._gateway.edit_markup(scope, m.id, payload)
+                return await self._gateway.remap(scope, m.id, payload)
 
             dispatch = {
                 decision.Decision.RESEND: _resend,
-                decision.Decision.EDIT_TEXT: _edit_text,
-                decision.Decision.EDIT_MEDIA: _edit_media,
-                decision.Decision.EDIT_MEDIA_CAPTION: _edit_caption,
-                decision.Decision.EDIT_MARKUP: _edit_markup,
+                decision.Decision.EDIT_TEXT: _rewrite,
+                decision.Decision.EDIT_MEDIA: _recast,
+                decision.Decision.EDIT_MEDIA_CAPTION: _retitle,
+                decision.Decision.EDIT_MARKUP: _remap,
             }
             fn = dispatch.get(dec)
             if not fn:
@@ -362,10 +362,10 @@ class ViewOrchestrator:
                 if caption_changed:
                     cap = (new_group[0].caption or "")
                     p_for_cap = new[0].morph(media=new_group[0], group=None, text=("" if cap == "" else None))
-                    await self._gateway.edit_caption(scope, ids[0], p_for_cap)
+                    await self._gateway.retitle(scope, ids[0], p_for_cap)
                     changed = True
                 if reply_changed:
-                    await self._gateway.edit_markup(scope, ids[0], new[0])
+                    await self._gateway.remap(scope, ids[0], new[0])
                     changed = True
 
                 def _same_file(a: MediaItem, b: MediaItem) -> bool:
@@ -381,7 +381,7 @@ class ViewOrchestrator:
                     need_file_switch = self._needs_edit_media(oi, ni)
                     need_extra_switch = (not need_file_switch) and media_extra_changed and _same_file(oi, ni)
                     if need_file_switch or need_extra_switch:
-                        await self._gateway.edit_media(scope, target_id, new[0].morph(media=ni, group=None))
+                        await self._gateway.recast(scope, target_id, new[0].morph(media=ni, group=None))
                         changed = True
 
                 def _pick_file_id(i):

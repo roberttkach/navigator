@@ -11,12 +11,15 @@
 - Navigator tail helper now relies on `_tailer` and uses `identifier`/`status` for clarity when referencing message identifiers and state values.
 - Domain storage contracts now use single-word verbs: history repositories `recall`/`archive`, state repositories `status`/`assign`/`diagram`/`capture`/`payload`, last message repositories `peek`/`mark`, and temporary repositories `collect`/`stash`.
 - Application service decorator `log_io` shortened to `trace`, with `augment` replacing the `extra_fn` callback for additional log context.
+- Telegram serialization helpers now expose `decode`/`preview`/`caption`/`restate`, with `cleanse`/`divide`/`scrub` guarded by extra `audit`/`screen` checks.
+- Telegram media helpers adopt `weblink`/`adapt`/`convert`/`compose`/`assemble`, with inline strategy injection renamed to `probe`/`strictpath` and Settings following suit.
+- Message gateway protocol promotes edit verbs to `rewrite`/`recast`/`retitle`/`remap`, with orchestrator dispatch updated to the new names.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.
 - Replace abbreviations such as `uc`, `msg`, `cfg`, and similar throughout the repository with full words.
 - Audit adapter-layer gateway helpers (e.g., `do_edit_text`, `reply_for_send`) and select concise replacements that respect the single-word rule.
-- Review gateway and presenter protocols to retire legacy snake_case verbs that remain (e.g., `edit_text`, `send_media`) once downstream helpers adopt their single-word counterparts.
+- Extend presenter-facing protocols (e.g., `send_media`) to the new single-word vocabulary established for the gateway.
 
 ## Gateway Renaming Plan
 

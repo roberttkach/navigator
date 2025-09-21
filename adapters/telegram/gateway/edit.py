@@ -6,7 +6,7 @@ from .retry import invoke
 from .util import targets as _targets
 from .. import media as media_mapper
 from .. import serializer
-from ..keyfilter import accept_for
+from ..keyfilter import screen
 from ....domain.constants import CaptionLimit, TextLimit
 from ....domain.error import MessageEditForbidden, EmptyPayload, TextTooLong, CaptionTooLong
 from ....domain.log.emit import jlog
@@ -31,8 +31,8 @@ async def rewrite(bot, codec: MarkupCodec, scope: Scope, message_id: int, payloa
             jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="rewrite")
         else:
             raise TextTooLong()
-    norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=True)
-    kwargs = serializer.sanitize_text_kwargs(
+    norm_extra = serializer.scrub(scope, payload.extra, is_edit=True)
+    kwargs = serializer.cleanse(
         norm_extra, is_caption=False, target=bot.edit_message_text, text_len=len(raw)
     )
     trg = _targets(scope, message_id)
@@ -41,7 +41,7 @@ async def rewrite(bot, codec: MarkupCodec, scope: Scope, message_id: int, payloa
             bot.edit_message_text,
             text=raw,
             reply_markup=markup(codec, payload.reply, edit=True),
-            link_preview_options=serializer.map_preview(payload.preview),
+            link_preview_options=serializer.preview(payload.preview),
             **trg,
             **kwargs,
         )
@@ -62,11 +62,11 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload
                  truncate: bool = False) -> Result:
     if not payload.media:
         raise ValueError("Cannot edit media without a media payload")
-    norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=True)
-    caption = serializer.caption_for(payload)
+    norm_extra = serializer.scrub(scope, payload.extra, is_edit=True)
+    caption = serializer.caption(payload)
     allow_local = not bool(scope.inline)
     try:
-        tg_media = media_mapper.to_input_media(
+        tg_media = media_mapper.compose(
             payload.media, caption, extra=norm_extra, allow_local=allow_local, truncate=truncate
         )
     except MessageEditForbidden:
@@ -102,11 +102,11 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload
 
 async def retitle(bot, codec: MarkupCodec, scope: Scope, message_id: int, payload, *,
                   truncate: bool = False) -> Result:
-    norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=True)
-    cap_extra, media_extra = serializer.split_extra(norm_extra)
-    caption = serializer.caption_for_edit(payload)
+    norm_extra = serializer.scrub(scope, payload.extra, is_edit=True)
+    cap_extra, media_extra = serializer.divide(norm_extra)
+    caption = serializer.restate(payload)
     cap_len = len(caption) if caption is not None else 0
-    kwargs = serializer.sanitize_text_kwargs(
+    kwargs = serializer.cleanse(
         cap_extra, is_caption=True, target=bot.edit_message_caption, text_len=cap_len
     )
     trg = _targets(scope, message_id)
@@ -128,7 +128,7 @@ async def retitle(bot, codec: MarkupCodec, scope: Scope, message_id: int, payloa
         if (media_extra or {}).get("show_caption_above_media") is not None:
             media_kwargs["show_caption_above_media"] = bool((media_extra or {}).get("show_caption_above_media"))
         raw_media_kwargs = dict(media_kwargs)
-        filtered_media_kwargs = accept_for(bot.edit_message_caption, media_kwargs)
+        filtered_media_kwargs = screen(bot.edit_message_caption, media_kwargs)
         if set(raw_media_kwargs.keys()) != set(filtered_media_kwargs.keys()):
             jlog(
                 logger,

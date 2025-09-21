@@ -14,7 +14,7 @@ ALLOWED_MEDIA_EXTRA = {
 }
 
 
-def validate_extra(extra: Dict[str, Any] | None, allowed: Set[str]) -> None:
+def audit(extra: Dict[str, Any] | None, allowed: Set[str]) -> None:
     if not extra:
         return
     keys = set(extra.keys())

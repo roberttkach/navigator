@@ -14,9 +14,9 @@ from aiogram.types import (
     InputMediaAnimation,
 )
 
-from .extra import validate_extra, ALLOWED_MEDIA_EXTRA
-from .keyfilter import accept_for
-from .serializer import sanitize_text_kwargs, split_extra
+from .extra import audit, ALLOWED_MEDIA_EXTRA
+from .keyfilter import screen
+from .serializer import cleanse, divide
 from ...domain.constants import CaptionLimit
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.error import MessageEditForbidden, NavigatorError, CaptionTooLong
@@ -31,12 +31,12 @@ InputMedia = Union[InputMediaPhoto, InputMediaVideo, InputMediaDocument, InputMe
 logger = logging.getLogger(__name__)
 
 
-def is_url_input_file(obj) -> bool:
+def weblink(obj) -> bool:
     """True для aiogram.types.URLInputFile."""
     return isinstance(obj, URLInputFile)
 
 
-def as_input_file(x: object, *, allow_local: bool) -> InputFile:
+def adapt(x: object, *, allow_local: bool) -> InputFile:
     if not isinstance(x, (FSInputFile, BufferedInputFile, URLInputFile, str)):
         raise ValueError("unsupported input file descriptor")
     s = x
@@ -49,15 +49,15 @@ def as_input_file(x: object, *, allow_local: bool) -> InputFile:
     return s
 
 
-def to_input_file(item: MediaItem, *, allow_local: bool) -> InputFile:
-    return as_input_file(item.path, allow_local=allow_local)
+def convert(item: MediaItem, *, allow_local: bool) -> InputFile:
+    return adapt(item.path, allow_local=allow_local)
 
 
-def _validate_media_extra(extra: Dict[str, Any] | None) -> None:
-    validate_extra(extra, ALLOWED_MEDIA_EXTRA)
+def _screen(extra: Dict[str, Any] | None) -> None:
+    audit(extra, ALLOWED_MEDIA_EXTRA)
 
 
-def to_input_media(
+def compose(
         item: MediaItem,
         caption: str | None = None,
         *,
@@ -78,11 +78,11 @@ def to_input_media(
         if item.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
             raise MessageEditForbidden("edit_media_type_forbidden")
         raise ValueError(f"Unsupported media type for InputMedia: {item.type}")
-    cap_extra, media_extra = split_extra(extra)
-    _validate_media_extra(media_extra)
+    cap_extra, media_extra = divide(extra)
+    _screen(media_extra)
     cap = caption if caption is not None else item.caption
     txt_len = len(cap or "")
-    kv = sanitize_text_kwargs(cap_extra, is_caption=True, target=input_class, text_len=txt_len)
+    kv = cleanse(cap_extra, is_caption=True, target=input_class, text_len=txt_len)
     opts = media_extra or {}
     if item.type in (MediaType.PHOTO, MediaType.VIDEO, MediaType.ANIMATION):
         if opts.get("spoiler") is not None:
@@ -94,7 +94,7 @@ def to_input_media(
             kv["start_timestamp"] = opts.get("start")
     if item.type in (MediaType.VIDEO, MediaType.ANIMATION, MediaType.AUDIO, MediaType.DOCUMENT):
         if opts.get("thumb") is not None:
-            kv["thumbnail"] = as_input_file(opts.get("thumb"), allow_local=allow_local)
+            kv["thumbnail"] = adapt(opts.get("thumb"), allow_local=allow_local)
     if item.type == MediaType.AUDIO:
         if opts.get("title") is not None:
             kv["title"] = str(opts.get("title"))
@@ -116,15 +116,15 @@ def to_input_media(
         else:
             raise CaptionTooLong()
 
-    kv = accept_for(input_class, kv)
-    kwargs = {"media": to_input_file(item, allow_local=allow_local), **kv}
+    kv = screen(input_class, kv)
+    kwargs = {"media": convert(item, allow_local=allow_local), **kv}
     if cap is not None:
         kwargs["caption"] = cap
     return input_class(**kwargs)
 
 
-def group_to_input(items: List[MediaItem], extra: Dict[str, Any] | None = None, *, allow_local: bool = True,
-                   truncate: bool = False) -> List[InputMedia]:
+def assemble(items: List[MediaItem], extra: Dict[str, Any] | None = None, *, allow_local: bool = True,
+             truncate: bool = False) -> List[InputMedia]:
     kinds = [getattr(i.type, "value", None) for i in (items or [])]
     try:
         validate(items)
@@ -150,5 +150,5 @@ def group_to_input(items: List[MediaItem], extra: Dict[str, Any] | None = None, 
     out: List[InputMedia] = []
     for idx, item in enumerate(items):
         cap = item.caption if idx == 0 else ""
-        out.append(to_input_media(item, caption=cap, extra=extra, allow_local=allow_local, truncate=truncate))
+        out.append(compose(item, caption=cap, extra=extra, allow_local=allow_local, truncate=truncate))
     return out

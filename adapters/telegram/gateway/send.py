@@ -4,11 +4,11 @@ from typing import Any, Dict
 
 from .common import markup
 from .retry import invoke
-from .util import extract_meta
+from .util import extract
 from .util import targets as _targets
 from .. import media as media_mapper
 from .. import serializer
-from ..keyfilter import accept_for
+from ..keyfilter import screen
 from ....domain.constants import CaptionLimit, TextLimit
 from ....domain.error import EmptyPayload, MessageEditForbidden, TextTooLong, CaptionTooLong
 from ....domain.log.emit import jlog
@@ -28,11 +28,11 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
     allow_local = not inline
     try:
         if payload.group:
-            norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=False)
-            tg_group = media_mapper.group_to_input(
+            norm_extra = serializer.scrub(scope, payload.extra, is_edit=False)
+            tg_group = media_mapper.assemble(
                 payload.group, extra=norm_extra, allow_local=allow_local, truncate=truncate
             )
-            ctx = accept_for(bot.send_media_group, context)
+            ctx = screen(bot.send_media_group, context)
             sent_messages = await invoke(bot.send_media_group, media=tg_group, **ctx)
             items = []
             for m in sent_messages:
@@ -62,7 +62,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             )
         if payload.media:
             try:
-                tg_media = media_mapper.to_input_file(payload.media, allow_local=allow_local)
+                tg_media = media_mapper.convert(payload.media, allow_local=allow_local)
             except MessageEditForbidden:
                 jlog(
                     logger,
@@ -74,17 +74,17 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                 )
                 raise
             sender = getattr(bot, f"send_{payload.media.type.value}")
-            caption = serializer.caption_for(payload)
+            caption = serializer.caption(payload)
             if caption is not None and len(caption) > CaptionLimit:
                 if truncate:
                     caption = caption[:CaptionLimit]
                     jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.caption")
                 else:
                     raise CaptionTooLong()
-            norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=False)
-            cap_extra, media_extra = serializer.split_extra(norm_extra)
+            norm_extra = serializer.scrub(scope, payload.extra, is_edit=False)
+            cap_extra, media_extra = serializer.divide(norm_extra)
             caption_len = len(caption) if caption is not None else 0
-            caption_kwargs = serializer.sanitize_text_kwargs(
+            caption_kwargs = serializer.cleanse(
                 cap_extra, is_caption=True, target=sender, text_len=caption_len
             )
 
@@ -101,7 +101,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                     media_kwargs["start_timestamp"] = opts.get("start")
             if t in ("video", "animation", "audio", "document"):
                 if opts.get("thumb") is not None:
-                    media_kwargs["thumbnail"] = media_mapper.as_input_file(
+                    media_kwargs["thumbnail"] = media_mapper.adapt(
                         opts.get("thumb"), allow_local=allow_local
                     )
             if t == "audio":
@@ -120,7 +120,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                     media_kwargs["duration"] = opts.get("duration")
 
             raw_media_kwargs = dict(media_kwargs)
-            filtered_media_kwargs = accept_for(sender, media_kwargs)
+            filtered_media_kwargs = screen(sender, media_kwargs)
             if set(raw_media_kwargs.keys()) != set(filtered_media_kwargs.keys()):
                 jlog(
                     logger,
@@ -153,9 +153,9 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                     jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.text")
                 else:
                     raise TextTooLong()
-            norm_extra = serializer.normalize_extra_for(scope, payload.extra, is_edit=False)
+            norm_extra = serializer.scrub(scope, payload.extra, is_edit=False)
             raw_len = len(raw)
-            text_kwargs = serializer.sanitize_text_kwargs(
+            text_kwargs = serializer.cleanse(
                 norm_extra, is_caption=False, target=bot.send_message, text_len=raw_len
             )
             sent_message = await invoke(
@@ -163,7 +163,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                 **context,
                 text=raw,
                 reply_markup=markup(codec, payload.reply, edit=False),
-                link_preview_options=serializer.map_preview(payload.preview),
+                link_preview_options=serializer.preview(payload.preview),
                 **text_kwargs,
             )
         jlog(
@@ -174,7 +174,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             payload=_classify(payload),
             message={"id": sent_message.message_id, "extra_len": 0},
         )
-        meta = extract_meta(sent_message, payload, scope)
+        meta = extract(sent_message, payload, scope)
         return Result(id=sent_message.message_id, extra=[], **meta)
     except MessageEditForbidden:
         raise
