@@ -4,14 +4,14 @@ from typing import Protocol, Callable, Awaitable, runtime_checkable
 
 from ..value.content import Payload
 
-ViewFactory = Callable[..., Awaitable[Payload]]
+ViewForge = Callable[..., Awaitable[Payload]]
 
 
 @runtime_checkable
-class ViewFactoryRegistry(Protocol):
-    def get(self, key: str) -> ViewFactory: ...
+class ViewLedger(Protocol):
+    def get(self, key: str) -> ViewForge: ...
 
     def has(self, key: str) -> bool: ...
 
 
-__all__ = ["ViewFactory", "ViewFactoryRegistry"]
+__all__ = ["ViewForge", "ViewLedger"]

@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, List
 
 from ...log.emit import jlog
 from ....domain.entity.history import Entry
-from ....domain.port.factory import ViewFactoryRegistry
+from ....domain.port.factory import ViewLedger
 from ....domain.port.markup import MarkupCodec
 from ....domain.value.content import Payload
 from ....domain.log.code import LogCode
@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 
 
 class ViewRestorer:
-    def __init__(self, markup_codec: MarkupCodec, factory_registry: ViewFactoryRegistry):
+    def __init__(self, markup_codec: MarkupCodec, ledger: ViewLedger):
         self._markup_codec = markup_codec
-        self._factory_registry = factory_registry
+        self._ledger = ledger
 
     async def restore_node(self, entry: Entry, context: Dict[str, Any], *, inline: bool) -> List[Payload]:
         if entry.view:
@@ -46,14 +46,14 @@ class ViewRestorer:
             self, key: str, context: Dict[str, Any]
     ) -> Optional[Payload | List[Payload]]:
         try:
-            factory = self._factory_registry.get(key)
+            forge = self._ledger.get(key)
         except KeyError:
             jlog(logger, logging.WARNING, LogCode.RESTORE_DYNAMIC_FALLBACK, factory_key=key, note="factory_not_found")
             return None
         try:
-            factory_params = inspect.signature(factory).parameters
-            supplies = {name: context[name] for name in factory_params if name in context}
-            content = await factory(**supplies)
+            forge_params = inspect.signature(forge).parameters
+            supplies = {name: context[name] for name in forge_params if name in context}
+            content = await forge(**supplies)
             return content
         except Exception as e:
             jlog(

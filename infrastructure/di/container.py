@@ -21,7 +21,7 @@ from ...application.usecase.pop import Trimmer
 from ...application.usecase.rebase import Shifter
 from ...application.usecase.replace import Swapper
 from ...application.usecase.set import Setter
-from ...domain.port.factory import ViewFactoryRegistry
+from ...domain.port.factory import ViewLedger
 from ...domain.service.rendering.config import RenderingConfig
 from ...infrastructure.config import SETTINGS
 
@@ -29,7 +29,7 @@ from ...infrastructure.config import SETTINGS
 class AppContainer(containers.DeclarativeContainer):
     event = providers.Dependency()
     state = providers.Dependency(instance_of=FSMContext)
-    registry = providers.Dependency(instance_of=ViewFactoryRegistry)
+    ledger = providers.Dependency(instance_of=ViewLedger)
 
     history_limit = providers.Object(SETTINGS.history_limit)
     chunk = providers.Object(SETTINGS.chunk)
@@ -48,7 +48,7 @@ class AppContainer(containers.DeclarativeContainer):
     transition_observer = providers.Factory(TransitionRecorder, state_repo=state_repo)
 
     temp_repo = providers.Factory(TempRepo, state=state)
-    entry_mapper = providers.Factory(EntryMapper, registry=registry)
+    entry_mapper = providers.Factory(EntryMapper, ledger=ledger)
     inline_strategy = providers.Factory(
         InlineStrategy,
         gateway=gateway,
@@ -63,7 +63,7 @@ class AppContainer(containers.DeclarativeContainer):
         rendering_config=rendering_config,
     )
     view_restorer = providers.Factory(
-        ViewRestorer, markup_codec=markup_codec, factory_registry=registry
+        ViewRestorer, markup_codec=markup_codec, ledger=ledger
     )
 
     appender = providers.Factory(

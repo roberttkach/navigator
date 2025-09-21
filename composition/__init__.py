@@ -9,11 +9,11 @@ from ..presentation.navigator import Navigator
 from ..presentation.telegram.scope import make_scope as forge
 
 
-async def assemble(event: Any, state: Any, registry: Optional[Any] = None) -> Navigator:
+async def assemble(event: Any, state: Any, ledger: Optional[Any] = None) -> Navigator:
     calibrate(SETTINGS.log_redaction_mode)
     configure()
-    reg = registry if registry is not None else fallback
-    container = AppContainer(event=event, state=state, registry=reg)
+    stock = ledger if ledger is not None else fallback
+    container = AppContainer(event=event, state=state, ledger=stock)
     scope = forge(event)
     return Navigator(
         appender=container.appender(),
