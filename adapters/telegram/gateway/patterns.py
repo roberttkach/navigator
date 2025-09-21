@@ -1,50 +1,43 @@
-NOT_MODIFIED = [
-    "message is not modified",
-    "сообщение не изменено",
-    "сообщение не изменилось",
-    "mensaje no modificado",
-    "le message n'a pas été modifié",
-    "nachricht wurde nicht geändert",
-    "messaggio non modificato",
-    "mensagem não modificada",
-    "mesaj değiştirilmedi",
-    "wiadomość nie została zmieniona",
-]
+"""Canonical Bot API error message fragments used by the Telegram gateway.
 
-EDIT_FORBIDDEN = [
+The official cloud Bot API (v9.2) responds with English descriptions only, and
+aiogram 3.22.0 surfaces these descriptions verbatim. We therefore keep a small
+set of English fragments that are known to precede the explanatory part of the
+errors. See https://core.telegram.org/bots/api#making-requests and
+https://docs.aiogram.dev/en/v3.22.0/api/exceptions/ for details.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ErrorPatterns:
+    """Container with normalized message fragments for a Bot API error."""
+
+    patterns: tuple[str, ...]
+
+    @classmethod
+    def from_phrases(cls, *phrases: str) -> ErrorPatterns:
+        normalized = tuple(phrase.lower() for phrase in phrases)
+        return cls(patterns=normalized)
+
+    def matches(self, message: str) -> bool:
+        """Return ``True`` if *message* contains one of the stored fragments."""
+
+        lowered = message.lower()
+        return any(fragment in lowered for fragment in self.patterns)
+
+
+NOT_MODIFIED = ErrorPatterns.from_phrases("message is not modified")
+
+EDIT_FORBIDDEN = ErrorPatterns.from_phrases(
     "message can't be edited",
     "bot can't edit message",
     "message is not editable",
-    "can be edited only within 48 hours",
-    "not modified by the bot",
+    "message can be edited only within 48 hours",
+)
 
-    "нельзя редактировать сообщение",
-    "сообщение нельзя редактировать",
-    "сообщение не редактируется",
-    "можно редактировать только в течение 48 часов",
 
-    "no se puede editar el mensaje",
-    "el mensaje no se puede editar",
-    "solo se puede editar durante 48 horas",
-
-    "le message ne peut pas être modifié",
-    "peut être modifié uniquement pendant 48 heures",
-
-    "nachricht kann nicht bearbeitet werden",
-    "kann nur innerhalb von 48 stunden bearbeitet werden",
-
-    "il messaggio non può essere modificato",
-    "può essere modificato solo entro 48 ore",
-
-    "a mensagem não pode ser editada",
-    "pode ser editada apenas dentro de 48 horas",
-
-    "mesaj düzenlenemez",
-    "yalnızca 48 saat içinde düzenlenebilir",
-
-    "wiadomości nie można edytować",
-    "można edytować tylko w ciągu 48 godzin",
-
-    "повідомлення не можна редагувати",
-    "можна редагувати лише протягом 48 годин",
-]
+__all__ = ["ErrorPatterns", "NOT_MODIFIED", "EDIT_FORBIDDEN"]

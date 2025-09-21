@@ -3,15 +3,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from typing import Awaitable, Callable, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import ParamSpec, TypeVar
 
 from aiogram.exceptions import TelegramRetryAfter
 
-from .patterns import NOT_MODIFIED, EDIT_FORBIDDEN
-from ....domain.error import MessageNotChanged, MessageEditForbidden
-from ....domain.log.emit import jlog
+from ....domain.error import MessageEditForbidden, MessageNotChanged
 from ....domain.log.code import LogCode
+from ....domain.log.emit import jlog
+from .patterns import EDIT_FORBIDDEN, NOT_MODIFIED
 
+P = ParamSpec("P")
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,11 @@ def _delay(error: TelegramRetryAfter) -> int | None:
     return None
 
 
-async def invoke(action: Callable[..., Awaitable[T]], *values, **labels) -> T:
+async def invoke(  # noqa: UP047 - Python 3.11 runtime does not support PEP 695 syntax.
+    action: Callable[P, Awaitable[T]],
+    *values: P.args,
+    **labels: P.kwargs,
+) -> T:
     tries = 0
     quota = 6
     base = 1.5
@@ -56,9 +62,16 @@ async def invoke(action: Callable[..., Awaitable[T]], *values, **labels) -> T:
         except Exception as error:
             raw = getattr(error, "message", error)
             message = str(raw)
-            lower = message.lower()
-            if any(p in lower for p in NOT_MODIFIED):
+            if NOT_MODIFIED.matches(message):
                 raise MessageNotChanged() from error
-            if any(p in lower for p in EDIT_FORBIDDEN):
+            if EDIT_FORBIDDEN.matches(message):
                 raise MessageEditForbidden("gateway_edit_forbidden") from error
+            if "aiogram" in type(error).__module__:
+                jlog(
+                    logger,
+                    logging.WARNING,
+                    LogCode.TELEGRAM_UNHANDLED_ERROR,
+                    description=message,
+                    error_type=type(error).__name__,
+                )
             raise
