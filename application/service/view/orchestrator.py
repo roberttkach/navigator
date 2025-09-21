@@ -157,7 +157,6 @@ class ViewOrchestrator:
             return RenderResult(id=r.id, extra=r.extra, meta=self._require_kind(norm_meta))
 
         async def _fallback_resend_delete(base_msg: Optional[Msg]) -> Optional[RenderResult]:
-            # resend + delete(base_id + aux)
             rr = await self._gateway.send(scope, payload)
             if base_msg:
                 ids_to_delete: List[int] = [int(base_msg.id)]
@@ -169,7 +168,6 @@ class ViewOrchestrator:
             return _build_render_result_from_result(rr, base_msg)
 
         try:
-            # Имплицитный edit_caption по non-inline: пришёл только text при одном медиа в базе
             def _has_media_single_local(x):
                 return bool(getattr(x, "media", None))
 
@@ -178,7 +176,7 @@ class ViewOrchestrator:
                 if base_msg2 and _has_media_single_local(base_msg2) and (payload.text is not None) and (
                         not payload.media) and (not payload.group):
                     dec = decision.Decision.EDIT_MEDIA_CAPTION
-                    payload = payload.morph(media=base_msg2.media)  # чтобы caption(payload) вычислился как text
+                    payload = payload.morph(media=base_msg2.media)
 
             if dec is decision.Decision.NO_CHANGE:
                 return None
@@ -311,28 +309,18 @@ class ViewOrchestrator:
         shield(scope, new[0] if new else Payload())
         old: List[Msg] = list(last_node.messages) if last_node else []
 
-        # Выходные буферы доступны и для ветки альбомов
         out_ids: List[int] = []
         out_extras: List[List[int]] = []
         out_metas: List[dict] = []
         changed = False
-        start_idx = 0  # сдвиг основного цикла при partial-edit альбома
+        start_idx = 0
 
-        # Частичное редактирование групп (non-inline, для первого сообщения узла)
-        # Правила:
-        # - Используется один «глобальный» extra для всей группы. Per-item extra не поддержан по контракту DTO/истории.
-        # - Подпись и её позиция изменяются только на первом элементе (edit_caption/markup по id первого сообщения).
-        # - Медиа-уровень (spoiler/start/thumb*) применяется поэлементно, но только если файл не менялся,
-        #   либо включён thumb_watch и задан thumb.
-        # - Для metas.group_items file_id берётся из нового payload, если это уже file_id (строка и не путь/URL),
-        #   иначе из истории (старый file_id). Это гарантирует консистентность истории.
         if (not inline) and old and new and getattr(old[0], "group", None) and getattr(new[0], "group", None):
             old_group = old[0].group or []
             new_group = new[0].group or []
             if aligned(old_group, new_group):
                 ids = self._album_ids(old[0])
 
-                # --- extra (глобально для группы) ---
                 old_e = old[0].extra or {}
                 new_e = new[0].extra or {}
 
@@ -343,7 +331,7 @@ class ViewOrchestrator:
                     if "entities" in d: out["entities"] = d["entities"]
                     return out
 
-                def _canon(x):  # локальный канонизатор
+                def _canon(x):
                     return json.dumps(x, sort_keys=True, separators=(",", ":")) if isinstance(x, dict) else None
 
                 caption_text_changed = ((old_group[0].caption or "") != (new_group[0].caption or ""))
@@ -366,15 +354,12 @@ class ViewOrchestrator:
 
                 media_extra_changed = _media_affects_changed(old_e, new_e)
 
-                # thumb: корректный триггер по факту снятия/добавления миниатюры
                 if self._rendering_config.thumb_watch:
                     if bool(old_e.get("has_thumb")) != bool(new_e.get("thumb") is not None):
                         media_extra_changed = True
 
-                # --- 1) подпись/клавиатура на первом сообщении ---
                 reply_changed = not match(old[0].markup, new[0].reply)
                 if caption_changed:
-                    # Явная очистка подписи: если новая caption пустая — передаём text="".
                     cap = (new_group[0].caption or "")
                     p_for_cap = new[0].morph(media=new_group[0], group=None, text=("" if cap == "" else None))
                     await self._gateway.edit_caption(scope, ids[0], p_for_cap)
@@ -383,7 +368,6 @@ class ViewOrchestrator:
                     await self._gateway.edit_markup(scope, ids[0], new[0])
                     changed = True
 
-                # --- 2) поэлементные edit_media (смена файла ИЛИ медиа-экстра) ---
                 def _same_file(a: MediaItem, b: MediaItem) -> bool:
                     return (
                             a.type == b.type
@@ -400,12 +384,11 @@ class ViewOrchestrator:
                         await self._gateway.edit_media(scope, target_id, new[0].morph(media=ni, group=None))
                         changed = True
 
-                # --- 3) meta.group_items с актуальным file_id ---
                 def _pick_file_id(i):
                     p = getattr(new_group[i], "path", None)
                     if isinstance(p, str) and not remote(p) and not local(p):
-                        return p  # новый file_id
-                    return old_group[i].path  # старый file_id
+                        return p
+                    return old_group[i].path
 
                 group_items = [
                     {
@@ -418,14 +401,12 @@ class ViewOrchestrator:
 
                 jlog(logger, logging.INFO, LogCode.ALBUM_PARTIAL_OK, count=len(ids))
 
-                # 1 логический элемент для «головы» группы
                 out_ids.append(ids[0])
                 out_extras.append(list(old[0].extras))
                 out_metas.append(
                     self._require_kind({"kind": "group", "group_items": group_items, "inline": old[0].inline})
                 )
 
-                # продолжить обработку узла с индекса 1
                 start_idx = 1
             else:
                 jlog(logger, logging.INFO, LogCode.ALBUM_PARTIAL_FALLBACK)

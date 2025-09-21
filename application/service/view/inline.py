@@ -148,7 +148,6 @@ class InlineStrategy:
                 jlog(self._logger, logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
                 return None
 
-            # Обычный текст→текст.
             return await swap(scope, p, last_message, _d.Decision.EDIT_TEXT)
 
         rr = await swap(scope, payload, None, _d.Decision.RESEND)
