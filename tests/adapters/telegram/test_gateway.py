@@ -17,7 +17,7 @@ class DummyMarkupCodec:
 
 
 def test_targets_includes_direct_messages_topic_id() -> None:
-    scope = Scope(chat=42, direct_topic_id=777)
+    scope = Scope(chat=42, topic=777)
 
     kwargs = targets(scope)
 
@@ -29,7 +29,7 @@ def test_alert_forwards_direct_messages_topic_id() -> None:
     send_message = AsyncMock()
     bot = SimpleNamespace(send_message=send_message)
     gateway = TelegramGateway(bot=bot, markup_codec=DummyMarkupCodec())
-    scope = Scope(chat=42, lang="en", direct_topic_id=777)
+    scope = Scope(chat=42, lang="en", topic=777)
 
     asyncio.run(gateway.alert(scope))
 

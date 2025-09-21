@@ -165,7 +165,7 @@ class HistoryRepo:
                     "preview": self._encode_preview(m.preview),
                     "extra": m.extra,
                     "extras": list(m.extras),
-                    "inline_id": m.inline_id,
+                    "inline": m.inline,
                     "automated": m.automated,
                     "ts": self._encode_dt(m.ts),
                 }
@@ -206,7 +206,7 @@ class HistoryRepo:
                                 or []
                             )
                         ],
-                        inline_id=d.get("inline_id"),
+                        inline=d.get("inline", d.get("inline_id")),
                         automated=bool(
                             d.get(
                                 "automated",

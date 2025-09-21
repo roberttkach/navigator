@@ -12,8 +12,14 @@
 4. **Interface Refactoring** – Once concrete modules are compliant, refactor ports and adapters so shared interfaces expose single-word APIs. Update adapters, services, and tests in lockstep to avoid dangling references. Stage renames to ensure asynchronous contracts (`fetch`, `store`, `delete`) stay semantically clear.
 5. **Validation** – After each phase, execute the full test suite and linting to confirm that renames preserve behavior. Review logs for dynamic attribute access or string-based lookups that may require synchronized updates.
 
+## Completed Updates
+- **Scope vocabulary** – `direct_topic_id` was collapsed into the single-word field `topic`, and deprecated aliases (`user_id`, `inline_id`, etc.) were removed to keep the dataclass clean.
+- **Message metadata** – `Msg.inline_id` and `Result.inline_id` now expose the single-word attribute `inline`; all adapters, services, and tests were synchronized to the new key. Storage serializers still read legacy payloads via fallback keys.
+- **Telegram scope assembly** – presentation helpers now build `Scope` using single-word locals (`language`, `topic`, `business`) to align naming across layers.
+
 ## Next Steps
 - Extend the single-word terminology to repository interfaces (`get_history` → `fetch`, `save_history` → `store`, etc.) and propagate changes through adapters and tests.
 - Normalize presentation-layer handlers (e.g., `back_handler`) by adopting concise verbs like `back` or `return` while verifying router registrations.
-- Audit domain value objects for accessor properties such as `inline_id` and prepare equivalent replacements (e.g., `inline` or `cursor`) alongside serialization adjustments.
+- Continue replacing snake_case message fields (`preview_url`, `reply_markup`, etc.) with precise single-word terms, prioritizing shared DTOs so adapters and use-cases stay in sync.
+- Audit remaining service helpers and map utilities for interim names such as `payload_kind` or `history_updated`, documenting replacements before batching the edits.
 - Continue iterating until every identifier, including constants and configuration entries, adheres to the naming rules with no residual underscores apart from private or constant contexts.

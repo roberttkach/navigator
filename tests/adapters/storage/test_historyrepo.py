@@ -33,7 +33,7 @@ def test_history_repo_persists_extra_without_mutation() -> None:
             preview=None,
             extra={"unexpected": "value"},
             extras=[],
-            inline_id=None,
+            inline=None,
             automated=True,
             ts=datetime.now(timezone.utc),
         )
