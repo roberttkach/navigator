@@ -16,7 +16,7 @@ from ...application.service.view.restorer import ViewRestorer
 from ...application.usecase.add import Appender
 from ...application.usecase.back import Rewinder
 from ...application.usecase.last import Tailer
-from ...application.usecase.notify_history_empty import Alarm
+from ...application.usecase.alarm import Alarm
 from ...application.usecase.pop import Trimmer
 from ...application.usecase.rebase import Shifter
 from ...application.usecase.replace import Swapper

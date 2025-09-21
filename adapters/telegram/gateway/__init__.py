@@ -49,7 +49,7 @@ class TelegramGateway(MessageGateway):
         runner = BatchDeleteRunner(bot=self._bot, chunk_size=self._chunk_size)
         await runner.run(scope, ids)
 
-    async def notify_empty(self, scope: Scope) -> None:
+    async def alert(self, scope: Scope) -> None:
         if not scope.inline:
             await self._bot.send_message(scope.chat, lexeme("prev_not_found", scope.lang or "en"))
             jlog(
