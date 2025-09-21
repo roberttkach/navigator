@@ -3,14 +3,14 @@ from typing import Optional, List
 
 from ...domain.entity.history import Entry, Msg
 from ...domain.entity.media import MediaItem, MediaType
-from ...domain.port.factory import ViewFactoryRegistry
+from ...domain.port.factory import ViewLedger
 from ...domain.service.history.extra import cleanse
 from ...domain.value.content import Payload
 
 
 class EntryMapper:
-    def __init__(self, registry: ViewFactoryRegistry):
-        self._registry = registry
+    def __init__(self, ledger: ViewLedger):
+        self._ledger = ledger
 
     def convert(
             self,
@@ -96,7 +96,7 @@ class EntryMapper:
                     ts=now,
                 )
             )
-        vk = view if (view and self._registry.has(view)) else None
+        vk = view if (view and self._ledger.has(view)) else None
         return Entry(state=state, view=vk, messages=msgs, root=bool(root))
 
 
