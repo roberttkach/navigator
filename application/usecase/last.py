@@ -2,7 +2,7 @@ import logging
 from typing import Optional, List
 
 from ..internal.policy import TailPrune, prime
-from ..internal.rules.inline import remap as _inline_remap
+from ..internal.rules.inline import remap as _inline
 from ..log.emit import jlog
 from ..service.view.orchestrator import ViewOrchestrator
 from ...domain.port.history import HistoryRepository
@@ -118,7 +118,7 @@ class Tailer:
         if scope.inline and dec == decision.Decision.DELETE_SEND:
             base_msg = base.messages[0] if (base and base.messages) else None
             if base_msg:
-                remapped = _inline_remap(base_msg, p, inline=True)
+                remapped = _inline(base_msg, p, inline=True)
                 jlog(logger, logging.INFO, LogCode.INLINE_REMAP_DELETE_SEND, from_="DELETE_SEND", to_=remapped.name)
                 if remapped == decision.Decision.EDIT_MARKUP:
                     result = await self._orchestrator.swap(scope, p.morph(media=base_msg.media, group=None), base,
@@ -147,13 +147,13 @@ class Tailer:
                 decision.Decision.EDIT_MARKUP,
         ):
             lm = base.messages[0] if base and base.messages else None
-            result = await self._orchestrator._inline.handle_element(
+            result = await self._orchestrator._inline.handle(
                 scope=scope,
                 payload=p,
-                last_message=lm,
+                tail=lm,
                 inline=True,
                 swap=self._orchestrator.swap,
-                rendering_config=self._orchestrator.rendering_config,
+                config=self._orchestrator.rendering_config,
             )
         else:
             result = await self._orchestrator.swap(scope, p, base, dec)

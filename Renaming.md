@@ -15,6 +15,7 @@
 - Telegram media helpers adopt `weblink`/`adapt`/`convert`/`compose`/`assemble`, with inline strategy injection renamed to `probe`/`strictpath` and Settings following suit.
 - Message gateway protocol promotes edit verbs to `rewrite`/`recast`/`retitle`/`remap`, with orchestrator dispatch updated to the new names.
 - Telegram gateway internals now use single-word identifiers throughout dispatch/edit/delete flows, including the extras bundle handling, `DeleteBatch` runner, and the shared `targets`/`extract` helpers with `sanitize` alignment.
+- Inline editing helpers remove the `handle_element`/`_media_editable_inline`/`_reply_changed` names in favour of `handle`, `_inlineable`, and `_replydelta`, dropping the auxiliary `_inline_remap` alias for a streamlined `_inline` import.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.
@@ -22,6 +23,7 @@
 - Audit adapter-layer gateway helpers (e.g., `do_edit_text`, `reply_for_send`) and select concise replacements that respect the single-word rule.
 - Extend presenter-facing protocols (e.g., `send_media`) to the new single-word vocabulary established for the gateway.
 - Continue migrating dependency-injection providers and application use-case locals (e.g., `history_repo`, `to_delete`) away from snake_case once core gateway flows stabilise.
+- Align tail orchestration helpers with the inline vocabulary by renaming locals such as `base_msg`/`ids_to_del`/`last_entry` to concise single-word alternatives after the new inline strategy API settles.
 
 ## Gateway Renaming Plan
 

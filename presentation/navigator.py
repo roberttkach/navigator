@@ -33,7 +33,7 @@ Navigator API — ключевые контракты:
 8) Inline: ремап DELETE_SEND:
    - В inline DELETE_SEND ремапится в EDIT_MEDIA; в EDIT_TEXT — только когда база и новый — текст.
    - Если медиа не редактируется, но меняется только клавиатура — допускается EDIT_MARKUP.
-    - Точки ремапа: InlineStrategy.handle_element и Tailer.edit.
+    - Точки ремапа: InlineStrategy.handle и Tailer.edit.
    - Лог-маркер: INLINE_REMAP_DELETE_SEND.
 
 9) Inline: last.delete без business — удаляет только из истории при TailPrune=True.

@@ -442,13 +442,13 @@ class ViewOrchestrator:
                     decision.Decision.EDIT_MARKUP,
             ):
                 if inline:
-                    rr = await self._inline.handle_element(
+                    rr = await self._inline.handle(
                         scope=scope,
                         payload=p,
-                        last_message=o,
+                        tail=o,
                         inline=True,
                         swap=self.swap,
-                        rendering_config=self._rendering_config,
+                        config=self._rendering_config,
                     )
                     out_ids.append(rr.id if rr else o.id)
                     out_extras.append(list(rr.extra if rr else getattr(o, "extras", []) or []))
@@ -487,13 +487,13 @@ class ViewOrchestrator:
                 continue
             if dec == decision.Decision.DELETE_SEND:
                 if inline:
-                    rr = await self._inline.handle_element(
+                    rr = await self._inline.handle(
                         scope=scope,
                         payload=p,
-                        last_message=o,
+                        tail=o,
                         inline=True,
                         swap=self.swap,
-                        rendering_config=self._rendering_config,
+                        config=self._rendering_config,
                     )
                     out_ids.append(rr.id if rr else o.id)
                     out_extras.append(list(rr.extra if rr else getattr(o, "extras", []) or []))
