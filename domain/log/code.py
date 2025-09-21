@@ -15,7 +15,6 @@ class LogCode(Enum):
     INLINE_DELETE_SEND_FORBIDDEN = "inline_delete_send_forbidden"
     INLINE_TAIL_DELETE_IDS = "inline_tail_delete_ids"
     INLINE_REMAP_DELETE_SEND = "inline_remap_delete_send"
-    INLINE_MEDIA_ID_HEURISTIC = "inline_media_id_heuristic"  # используется в варианте 1.3B
 
     # Albums
     ALBUM_PARTIAL_OK = "album_partial_ok"
