@@ -18,6 +18,8 @@
 - Inline editing helpers remove the `handle_element`/`_media_editable_inline`/`_reply_changed` names in favour of `handle`, `_inlineable`, and `_replydelta`, dropping the auxiliary `_inline_remap` alias for a streamlined `_inline` import.
 - Rebase flow shifter dependencies shorten to `ledger`/`buffer`/`latest`, with the pivot message handled through `marker`/`patched`/`trailer`/`rebuilt` terminology.
 - Tail use-case adopts `latest`/`ledger` storage naming, exposes the public `peek` verb, and keeps inline decisions readable through `normal`/`choice`/`mapped`/`targets`/`resend` markers.
+- Logging decorator utilities now rely on `_capture` and `_snapshot`, with the `trace` decorator exposing the public `begin`/`success`/`skip` argument trio for clarity.
+- Gateway error pattern builders collapse to the classmethod `collect`, removing the final `from_phrases` snake-case entry point.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.

@@ -7,26 +7,26 @@ from typing import Any, Optional, Callable, Tuple, Dict
 from .emit import jlog
 
 
-def _extract_scope_payload(fn: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[
+def _capture(fn: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[
     Optional[dict], Optional[dict]]:
-    sig = inspect.signature(fn)
-    ba = sig.bind_partial(*args, **kwargs)
-    scope = ba.arguments.get("scope")
-    payload = ba.arguments.get("payload")
+    signature = inspect.signature(fn)
+    binding = signature.bind_partial(*args, **kwargs)
+    scope = binding.arguments.get("scope")
+    payload = binding.arguments.get("payload")
     try:
         from ...domain.service.scope import profile
-        scope_val = profile(scope) if scope is not None else None
+        scope = profile(scope) if scope is not None else None
     except (AttributeError, ImportError, TypeError, ValueError):
-        scope_val = None
+        scope = None
     try:
         from ...domain.service.rendering.helpers import classify
-        payload_val = classify(payload) if payload is not None else None
+        payload = classify(payload) if payload is not None else None
     except (AttributeError, ImportError, TypeError, ValueError):
-        payload_val = None
-    return scope_val, payload_val
+        payload = None
+    return scope, payload
 
 
-def _message_summary(result: Any) -> Optional[dict]:
+def _snapshot(result: Any) -> Optional[dict]:
     mid = getattr(result, "id", None)
     extra = getattr(result, "extra", None)
     if mid is None and extra is None:
@@ -34,37 +34,37 @@ def _message_summary(result: Any) -> Optional[dict]:
     return {"id": mid, "extra_len": len(extra) if isinstance(extra, list) else 0}
 
 
-def trace(code_start, code_ok, code_skip, augment: Optional[Callable[[Any], dict]] = None):
+def trace(begin, success, skip, augment: Optional[Callable[[Any], dict]] = None):
     def deco(fn: Callable[..., Any]):
         @wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any):
-            module_name = getattr(fn, "__module__", __name__)
-            logger = logging.getLogger(module_name)
+            module = getattr(fn, "__module__", __name__)
+            logger = logging.getLogger(module)
             start = perf_counter()
-            scope_val, payload_val = _extract_scope_payload(fn, args, kwargs)
-            if code_start is not None:
+            scope, payload = _capture(fn, args, kwargs)
+            if begin is not None:
                 fields: Dict[str, Any] = {}
-                if scope_val is not None:
-                    fields["scope"] = scope_val
-                if payload_val is not None:
-                    fields["payload"] = payload_val
-                jlog(logger, logging.INFO, code_start, **fields)
+                if scope is not None:
+                    fields["scope"] = scope
+                if payload is not None:
+                    fields["payload"] = payload
+                jlog(logger, logging.INFO, begin, **fields)
             result = await fn(*args, **kwargs)
-            dur = int((perf_counter() - start) * 1000)
-            if code_ok is not None or code_skip is not None:
-                fields: Dict[str, Any] = {"duration_ms": dur}
-                if scope_val is not None:
-                    fields["scope"] = scope_val
-                if payload_val is not None:
-                    fields["payload"] = payload_val
+            duration = int((perf_counter() - start) * 1000)
+            if success is not None or skip is not None:
+                fields: Dict[str, Any] = {"duration_ms": duration}
+                if scope is not None:
+                    fields["scope"] = scope
+                if payload is not None:
+                    fields["payload"] = payload
                 if result is None:
-                    if code_skip is not None:
-                        jlog(logger, logging.INFO, code_skip, **fields)
+                    if skip is not None:
+                        jlog(logger, logging.INFO, skip, **fields)
                 else:
-                    if code_ok is not None:
-                        msg = _message_summary(result)
-                        if msg is not None:
-                            fields["message"] = msg
+                    if success is not None:
+                        summary = _snapshot(result)
+                        if summary is not None:
+                            fields["message"] = summary
                         if augment is not None:
                             try:
                                 extra = augment(result)
@@ -72,7 +72,7 @@ def trace(code_start, code_ok, code_skip, augment: Optional[Callable[[Any], dict
                                     fields.update(extra)
                             except (TypeError, ValueError):
                                 pass
-                        jlog(logger, logging.INFO, code_ok, **fields)
+                        jlog(logger, logging.INFO, success, **fields)
             return result
 
         return wrapper

@@ -19,7 +19,7 @@ class ErrorPatterns:
     patterns: tuple[str, ...]
 
     @classmethod
-    def from_phrases(cls, *phrases: str) -> ErrorPatterns:
+    def collect(cls, *phrases: str) -> ErrorPatterns:
         normalized = tuple(phrase.lower() for phrase in phrases)
         return cls(patterns=normalized)
 
@@ -30,9 +30,9 @@ class ErrorPatterns:
         return any(fragment in lowered for fragment in self.patterns)
 
 
-NOT_MODIFIED = ErrorPatterns.from_phrases("message is not modified")
+NOT_MODIFIED = ErrorPatterns.collect("message is not modified")
 
-EDIT_FORBIDDEN = ErrorPatterns.from_phrases(
+EDIT_FORBIDDEN = ErrorPatterns.collect(
     "message can't be edited",
     "bot can't edit message",
     "message is not editable",
