@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import Any, Dict, List
 
 from ..log.emit import jlog
@@ -64,8 +63,3 @@ def sanitize(entities: Any, text_len: int) -> List[Dict[str, Any]]:
     if entities and not out:
         jlog(logging.getLogger(__name__), logging.DEBUG, LogCode.EXTRA_UNKNOWN_DROPPED, note="entities_dropped_all")
     return out
-
-
-def validate_entities(entities: Any, text_len: int) -> List[Dict[str, Any]]:
-    warnings.warn("validate_entities is deprecated; use sanitize", DeprecationWarning, stacklevel=2)
-    return sanitize(entities, text_len)
