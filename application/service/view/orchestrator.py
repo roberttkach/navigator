@@ -17,7 +17,7 @@ from ....domain.port.message import MessageGateway, Result
 from ....domain.service.rendering import decision
 from ....domain.service.rendering.config import RenderingConfig
 from ....domain.service.rendering.album import album_compatible
-from ....domain.service.rendering.helpers import payload_kind, reply_equal
+from ....domain.service.rendering.helpers import classify, match
 from ....domain.util.path import remote, local
 from ....domain.value.content import Payload
 from ....domain.value.message import Scope
@@ -274,7 +274,7 @@ class ViewOrchestrator:
         if inline:
             original_len = len(new)
             if original_len > 1:
-                dropped = [payload_kind(p) for p in new[1:]]
+                dropped = [classify(p) for p in new[1:]]
                 jlog(
                     logger,
                     logging.INFO,
@@ -372,7 +372,7 @@ class ViewOrchestrator:
                         media_extra_changed = True
 
                 # --- 1) подпись/клавиатура на первом сообщении ---
-                reply_changed = not reply_equal(old[0].markup, new[0].reply)
+                reply_changed = not match(old[0].markup, new[0].reply)
                 if caption_changed:
                     # Явная очистка подписи: если новая caption пустая — передаём text="".
                     cap = (new_group[0].caption or "")

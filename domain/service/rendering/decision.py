@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any
 
-from .helpers import reply_equal as _reply_equal_markups
+from .helpers import match as _match_markups
 from ...entity.history import Entry
 from ...entity.media import MediaType
 from ...value.content import Payload, caption
@@ -126,10 +126,10 @@ def _reply_of(obj):
     return getattr(obj, "reply", None)
 
 
-def _reply_equal(a, b) -> bool:
+def _match(a, b) -> bool:
     ra = _reply_of(a)
     rb = _reply_of(b)
-    return _reply_equal_markups(ra, rb)
+    return _match_markups(ra, rb)
 
 
 def _preview_of(obj):
@@ -208,7 +208,7 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
         if (_text_of(o) or "") == (_text_of(n) or ""):
             if (not _text_extra_equal(o, n)) or (not _preview_equal(o, n)):
                 return Decision.EDIT_TEXT
-            return Decision.NO_CHANGE if _reply_equal(o, n) else Decision.EDIT_MARKUP
+            return Decision.NO_CHANGE if _match(o, n) else Decision.EDIT_MARKUP
         return Decision.EDIT_TEXT
 
     # Медиа↔медиа
@@ -226,7 +226,7 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
             same_caption_extra = _caption_extra_equal(o, n)
             same_caption_pos = (cap_o == cap_n)
             if same_caption_text and same_caption_extra and same_caption_pos:
-                return Decision.NO_CHANGE if _reply_equal(o, n) else Decision.EDIT_MARKUP
+                return Decision.NO_CHANGE if _match(o, n) else Decision.EDIT_MARKUP
             return Decision.EDIT_MEDIA_CAPTION
         return Decision.EDIT_MEDIA
 

@@ -5,7 +5,7 @@ from ...entity.markup import Markup
 from ...value.content import Payload
 
 
-def payload_kind(p: Payload) -> Dict[str, Any]:
+def classify(p: Payload) -> Dict[str, Any]:
     if p.group:
         return {"kind": "group", "group_len": len(p.group)}
     if p.media:
@@ -17,7 +17,7 @@ def _canon(d):
     return json.dumps(d, sort_keys=True, separators=(",", ":")) if isinstance(d, dict) else None
 
 
-def reply_equal(a: Markup | None, b: Markup | None) -> bool:
+def match(a: Markup | None, b: Markup | None) -> bool:
     if a is None and b is None:
         return True
     if (a is None) != (b is None):

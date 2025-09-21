@@ -12,7 +12,7 @@ from ....domain.error import MessageEditForbidden, EmptyPayload, TextTooLong, Ca
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
 from ....domain.port.message import Result
-from ....domain.service.rendering.helpers import payload_kind as _payload_kind
+from ....domain.service.rendering.helpers import classify as _classify
 from ....domain.service.scope import profile
 from ....domain.value.message import Scope
 from ....domain.log.code import LogCode
@@ -68,7 +68,7 @@ async def do_edit_media(bot, codec: MarkupCodec, scope: Scope, message_id: int, 
             logging.WARNING,
             LogCode.GATEWAY_EDIT_FAIL,
             scope=profile(scope),
-            payload=_payload_kind(payload),
+            payload=_classify(payload),
             note="inline_upload_forbidden",
         )
         raise
