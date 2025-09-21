@@ -2,7 +2,7 @@ import json
 import logging
 import re
 
-from ..ops import keep_preview_extra
+from ..store import preserve
 from ...internal.rules.inline import remap as _inline_remap
 from ....domain.entity.history import Entry
 from ....domain.entity.media import MediaType
@@ -81,7 +81,7 @@ class InlineStrategy:
             rendering_config: RenderingConfig,
     ):
         if inline:
-            p = keep_preview_extra(payload, last_message)
+            p = preserve(payload, last_message)
             if getattr(p, "group", None):
                 p = p.morph(media=p.group[0], group=None)
 

@@ -61,7 +61,7 @@ class Swapper:
             updated = [new_entry]
         else:
             updated = history[:-1] + [new_entry]
-        from ..service.ops import save_history_and_last
-        await save_history_and_last(
+        from ..service.store import persist
+        await persist(
             self._history_repo, self._last_repo, history_policy, self._history_limit, updated, op="replace"
         )

@@ -170,11 +170,11 @@ class Tailer:
                         idx = i
                         break
                 if idx is not None:
-                    from ..service.ops import patch_entry_ids
+                    from ..service.store import reindex
                     old_msg = history[idx].messages[0]
                     need_patch = (result.id != old_msg.id)
                     new_extras = [result.extra] if need_patch else None
-                    patched = patch_entry_ids(history[idx], [result.id], new_extras)
+                    patched = reindex(history[idx], [result.id], new_extras)
                     history[idx] = patched
                     await self._history_repo.save_history(history)
                     jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.edit", history={"len": len(history)})
@@ -203,8 +203,8 @@ class Tailer:
                         idx = i
                         break
                 if idx is not None:
-                    from ..service.ops import patch_entry_ids
-                    patched = patch_entry_ids(history[idx], [resend_result.id], [resend_result.extra])
+                    from ..service.store import reindex
+                    patched = reindex(history[idx], [resend_result.id], [resend_result.extra])
                     history[idx] = patched
                     await self._history_repo.save_history(history)
                     jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.edit", history={"len": len(history)})
