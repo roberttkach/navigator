@@ -29,7 +29,7 @@ def _delay(error: TelegramRetryAfter) -> int | None:
     return None
 
 
-async def invoke(  # noqa: UP047 - Python 3.11 runtime does not support PEP 695 syntax.
+async def invoke(
     action: Callable[P, Awaitable[T]],
     *values: P.args,
     **labels: P.kwargs,
