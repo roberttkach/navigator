@@ -16,7 +16,7 @@ from ....domain.error import MessageNotChanged, MessageEditForbidden, EmptyPaylo
 from ....domain.port.message import MessageGateway, Result
 from ....domain.service.rendering import decision
 from ....domain.service.rendering.config import RenderingConfig
-from ....domain.service.rendering.album import album_compatible
+from ....domain.service.rendering.album import aligned
 from ....domain.service.rendering.helpers import classify, match
 from ....domain.util.path import remote, local
 from ....domain.value.content import Payload
@@ -329,7 +329,7 @@ class ViewOrchestrator:
         if (not inline) and old and new and getattr(old[0], "group", None) and getattr(new[0], "group", None):
             old_group = old[0].group or []
             new_group = new[0].group or []
-            if album_compatible(old_group, new_group):
+            if aligned(old_group, new_group):
                 ids = self._album_ids(old[0])
 
                 # --- extra (глобально для группы) ---

@@ -21,7 +21,7 @@ from ...domain.constants import CaptionLimit
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.error import MessageEditForbidden, NavigatorError, CaptionTooLong
 from ...domain.log.emit import jlog
-from ...domain.service.rendering.album import validate_group, MediaGroupInvalid
+from ...domain.service.rendering.album import MediaGroupInvalid, validate
 from ...domain.util.path import local, remote
 from ...domain.log.code import LogCode
 
@@ -127,7 +127,7 @@ def group_to_input(items: List[MediaItem], extra: Dict[str, Any] | None = None, 
                    truncate: bool = False) -> List[InputMedia]:
     kinds = [getattr(i.type, "value", None) for i in (items or [])]
     try:
-        validate_group(items)
+        validate(items)
     except NavigatorError as e:
         if isinstance(e, MediaGroupInvalid):
             jlog(
@@ -137,10 +137,10 @@ def group_to_input(items: List[MediaItem], extra: Dict[str, Any] | None = None, 
                 kind="group_invalid",
                 flags={
                     "empty": e.empty,
-                    "size": e.invalid_size,
-                    "forbidden_types": e.forbidden_types,
-                    "audio_mixed": e.audio_mixed,
-                    "document_mixed": e.document_mixed,
+                    "limit": e.limit,
+                    "forbidden": e.forbidden,
+                    "audio": e.audio,
+                    "document": e.document,
                 },
                 types=kinds,
             )
