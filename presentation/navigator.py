@@ -69,17 +69,17 @@ logger = logging.getLogger(__name__)
 
 class _Tail:
     def __init__(self, flow: Tailer, scope: Scope):
-        self._uc = flow
+        self._tailer = flow
         self._scope = scope
 
     async def get(self) -> Optional[Dict[str, Any]]:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.get", scope=profile(self._scope))
         async with locks.guard(self._scope):
-            mid = await self._uc.get_id()
-        if mid is None:
+            identifier = await self._tailer.get_id()
+        if identifier is None:
             return None
         return {
-            "id": mid,
+            "id": identifier,
             "inline": bool(self._scope.inline),
             "chat": self._scope.chat,
         }
@@ -87,7 +87,7 @@ class _Tail:
     async def delete(self) -> None:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.delete", scope=profile(self._scope))
         async with locks.guard(self._scope):
-            await self._uc.delete(self._scope)
+            await self._tailer.delete(self._scope)
 
     async def edit(self, content: Content) -> Optional[int]:
         jlog(
@@ -99,7 +99,7 @@ class _Tail:
             payload={"text": bool(content.text), "media": bool(content.media), "group": bool(content.group)},
         )
         async with locks.guard(self._scope):
-            result = await self._uc.edit(self._scope, convert(content))
+            result = await self._tailer.edit(self._scope, convert(content))
         return result
 
 
@@ -159,17 +159,17 @@ class Navigator:
             await self._swapper.execute(self._scope, payloads)
 
     async def rebase(self, message: int | SupportsInt) -> None:
-        mid = getattr(message, "id", message)
+        identifier = getattr(message, "id", message)
         jlog(
             logger,
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="rebase",
             scope=profile(self._scope),
-            message={"id": int(mid)},
+            message={"id": int(identifier)},
         )
         async with locks.guard(self._scope):
-            await self._shifter.execute(int(mid))
+            await self._shifter.execute(int(identifier))
 
     async def back(self, context: Dict[str, Any]) -> None:
         jlog(
@@ -184,10 +184,10 @@ class Navigator:
             await self._rewinder.execute(self._scope, context)
 
     async def set(self, state: Union[str, StateLike], context: Dict[str, Any] | None = None) -> None:
-        st = getattr(state, "state", state)
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=st)
+        status = getattr(state, "state", state)
+        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=status)
         async with locks.guard(self._scope):
-            await self._setter.execute(self._scope, st, context or {})
+            await self._setter.execute(self._scope, status, context or {})
 
     async def pop(self, count: int = 1) -> None:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=profile(self._scope), count=count)

@@ -6,7 +6,7 @@ from ..infrastructure.config import SETTINGS
 from ..infrastructure.di.container import AppContainer
 from ..infrastructure.locks import configure
 from ..presentation.navigator import Navigator
-from ..presentation.telegram.scope import make_scope as forge
+from ..presentation.telegram.scope import outline as forge
 
 
 async def assemble(event: Any, state: Any, ledger: Optional[Any] = None) -> Navigator:
