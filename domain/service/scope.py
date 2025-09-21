@@ -5,7 +5,10 @@ from ..value.message import Scope
 
 
 def profile(s: Scope) -> Dict[str, Any]:
-    return {"chat": s.chat, "inline": bool(s.inline), "category": s.category}
+    data: Dict[str, Any] = {"chat": s.chat, "inline": bool(s.inline), "category": s.category}
+    if s.direct_topic_id is not None:
+        data["direct_topic_id"] = s.direct_topic_id
+    return data
 
 
 def scope_kv(s: Scope) -> Dict[str, Any]:

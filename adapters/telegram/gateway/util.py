@@ -14,6 +14,8 @@ def targets(scope: Scope, message_id: Optional[int] = None) -> Dict[str, Any]:
             data["message_id"] = message_id
     if scope.business:
         data["business_connection_id"] = scope.business
+    if scope.direct_topic_id is not None:
+        data["direct_messages_topic_id"] = scope.direct_topic_id
     return data
 
 

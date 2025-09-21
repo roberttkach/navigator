@@ -13,6 +13,7 @@ class Scope:
     inline: str | None = None
     business: str | None = None
     category: str | None = None
+    direct_topic_id: int | None = None
 
     @property
     def user_id(self) -> int | None:

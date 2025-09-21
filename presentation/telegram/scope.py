@@ -17,6 +17,7 @@ def make_scope(event) -> Scope:
     user_id = getattr(getattr(event, "from_user", None), "id", None)
     mid = getattr(msg, "message_id", None)
     biz = getattr(msg, "business_connection_id", None)
+    direct_topic = getattr(getattr(msg, "direct_messages_topic", None), "topic_id", None)
     return Scope(
         chat=chat_id,
         lang=lang,
@@ -25,4 +26,5 @@ def make_scope(event) -> Scope:
         inline=None,
         business=biz,
         category=chat_kind,
+        direct_topic_id=direct_topic,
     )
