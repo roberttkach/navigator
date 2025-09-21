@@ -53,6 +53,7 @@ class LogCode(Enum):
     GATEWAY_DELETE_FAIL = "gateway_delete_fail"
     GATEWAY_NOTIFY_EMPTY = "gateway_notify_empty"
     TELEGRAM_RETRY = "telegram_retry"
+    TELEGRAM_UNHANDLED_ERROR = "telegram_unhandled_error"
 
     # Extras / Serializer
     EXTRA_FILTERED_OUT = "extra_filtered_out"
