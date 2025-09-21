@@ -37,15 +37,15 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             items = []
             for message in messages:
                 if message.photo:
-                    items.append({"media_type": "photo", "file_id": message.photo[-1].file_id, "caption": message.caption})
+                    items.append({"medium": "photo", "file": message.photo[-1].file_id, "caption": message.caption})
                 elif message.video:
-                    items.append({"media_type": "video", "file_id": message.video.file_id, "caption": message.caption})
+                    items.append({"medium": "video", "file": message.video.file_id, "caption": message.caption})
                 elif message.animation:
-                    items.append({"media_type": "animation", "file_id": message.animation.file_id, "caption": message.caption})
+                    items.append({"medium": "animation", "file": message.animation.file_id, "caption": message.caption})
                 elif message.document:
-                    items.append({"media_type": "document", "file_id": message.document.file_id, "caption": message.caption})
+                    items.append({"medium": "document", "file": message.document.file_id, "caption": message.caption})
                 elif message.audio:
-                    items.append({"media_type": "audio", "file_id": message.audio.file_id, "caption": message.caption})
+                    items.append({"medium": "audio", "file": message.audio.file_id, "caption": message.caption})
             jlog(
                 logger,
                 logging.INFO,
@@ -54,7 +54,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                 payload=_classify(payload),
                 message={"id": messages[0].message_id, "extra_len": len(messages) - 1},
             )
-            meta = {"kind": "group", "group_items": items, "inline": scope.inline}
+            meta = {"kind": "group", "clusters": items, "inline": scope.inline}
             return Result(
                 id=messages[0].message_id,
                 extra=[message.message_id for message in messages[1:]],

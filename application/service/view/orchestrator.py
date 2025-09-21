@@ -42,14 +42,14 @@ class RenderResultNode:
 
 
 class ViewOrchestrator:
-    def __init__(self, gateway: MessageGateway, inline: InlineStrategy, rendering_config: RenderingConfig):
+    def __init__(self, gateway: MessageGateway, inline: InlineStrategy, rendering: RenderingConfig):
         self._gateway = gateway
         self._inline = inline
-        self._rendering_config = rendering_config
+        self._rendering = rendering
 
     @property
-    def rendering_config(self) -> RenderingConfig:
-        return self._rendering_config
+    def rendering(self) -> RenderingConfig:
+        return self._rendering
 
     @staticmethod
     def _head_msg(e: Any) -> Optional[Msg]:
@@ -87,22 +87,22 @@ class ViewOrchestrator:
     def _normalize_meta(meta: dict, base_msg: Optional[Msg], dec: decision.Decision, payload: Payload) -> dict:
         """
         Нормализация meta:
-        - Для media: восстанавливает media_type/file_id/caption при edit_*, когда Telegram вернул bool.
+        - Для media: восстанавливает medium/file/caption при edit_*, когда Telegram вернул bool.
         - Для text: восстанавливает text при edit_*, когда Telegram вернул bool.
         - Очистка подписи: payload.erase -> caption == "".
         """
         m = dict(meta or {})
         kind = m.get("kind")
         if kind == "media" and base_msg and getattr(base_msg, "media", None):
-            if m.get("media_type") is None:
-                m["media_type"] = getattr(base_msg.media.type, "value", None)
+            if m.get("medium") is None:
+                m["medium"] = getattr(base_msg.media.type, "value", None)
 
-            if m.get("file_id") is None:
+            if m.get("file") is None:
                 pth = getattr(getattr(payload, "media", None), "path", None)
                 if isinstance(pth, str) and not remote(pth) and not local(pth):
-                    m["file_id"] = pth
+                    m["file"] = pth
                 elif isinstance(getattr(base_msg.media, "path", None), str):
-                    m["file_id"] = base_msg.media.path
+                    m["file"] = base_msg.media.path
 
             if m.get("caption") is None:
                 from ....domain.value.content import caption as _cap
@@ -146,11 +146,11 @@ class ViewOrchestrator:
         def _build_render_result_from_result(r: Result, base_msg: Optional[Msg]) -> RenderResult:
             raw_meta = {
                 "kind": getattr(r, "kind", None),
-                "media_type": getattr(r, "media_type", None),
-                "file_id": getattr(r, "file_id", None),
+                "medium": getattr(r, "medium", None),
+                "file": getattr(r, "file", None),
                 "caption": getattr(r, "caption", None),
                 "text": getattr(r, "text", None),
-                "group_items": getattr(r, "group_items", None),
+                "clusters": getattr(r, "clusters", None),
                 "inline": getattr(r, "inline", None),
             }
             norm_meta = self._normalize_meta(raw_meta, base_msg, dec, payload)
@@ -291,16 +291,16 @@ class ViewOrchestrator:
             if o.group:
                 return {
                     "kind": "group",
-                    "group_items": [
-                        {"media_type": it.type.value, "file_id": it.path, "caption": it.caption} for it in o.group
+                    "clusters": [
+                        {"medium": it.type.value, "file": it.path, "caption": it.caption} for it in o.group
                     ],
                     "inline": o.inline,
                 }
             if o.media:
                 return {
                     "kind": "media",
-                    "media_type": o.media.type.value,
-                    "file_id": o.media.path,
+                    "medium": o.media.type.value,
+                    "file": o.media.path,
                     "caption": o.media.caption,
                     "inline": o.inline,
                 }
@@ -354,7 +354,7 @@ class ViewOrchestrator:
 
                 media_extra_changed = _media_affects_changed(old_e, new_e)
 
-                if self._rendering_config.thumbguard:
+                if self._rendering.thumbguard:
                     if bool(old_e.get("has_thumb")) != bool(new_e.get("thumb") is not None):
                         media_extra_changed = True
 
@@ -384,16 +384,16 @@ class ViewOrchestrator:
                         await self._gateway.recast(scope, target_id, new[0].morph(media=ni, group=None))
                         changed = True
 
-                def _pick_file_id(i):
+                def _select(i):
                     p = getattr(new_group[i], "path", None)
                     if isinstance(p, str) and not remote(p) and not local(p):
                         return p
                     return old_group[i].path
 
-                group_items = [
+                clusters = [
                     {
-                        "media_type": it.type.value,
-                        "file_id": _pick_file_id(i),
+                        "medium": it.type.value,
+                        "file": _select(i),
                         "caption": (new_group[i].caption if i == 0 else "")
                     }
                     for i, it in enumerate(new_group)
@@ -404,7 +404,7 @@ class ViewOrchestrator:
                 out_ids.append(ids[0])
                 out_extras.append(list(old[0].extras))
                 out_metas.append(
-                    self._require_kind({"kind": "group", "group_items": group_items, "inline": old[0].inline})
+                    self._require_kind({"kind": "group", "clusters": clusters, "inline": old[0].inline})
                 )
 
                 start_idx = 1
@@ -429,7 +429,7 @@ class ViewOrchestrator:
         for i in range(start_idx, n_common):
             o = old[i]
             p = new[i]
-            dec = decision.decide(_adapt(o), p, self._rendering_config)
+            dec = decision.decide(_adapt(o), p, self._rendering)
             if dec is decision.Decision.NO_CHANGE:
                 out_ids.append(o.id)
                 out_extras.append(list(getattr(o, "extras", []) or []))
@@ -448,7 +448,7 @@ class ViewOrchestrator:
                         tail=o,
                         inline=True,
                         swap=self.swap,
-                        config=self._rendering_config,
+                        config=self._rendering,
                     )
                     out_ids.append(rr.id if rr else o.id)
                     out_extras.append(list(rr.extra if rr else getattr(o, "extras", []) or []))
@@ -493,7 +493,7 @@ class ViewOrchestrator:
                         tail=o,
                         inline=True,
                         swap=self.swap,
-                        config=self._rendering_config,
+                        config=self._rendering,
                     )
                     out_ids.append(rr.id if rr else o.id)
                     out_extras.append(list(rr.extra if rr else getattr(o, "extras", []) or []))
@@ -509,11 +509,11 @@ class ViewOrchestrator:
                     out_extras.append(list(rr.extra))
                     meta = {
                         "kind": getattr(rr, "kind", None),
-                        "media_type": getattr(rr, "media_type", None),
-                        "file_id": getattr(rr, "file_id", None),
+                        "medium": getattr(rr, "medium", None),
+                        "file": getattr(rr, "file", None),
                         "caption": getattr(rr, "caption", None),
                         "text": getattr(rr, "text", None),
-                        "group_items": getattr(rr, "group_items", None),
+                        "clusters": getattr(rr, "clusters", None),
                         "inline": getattr(rr, "inline", None),
                     }
                     out_metas.append(self._require_kind(meta))
@@ -524,11 +524,11 @@ class ViewOrchestrator:
             out_extras.append(list(r.extra))
             meta = {
                 "kind": getattr(r, "kind", None),
-                "media_type": getattr(r, "media_type", None),
-                "file_id": getattr(r, "file_id", None),
+                "medium": getattr(r, "medium", None),
+                "file": getattr(r, "file", None),
                 "caption": getattr(r, "caption", None),
                 "text": getattr(r, "text", None),
-                "group_items": getattr(r, "group_items", None),
+                "clusters": getattr(r, "clusters", None),
                 "inline": getattr(r, "inline", None),
             }
             out_metas.append(self._require_kind(meta))
@@ -550,11 +550,11 @@ class ViewOrchestrator:
                     out_extras.append(list(r.extra))
                     meta = {
                         "kind": getattr(r, "kind", None),
-                        "media_type": getattr(r, "media_type", None),
-                        "file_id": getattr(r, "file_id", None),
+                        "medium": getattr(r, "medium", None),
+                        "file": getattr(r, "file", None),
                         "caption": getattr(r, "caption", None),
                         "text": getattr(r, "text", None),
-                        "group_items": getattr(r, "group_items", None),
+                        "clusters": getattr(r, "clusters", None),
                         "inline": getattr(r, "inline", None),
                     }
                     out_metas.append(self._require_kind(meta))

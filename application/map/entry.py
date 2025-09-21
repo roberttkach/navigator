@@ -47,23 +47,23 @@ class EntryMapper:
             if k == "text":
                 text, media, group = meta.get("text"), None, None
             elif k == "media":
-                variant = meta.get("media_type")
+                variant = meta.get("medium")
                 if payload.media:
                     mtype = payload.media.type
                 elif isinstance(variant, str):
                     mtype = MediaType(variant)
                 else:
-                    raise ValueError("meta_missing_media_type")
-                mi = MediaItem(type=mtype, path=meta.get("file_id"), caption=meta.get("caption"))
+                    raise ValueError("meta_missing_medium")
+                mi = MediaItem(type=mtype, path=meta.get("file"), caption=meta.get("caption"))
                 text, media, group = None, mi, None
             elif k == "group":
                 items = []
-                for it in (meta.get("group_items") or []):
-                    variant = it.get("media_type")
+                for it in (meta.get("clusters") or []):
+                    variant = it.get("medium")
                     if not isinstance(variant, str):
-                        raise ValueError("meta_missing_group_media_type")
+                        raise ValueError("meta_missing_group_medium")
                     items.append(
-                        MediaItem(type=MediaType(variant), path=it.get("file_id"), caption=it.get("caption"))
+                        MediaItem(type=MediaType(variant), path=it.get("file"), caption=it.get("caption"))
                     )
                 text, media, group = None, None, items
 

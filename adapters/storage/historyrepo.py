@@ -29,7 +29,7 @@ class MediaCodec:
             return None
         return {
             "type": item.type.value,
-            "file_id": item.path,
+            "file": item.path,
             "caption": item.caption,
         }
 
@@ -38,7 +38,7 @@ class MediaCodec:
         if not isinstance(data, Dict):
             return None
         kind = data.get("type")
-        file_id = data.get("file_id")
+        file_id = data.get("file")
         if not (isinstance(kind, str) and isinstance(file_id, str) and file_id):
             return None
         return MediaItem(type=MediaType(kind), path=file_id, caption=data.get("caption"))

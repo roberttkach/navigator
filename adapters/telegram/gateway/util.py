@@ -27,33 +27,33 @@ def _digest(message: Message) -> dict:
             and not getattr(message, "audio", None) and not getattr(message, "animation", None):
         return {"kind": "text", "text": message.text, "inline": None}
     if getattr(message, "photo", None):
-        return {"kind": "media", "media_type": "photo", "file_id": message.photo[-1].file_id, "caption": message.caption, "inline": None}
+        return {"kind": "media", "medium": "photo", "file": message.photo[-1].file_id, "caption": message.caption, "inline": None}
     if getattr(message, "video", None):
-        return {"kind": "media", "media_type": "video", "file_id": message.video.file_id, "caption": message.caption,
+        return {"kind": "media", "medium": "video", "file": message.video.file_id, "caption": message.caption,
                 "inline": None}
     if getattr(message, "animation", None):
-        return {"kind": "media", "media_type": "animation", "file_id": message.animation.file_id, "caption": message.caption,
+        return {"kind": "media", "medium": "animation", "file": message.animation.file_id, "caption": message.caption,
                 "inline": None}
     if getattr(message, "document", None):
-        return {"kind": "media", "media_type": "document", "file_id": message.document.file_id, "caption": message.caption,
+        return {"kind": "media", "medium": "document", "file": message.document.file_id, "caption": message.caption,
                 "inline": None}
     if getattr(message, "audio", None):
-        return {"kind": "media", "media_type": "audio", "file_id": message.audio.file_id, "caption": message.caption,
+        return {"kind": "media", "medium": "audio", "file": message.audio.file_id, "caption": message.caption,
                 "inline": None}
     if getattr(message, "voice", None):
-        return {"kind": "media", "media_type": "voice", "file_id": message.voice.file_id, "caption": message.caption,
+        return {"kind": "media", "medium": "voice", "file": message.voice.file_id, "caption": message.caption,
                 "inline": None}
     if getattr(message, "video_note", None):
-        return {"kind": "media", "media_type": "video_note", "file_id": message.video_note.file_id, "caption": None,
+        return {"kind": "media", "medium": "video_note", "file": message.video_note.file_id, "caption": None,
                 "inline": None}
     return {"kind": "text", "text": getattr(message, "text", None), "inline": None}
 
 
 def extract(outcome: Any, payload: Any, scope: Scope) -> dict:
     """
-    Возвращает dict: kind, media_type, file_id, caption, text, group_items, inline.
+    Возвращает dict: kind, medium, file, caption, text, clusters, inline.
     Для inline всегда проставлять inline из scope.
-    Для media_group собирать group_items в send.py и передавать сюда готовым dict.
+    Для media_group собирать clusters в send.py и передавать сюда готовым dict.
     """
     token = getattr(scope, "inline", None)
     if hasattr(outcome, "message_id"):
@@ -61,16 +61,16 @@ def extract(outcome: Any, payload: Any, scope: Scope) -> dict:
         body["inline"] = token
         return body
     if getattr(payload, "group", None):
-        return {"kind": "group", "group_items": None, "inline": token}
+        return {"kind": "group", "clusters": None, "inline": token}
     if getattr(payload, "media", None):
         media = getattr(payload.media.type, "value", None)
         return {
             "kind": "media",
-            "media_type": media,
-            "file_id": None,
+            "medium": media,
+            "file": None,
             "caption": None,
             "text": None,
-            "group_items": None,
+            "clusters": None,
             "inline": token,
         }
     return {"kind": "text", "text": getattr(payload, "text", None), "inline": token}
