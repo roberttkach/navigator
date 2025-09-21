@@ -64,13 +64,13 @@ class RedisLocksmith(Locksmith):
     """Distributed lock provider backed by redis."""
 
     def __init__(self, url: str, ttl: float, blocking: float) -> None:
-        if Redis is None:  # pragma: no cover - optional dependency
+        if Redis is None:
             raise RuntimeError("redis package not installed")
         self._redis = Redis.from_url(url)
         self._ttl = float(ttl)
         self._blocking = float(blocking)
 
-    def latch(self, key: tuple[object, object | None]) -> Latch:  # type: ignore[override]
+    def latch(self, key: tuple[object, object | None]) -> Latch:
         name = f"nav:lock:{key[0]}:{key[1]}"
         adapter = _RedisLockAdapter(self._redis, name, self._ttl, self._blocking)
         return Latch(lock=adapter)
