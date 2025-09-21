@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
+import pytest
+
 PACKAGE_PARENT = Path(__file__).resolve().parents[2]
 if str(PACKAGE_PARENT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_PARENT))
@@ -73,7 +75,7 @@ def test_from_dict_reads_canonical_keys():
     assert msg.automated is False
 
 
-def test_from_dict_ignores_legacy_keys():
+def test_from_dict_rejects_legacy_keys():
     repo = HistoryRepo(state=None)
     data = {
         "state": "s",
@@ -89,9 +91,22 @@ def test_from_dict_ignores_legacy_keys():
         ],
     }
 
-    entry = repo._from_dict(data)
-    assert len(entry.messages) == 1
-    msg = entry.messages[0]
-    assert msg.extras == []
-    assert msg.inline is None
-    assert msg.automated is True
+    with pytest.raises(ValueError):
+        repo._from_dict(data)
+
+
+def test_from_dict_requires_automated_flag():
+    repo = HistoryRepo(state=None)
+    data = {
+        "state": "s",
+        "view": "v",
+        "messages": [
+            {
+                "id": 1,
+                "ts": "2024-01-01T00:00:00.000Z",
+            }
+        ],
+    }
+
+    with pytest.raises(ValueError):
+        repo._from_dict(data)
