@@ -41,7 +41,7 @@ class MessageGateway(Protocol):
     async def delete(self, scope: Scope, ids: List[int]) -> None:
         ...
 
-    async def notify_empty(self, scope: Scope) -> None:
+    async def alert(self, scope: Scope) -> None:
         ...
 
 

@@ -55,7 +55,7 @@ from ..application.map.payload import to_node_payload, to_payload
 from ..application.usecase.add import Appender
 from ..application.usecase.back import Rewinder
 from ..application.usecase.last import Tailer
-from ..application.usecase.notify_history_empty import Alarm
+from ..application.usecase.alarm import Alarm
 from ..application.usecase.pop import Trimmer
 from ..application.usecase.rebase import Shifter
 from ..application.usecase.replace import Swapper
@@ -196,7 +196,7 @@ class Navigator:
             await self._trimmer.execute(count)
 
     async def alert(self) -> None:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="notify_empty", scope=profile(self._scope))
+        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="alert", scope=profile(self._scope))
         async with locks.guard(self._scope):
             await self._alarm.execute(self._scope)
 

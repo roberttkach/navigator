@@ -55,7 +55,7 @@ class Setter:
                 target_idx = i
                 break
         if target_idx is None:
-            await self._gateway.notify_empty(scope)
+            await self._gateway.alert(scope)
             jlog(
                 logger,
                 logging.INFO,

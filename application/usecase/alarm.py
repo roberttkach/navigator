@@ -13,11 +13,11 @@ class Alarm:
         self._gateway = gateway
 
     async def execute(self, scope: Scope) -> None:
-        await self._gateway.notify_empty(scope)
+        await self._gateway.alert(scope)
         jlog(
             logger,
             logging.INFO,
             LogCode.GATEWAY_NOTIFY_EMPTY,
-            op="notify_history_empty",
+            op="alarm",
             scope={"chat": scope.chat, "inline": bool(scope.inline)},
         )
