@@ -188,6 +188,30 @@ class HistoryRepo:
             for d in msgs:
                 if not isinstance(d, Dict):
                     continue
+
+                legacy_keys = {"aux_ids", "inline_id", "by_bot"}.intersection(d.keys())
+                if legacy_keys:
+                    jlog(
+                        logger,
+                        logging.ERROR,
+                        LogCode.HISTORY_LOAD,
+                        note="legacy_history_message",
+                        keys=sorted(legacy_keys),
+                    )
+                    raise ValueError(
+                        "Legacy history payload keys are no longer supported: "
+                        + ", ".join(sorted(legacy_keys))
+                    )
+
+                if "automated" not in d:
+                    jlog(
+                        logger,
+                        logging.ERROR,
+                        LogCode.HISTORY_LOAD,
+                        note="history_message_missing_automated",
+                    )
+                    raise ValueError("History message payload missing required 'automated' flag")
+
                 messages.append(
                     Msg(
                         id=_to_int(d.get("id"), 0),
@@ -199,7 +223,7 @@ class HistoryRepo:
                         extra=d.get("extra"),
                         extras=[int(x) for x in (d.get("extras") or [])],
                         inline=d.get("inline"),
-                        automated=bool(d.get("automated", True)),
+                        automated=bool(d.get("automated")),
                         ts=self._decode_dt(d.get("ts")),
                     )
                 )
