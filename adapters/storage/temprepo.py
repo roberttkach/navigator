@@ -15,7 +15,7 @@ class TempRepo(TemporaryRepository):
     def __init__(self, state: FSMContext):
         self._state = state
 
-    async def get_temp_ids(self) -> List[int]:
+    async def collect(self) -> List[int]:
         data = await self._state.get_data()
         raw = data.get(FSM_TEMP_KEY, [])
         try:
@@ -25,7 +25,7 @@ class TempRepo(TemporaryRepository):
         jlog(logger, logging.DEBUG, LogCode.TEMP_LOAD, temp={"len": len(ids)})
         return ids
 
-    async def save_temp_ids(self, ids: List[int]) -> None:
+    async def stash(self, ids: List[int]) -> None:
         payload = [int(x) for x in (ids or [])]
         await self._state.update_data({FSM_TEMP_KEY: payload})
         jlog(logger, logging.DEBUG, LogCode.TEMP_SAVE, temp={"len": len(payload)})

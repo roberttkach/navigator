@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, Optional
 
-from ..log.decorators import log_io
+from ..log.decorators import trace
 from ..log.emit import jlog
 from ..service.view.orchestrator import ViewOrchestrator
 from ..service.view.restorer import ViewRestorer
@@ -33,14 +33,14 @@ class Setter:
         self._orchestrator = orchestrator
         self._last_repo = last_repo
 
-    @log_io(None, None, None)
+    @trace(None, None, None)
     async def execute(
             self,
             scope: Scope,
             target_state: str,
             context: Dict[str, Any],
     ) -> None:
-        history = await self._history_repo.get_history()
+        history = await self._history_repo.recall()
         jlog(
             logger,
             logging.DEBUG,
@@ -68,11 +68,11 @@ class Setter:
         is_inline = bool(scope.inline)
         current_tail = history[-1]
         new_history = history[: target_idx + 1]
-        await self._history_repo.save_history(new_history)
+        await self._history_repo.archive(new_history)
         jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="set", history={"len": len(new_history)})
-        await self._state_repo.set_state(target_entry.state)
+        await self._state_repo.assign(target_entry.state)
         jlog(logger, logging.INFO, LogCode.STATE_SET, op="set", state={"target": target_entry.state})
-        memory = await self._state_repo.get_data()
+        memory = await self._state_repo.payload()
         merged = {**memory, **context}
         restored_payloads = await self._restorer.restore_node(target_entry, merged, inline=is_inline)
         resolved_payloads = [normalize(p) for p in restored_payloads]
@@ -110,7 +110,7 @@ class Setter:
                     )
                     await self._gateway.delete(scope, to_delete)
 
-            current_history = await self._history_repo.get_history()
+            current_history = await self._history_repo.recall()
             if current_history:
                 tail = current_history[-1]
                 patched_tail = type(tail)(
@@ -135,14 +135,14 @@ class Setter:
                              + tail.messages[min(len(tail.messages), len(render_result.ids)):],
                     root=tail.root,
                 )
-                await self._history_repo.save_history(current_history[:-1] + [patched_tail])
+                await self._history_repo.archive(current_history[:-1] + [patched_tail])
                 jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="set", history={"len": len(current_history)})
-            await self._last_repo.set_last_id(render_result.ids[0])
+            await self._last_repo.mark(render_result.ids[0])
             jlog(logger, logging.INFO, LogCode.LAST_SET, op="set", message={"id": render_result.ids[0]})
         else:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="set")
-            current = await self._history_repo.get_history()
+            current = await self._history_repo.recall()
             tail = current[-1] if current else target_entry
             if tail.messages:
-                await self._last_repo.set_last_id(tail.messages[0].id)
+                await self._last_repo.mark(tail.messages[0].id)
             return

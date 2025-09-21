@@ -9,12 +9,14 @@
 - Telegram router handlers now expose the callback handler as `retreat` and the text handler as `recall`, with `_tongue` providing locale detection.
 - Telegram scope builder renamed to `outline`, imported through the composition root as `forge`.
 - Navigator tail helper now relies on `_tailer` and uses `identifier`/`status` for clarity when referencing message identifiers and state values.
+- Domain storage contracts now use single-word verbs: history repositories `recall`/`archive`, state repositories `status`/`assign`/`diagram`/`capture`/`payload`, last message repositories `peek`/`mark`, and temporary repositories `collect`/`stash`.
+- Application service decorator `log_io` shortened to `trace`, with `augment` replacing the `extra_fn` callback for additional log context.
 
 ## Next Steps
-- Migrate remaining domain and application layer functions (for example `get_history`, `save_history`, `log_io`) to single-word equivalents while keeping semantic clarity.
+- Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.
 - Replace abbreviations such as `uc`, `msg`, `cfg`, and similar throughout the repository with full words.
 - Audit adapter-layer gateway helpers (e.g., `do_edit_text`, `reply_for_send`) and select concise replacements that respect the single-word rule.
-- Review protocol definitions so that method names like `get_state`, `set_state`, and `save_history` become single-word verbs without losing intent (e.g., `state`, `store`).
+- Review gateway and presenter protocols to retire legacy snake_case verbs that remain (e.g., `edit_text`, `send_media`) once downstream helpers adopt their single-word counterparts.
 
 ## Gateway Renaming Plan
 

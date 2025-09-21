@@ -34,7 +34,7 @@ def _message_summary(result: Any) -> Optional[dict]:
     return {"id": mid, "extra_len": len(extra) if isinstance(extra, list) else 0}
 
 
-def log_io(code_start, code_ok, code_skip, extra_fn: Optional[Callable[[Any], dict]] = None):
+def trace(code_start, code_ok, code_skip, augment: Optional[Callable[[Any], dict]] = None):
     def deco(fn: Callable[..., Any]):
         @wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any):
@@ -65,9 +65,9 @@ def log_io(code_start, code_ok, code_skip, extra_fn: Optional[Callable[[Any], di
                         msg = _message_summary(result)
                         if msg is not None:
                             fields["message"] = msg
-                        if extra_fn is not None:
+                        if augment is not None:
                             try:
-                                extra = extra_fn(result)
+                                extra = augment(result)
                                 if isinstance(extra, dict):
                                     fields.update(extra)
                             except (TypeError, ValueError):
