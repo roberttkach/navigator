@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 _DELAY_SEC = max(0.0, float(int(os.getenv("NAV_DELETE_DELAY_MS", "50"))) / 1000.0)
 
 
-class BatchDeleteRunner:
+class DeleteBatch:
     def __init__(self, bot, chunk: int):
         self._bot = bot
         self._chunk = min(int(chunk), 100)
 
-    async def run(self, scope: Scope, ids: List[int]) -> None:
+    async def run(self, scope: Scope, identifiers: List[int]) -> None:
         if scope.inline and not scope.business:
             jlog(
                 logger,
@@ -30,12 +30,12 @@ class BatchDeleteRunner:
                 LogCode.RENDER_SKIP,
                 scope=profile(scope),
                 note="inline_without_business_delete_skip",
-                count=len(ids or []),
+                count=len(identifiers or []),
             )
             return
-        if not ids:
+        if not identifiers:
             return
-        unique = _order(ids)
+        unique = _order(identifiers)
         if not unique:
             return
         groups = [

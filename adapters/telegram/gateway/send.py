@@ -25,44 +25,44 @@ logger = logging.getLogger(__name__)
 async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: bool = False) -> Result:
     context = _targets(scope)
     inline = bool(scope.inline)
-    allow_local = not inline
+    local = not inline
     try:
         if payload.group:
-            norm_extra = serializer.scrub(scope, payload.extra, is_edit=False)
-            tg_group = media_mapper.assemble(
-                payload.group, extra=norm_extra, allow_local=allow_local, truncate=truncate
+            extras = serializer.scrub(scope, payload.extra, editing=False)
+            bundle = media_mapper.assemble(
+                payload.group, extra=extras, allow_local=local, truncate=truncate
             )
-            ctx = screen(bot.send_media_group, context)
-            sent_messages = await invoke(bot.send_media_group, media=tg_group, **ctx)
+            filtered = screen(bot.send_media_group, context)
+            messages = await invoke(bot.send_media_group, media=bundle, **filtered)
             items = []
-            for m in sent_messages:
-                if m.photo:
-                    items.append({"media_type": "photo", "file_id": m.photo[-1].file_id, "caption": m.caption})
-                elif m.video:
-                    items.append({"media_type": "video", "file_id": m.video.file_id, "caption": m.caption})
-                elif m.animation:
-                    items.append({"media_type": "animation", "file_id": m.animation.file_id, "caption": m.caption})
-                elif m.document:
-                    items.append({"media_type": "document", "file_id": m.document.file_id, "caption": m.caption})
-                elif m.audio:
-                    items.append({"media_type": "audio", "file_id": m.audio.file_id, "caption": m.caption})
+            for message in messages:
+                if message.photo:
+                    items.append({"media_type": "photo", "file_id": message.photo[-1].file_id, "caption": message.caption})
+                elif message.video:
+                    items.append({"media_type": "video", "file_id": message.video.file_id, "caption": message.caption})
+                elif message.animation:
+                    items.append({"media_type": "animation", "file_id": message.animation.file_id, "caption": message.caption})
+                elif message.document:
+                    items.append({"media_type": "document", "file_id": message.document.file_id, "caption": message.caption})
+                elif message.audio:
+                    items.append({"media_type": "audio", "file_id": message.audio.file_id, "caption": message.caption})
             jlog(
                 logger,
                 logging.INFO,
                 LogCode.GATEWAY_SEND_OK,
                 scope=profile(scope),
                 payload=_classify(payload),
-                message={"id": sent_messages[0].message_id, "extra_len": len(sent_messages) - 1},
+                message={"id": messages[0].message_id, "extra_len": len(messages) - 1},
             )
             meta = {"kind": "group", "group_items": items, "inline": scope.inline}
             return Result(
-                id=sent_messages[0].message_id,
-                extra=[m.message_id for m in sent_messages[1:]],
+                id=messages[0].message_id,
+                extra=[message.message_id for message in messages[1:]],
                 **meta,
             )
         if payload.media:
             try:
-                tg_media = media_mapper.convert(payload.media, allow_local=allow_local)
+                medium = media_mapper.convert(payload.media, allow_local=local)
             except MessageEditForbidden:
                 jlog(
                     logger,
@@ -81,90 +81,92 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                     jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.caption")
                 else:
                     raise CaptionTooLong()
-            norm_extra = serializer.scrub(scope, payload.extra, is_edit=False)
-            cap_extra, media_extra = serializer.divide(norm_extra)
-            caption_len = len(caption) if caption is not None else 0
-            caption_kwargs = serializer.cleanse(
-                cap_extra, is_caption=True, target=sender, text_len=caption_len
-            )
-
-            opts: Dict[str, Any] = media_extra or {}
-            media_kwargs: Dict[str, Any] = {}
-            t = payload.media.type.value
-            if t in ("photo", "video", "animation"):
-                if opts.get("spoiler") is not None:
-                    media_kwargs["has_spoiler"] = bool(opts.get("spoiler"))
-                if opts.get("show_caption_above_media") is not None:
-                    media_kwargs["show_caption_above_media"] = bool(opts.get("show_caption_above_media"))
-            if t == "video":
-                if opts.get("start") is not None:
-                    media_kwargs["start_timestamp"] = opts.get("start")
-            if t in ("video", "animation", "audio", "document"):
-                if opts.get("thumb") is not None:
-                    media_kwargs["thumbnail"] = media_mapper.adapt(
-                        opts.get("thumb"), allow_local=allow_local
+            extras = serializer.scrub(scope, payload.extra, editing=False)
+            bundle = serializer.divide(extras)
+            length = len(caption) if caption is not None else 0
+            options: Dict[str, Any] = bundle["media"] or {}
+            settings: Dict[str, Any] = {}
+            kind = payload.media.type.value
+            if kind in ("photo", "video", "animation"):
+                if options.get("spoiler") is not None:
+                    settings["has_spoiler"] = bool(options.get("spoiler"))
+                if options.get("show_caption_above_media") is not None:
+                    settings["show_caption_above_media"] = bool(options.get("show_caption_above_media"))
+            if kind == "video":
+                if options.get("start") is not None:
+                    settings["start_timestamp"] = options.get("start")
+            if kind in ("video", "animation", "audio", "document"):
+                if options.get("thumb") is not None:
+                    settings["thumbnail"] = media_mapper.adapt(
+                        options.get("thumb"), allow_local=local
                     )
-            if t == "audio":
-                if opts.get("title") is not None:
-                    media_kwargs["title"] = opts.get("title")
-                if opts.get("performer") is not None:
-                    media_kwargs["performer"] = opts.get("performer")
-                if opts.get("duration") is not None:
-                    media_kwargs["duration"] = opts.get("duration")
-            if t in ("video", "animation"):
-                if opts.get("width") is not None:
-                    media_kwargs["width"] = opts.get("width")
-                if opts.get("height") is not None:
-                    media_kwargs["height"] = opts.get("height")
-                if opts.get("duration") is not None:
-                    media_kwargs["duration"] = opts.get("duration")
+            if kind == "audio":
+                if options.get("title") is not None:
+                    settings["title"] = options.get("title")
+                if options.get("performer") is not None:
+                    settings["performer"] = options.get("performer")
+                if options.get("duration") is not None:
+                    settings["duration"] = options.get("duration")
+            if kind in ("video", "animation"):
+                if options.get("width") is not None:
+                    settings["width"] = options.get("width")
+                if options.get("height") is not None:
+                    settings["height"] = options.get("height")
+                if options.get("duration") is not None:
+                    settings["duration"] = options.get("duration")
 
-            raw_media_kwargs = dict(media_kwargs)
-            filtered_media_kwargs = screen(sender, media_kwargs)
-            if set(raw_media_kwargs.keys()) != set(filtered_media_kwargs.keys()):
+            initial = dict(settings)
+            screened = screen(sender, settings)
+            if set(initial.keys()) != set(screened.keys()):
                 jlog(
                     logger,
                     logging.DEBUG,
                     LogCode.EXTRA_FILTERED_OUT,
                     scope=profile(scope),
                     stage="send.media",
-                    before=sorted(raw_media_kwargs.keys()),
-                    after=sorted(filtered_media_kwargs.keys()),
-                    filtered_keys=sorted(set(raw_media_kwargs) - set(filtered_media_kwargs)),
+                    before=sorted(initial.keys()),
+                    after=sorted(screened.keys()),
+                    filtered_keys=sorted(set(initial) - set(screened)),
                 )
-            media_kwargs = filtered_media_kwargs
-            call_kwargs: Dict[str, Any] = {
+            settings = screened
+            arguments: Dict[str, Any] = {
                 **context,
-                **{payload.media.type.value: tg_media},
+                **{payload.media.type.value: medium},
                 "reply_markup": markup(codec, payload.reply, edit=False),
-                **caption_kwargs,
-                **media_kwargs,
+                **serializer.cleanse(
+                    bundle["caption"],
+                    captioning=True,
+                    target=sender,
+                    length=length,
+                ),
+                **settings,
             }
             if caption is not None and "caption" in signature(sender).parameters:
-                call_kwargs["caption"] = caption
-            sent_message = await invoke(sender, **call_kwargs)
+                arguments["caption"] = caption
+            message = await invoke(sender, **arguments)
         else:
-            raw = "" if payload.text is None else str(payload.text)
-            if not raw.strip():
+            text = "" if payload.text is None else str(payload.text)
+            if not text.strip():
                 raise EmptyPayload()
-            if len(raw) > TextLimit:
+            if len(text) > TextLimit:
                 if truncate:
-                    raw = raw[:TextLimit]
+                    text = text[:TextLimit]
                     jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.text")
                 else:
                     raise TextTooLong()
-            norm_extra = serializer.scrub(scope, payload.extra, is_edit=False)
-            raw_len = len(raw)
-            text_kwargs = serializer.cleanse(
-                norm_extra, is_caption=False, target=bot.send_message, text_len=raw_len
-            )
-            sent_message = await invoke(
+            extras = serializer.scrub(scope, payload.extra, editing=False)
+            message = await invoke(
                 bot.send_message,
                 **context,
-                text=raw,
+                text=text,
                 reply_markup=markup(codec, payload.reply, edit=False),
                 link_preview_options=serializer.preview(payload.preview),
-                **text_kwargs,
+                **serializer.cleanse(
+                    extras,
+                    captioning=False,
+                    target=bot.send_message,
+                    length=len(text),
+                ),
             )
         jlog(
             logger,
@@ -172,10 +174,10 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             LogCode.GATEWAY_SEND_OK,
             scope=profile(scope),
             payload=_classify(payload),
-            message={"id": sent_message.message_id, "extra_len": 0},
+            message={"id": message.message_id, "extra_len": 0},
         )
-        meta = extract(sent_message, payload, scope)
-        return Result(id=sent_message.message_id, extra=[], **meta)
+        meta = extract(message, payload, scope)
+        return Result(id=message.message_id, extra=[], **meta)
     except MessageEditForbidden:
         raise
     except Exception as e:

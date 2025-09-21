@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class ViewRestorer:
-    def __init__(self, markup_codec: MarkupCodec, ledger: ViewLedger):
-        self._markup_codec = markup_codec
+    def __init__(self, codec: MarkupCodec, ledger: ViewLedger):
+        self._codec = codec
         self._ledger = ledger
 
     async def restore_node(self, entry: Entry, context: Dict[str, Any], *, inline: bool) -> List[Payload]:

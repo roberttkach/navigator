@@ -25,19 +25,19 @@ class MessageGateway(Protocol):
     async def send(self, scope: Scope, payload: Payload) -> Result:
         ...
 
-    async def rewrite(self, scope: Scope, message_id: int, payload: Payload) -> Result:
+    async def rewrite(self, scope: Scope, message: int, payload: Payload) -> Result:
         ...
 
-    async def recast(self, scope: Scope, message_id: int, payload: Payload) -> Result:
+    async def recast(self, scope: Scope, message: int, payload: Payload) -> Result:
         ...
 
-    async def retitle(self, scope: Scope, message_id: int, payload: Payload) -> Result:
+    async def retitle(self, scope: Scope, message: int, payload: Payload) -> Result:
         ...
 
-    async def remap(self, scope: Scope, message_id: int, payload: Payload) -> Result:
+    async def remap(self, scope: Scope, message: int, payload: Payload) -> Result:
         ...
 
-    async def delete(self, scope: Scope, ids: List[int]) -> None:
+    async def delete(self, scope: Scope, identifiers: List[int]) -> None:
         ...
 
     async def alert(self, scope: Scope) -> None:

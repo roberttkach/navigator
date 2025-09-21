@@ -78,49 +78,49 @@ def compose(
         if item.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
             raise MessageEditForbidden("edit_media_type_forbidden")
         raise ValueError(f"Unsupported media type for InputMedia: {item.type}")
-    cap_extra, media_extra = divide(extra)
-    _screen(media_extra)
-    cap = caption if caption is not None else item.caption
-    txt_len = len(cap or "")
-    kv = cleanse(cap_extra, is_caption=True, target=input_class, text_len=txt_len)
-    opts = media_extra or {}
+    bundle = divide(extra)
+    _screen(bundle["media"])
+    caption = caption if caption is not None else item.caption
+    length = len(caption or "")
+    mapping = cleanse(bundle["caption"], captioning=True, target=input_class, length=length)
+    settings = bundle["media"] or {}
     if item.type in (MediaType.PHOTO, MediaType.VIDEO, MediaType.ANIMATION):
-        if opts.get("spoiler") is not None:
-            kv["has_spoiler"] = bool(opts.get("spoiler"))
-        if opts.get("show_caption_above_media") is not None:
-            kv["show_caption_above_media"] = bool(opts.get("show_caption_above_media"))
+        if settings.get("spoiler") is not None:
+            mapping["has_spoiler"] = bool(settings.get("spoiler"))
+        if settings.get("show_caption_above_media") is not None:
+            mapping["show_caption_above_media"] = bool(settings.get("show_caption_above_media"))
     if item.type == MediaType.VIDEO:
-        if opts.get("start") is not None:
-            kv["start_timestamp"] = opts.get("start")
+        if settings.get("start") is not None:
+            mapping["start_timestamp"] = settings.get("start")
     if item.type in (MediaType.VIDEO, MediaType.ANIMATION, MediaType.AUDIO, MediaType.DOCUMENT):
-        if opts.get("thumb") is not None:
-            kv["thumbnail"] = adapt(opts.get("thumb"), allow_local=allow_local)
+        if settings.get("thumb") is not None:
+            mapping["thumbnail"] = adapt(settings.get("thumb"), allow_local=allow_local)
     if item.type == MediaType.AUDIO:
-        if opts.get("title") is not None:
-            kv["title"] = str(opts.get("title"))
-        if opts.get("performer") is not None:
-            kv["performer"] = str(opts.get("performer"))
-        if opts.get("duration") is not None:
-            kv["duration"] = int(opts.get("duration"))
+        if settings.get("title") is not None:
+            mapping["title"] = str(settings.get("title"))
+        if settings.get("performer") is not None:
+            mapping["performer"] = str(settings.get("performer"))
+        if settings.get("duration") is not None:
+            mapping["duration"] = int(settings.get("duration"))
     if item.type in (MediaType.VIDEO, MediaType.ANIMATION):
-        if opts.get("width") is not None:
-            kv["width"] = int(opts.get("width"))
-        if opts.get("height") is not None:
-            kv["height"] = int(opts.get("height"))
-        if opts.get("duration") is not None:
-            kv["duration"] = int(opts.get("duration"))
+        if settings.get("width") is not None:
+            mapping["width"] = int(settings.get("width"))
+        if settings.get("height") is not None:
+            mapping["height"] = int(settings.get("height"))
+        if settings.get("duration") is not None:
+            mapping["duration"] = int(settings.get("duration"))
 
-    if cap is not None and len(str(cap)) > CaptionLimit:
+    if caption is not None and len(str(caption)) > CaptionLimit:
         if truncate:
-            cap = str(cap)[:CaptionLimit]
+            caption = str(caption)[:CaptionLimit]
         else:
             raise CaptionTooLong()
 
-    kv = screen(input_class, kv)
-    kwargs = {"media": convert(item, allow_local=allow_local), **kv}
-    if cap is not None:
-        kwargs["caption"] = cap
-    return input_class(**kwargs)
+    mapping = screen(input_class, mapping)
+    arguments = {"media": convert(item, allow_local=allow_local), **mapping}
+    if caption is not None:
+        arguments["caption"] = caption
+    return input_class(**arguments)
 
 
 def assemble(items: List[MediaItem], extra: Dict[str, Any] | None = None, *, allow_local: bool = True,
@@ -147,8 +147,8 @@ def assemble(items: List[MediaItem], extra: Dict[str, Any] | None = None, *, all
         else:
             jlog(logger, logging.WARNING, LogCode.MEDIA_UNSUPPORTED, kind="group_invalid", types=kinds)
         raise
-    out: List[InputMedia] = []
-    for idx, item in enumerate(items):
-        cap = item.caption if idx == 0 else ""
-        out.append(compose(item, caption=cap, extra=extra, allow_local=allow_local, truncate=truncate))
-    return out
+    result: List[InputMedia] = []
+    for index, item in enumerate(items):
+        caption = item.caption if index == 0 else ""
+        result.append(compose(item, caption=caption, extra=extra, allow_local=allow_local, truncate=truncate))
+    return result
