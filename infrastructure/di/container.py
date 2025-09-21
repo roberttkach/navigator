@@ -34,67 +34,67 @@ class AppContainer(containers.DeclarativeContainer):
     retention = providers.Object(SETTINGS.retention)
     chunk = providers.Object(SETTINGS.chunk)
 
-    markup_codec = providers.Singleton(AiogramMarkupCodec)
+    codec = providers.Singleton(AiogramMarkupCodec)
     gateway = providers.Singleton(
         TelegramGateway,
         bot=event.provided.bot,
-        codec=markup_codec,
+        codec=codec,
         chunk=chunk,
         truncate=providers.Object(SETTINGS.truncate),
     )
-    history_repo = providers.Factory(HistoryRepo, state=state)
-    state_repo = providers.Factory(StateRepo, state=state)
-    last_repo = providers.Factory(LastRepo, state=state)
-    transition_observer = providers.Factory(TransitionRecorder, state_repo=state_repo)
+    chronicle = providers.Factory(HistoryRepo, state=state)
+    status = providers.Factory(StateRepo, state=state)
+    latest = providers.Factory(LastRepo, state=state)
+    observer = providers.Factory(TransitionRecorder, status=status)
 
-    temp_repo = providers.Factory(TempRepo, state=state)
-    entry_mapper = providers.Factory(EntryMapper, ledger=ledger)
-    inline_strategy = providers.Factory(
+    buffer = providers.Factory(TempRepo, state=state)
+    mapper = providers.Factory(EntryMapper, ledger=ledger)
+    strategy = providers.Factory(
         InlineStrategy,
         gateway=gateway,
         probe=weblink,
         strictpath=providers.Object(SETTINGS.strictpath),
     )
-    rendering_config = providers.Object(RenderingConfig(thumbguard=SETTINGS.thumbguard))
-    view_orchestrator = providers.Factory(
+    rendering = providers.Object(RenderingConfig(thumbguard=SETTINGS.thumbguard))
+    orchestrator = providers.Factory(
         ViewOrchestrator,
         gateway=gateway,
-        inline=inline_strategy,
-        rendering_config=rendering_config,
+        inline=strategy,
+        rendering_config=rendering,
     )
-    view_restorer = providers.Factory(
-        ViewRestorer, codec=markup_codec, ledger=ledger
+    restorer = providers.Factory(
+        ViewRestorer, codec=codec, ledger=ledger
     )
 
     appender = providers.Factory(
         Appender,
-        history_repo=history_repo, state_repo=state_repo, last_repo=last_repo,
-        orchestrator=view_orchestrator,
-        mapper=entry_mapper, limit=retention,
+        archive=chronicle, state=status, tail=latest,
+        orchestrator=orchestrator,
+        mapper=mapper, limit=retention,
     )
     swapper = providers.Factory(
         Swapper,
-        history_repo=history_repo, state_repo=state_repo, last_repo=last_repo,
-        orchestrator=view_orchestrator,
-        mapper=entry_mapper, limit=retention,
+        archive=chronicle, state=status, tail=latest,
+        orchestrator=orchestrator,
+        mapper=mapper, limit=retention,
     )
     rewinder = providers.Factory(
         Rewinder,
-        history_repo=history_repo, state_repo=state_repo,
-        gateway=gateway, restorer=view_restorer,
-        orchestrator=view_orchestrator, last_repo=last_repo,
+        ledger=chronicle, status=status,
+        gateway=gateway, restorer=restorer,
+        orchestrator=orchestrator, latest=latest,
     )
     setter = providers.Factory(
         Setter,
-        history_repo=history_repo, state_repo=state_repo,
-        gateway=gateway, restorer=view_restorer,
-        orchestrator=view_orchestrator, last_repo=last_repo,
+        ledger=chronicle, status=status,
+        gateway=gateway, restorer=restorer,
+        orchestrator=orchestrator, latest=latest,
     )
-    trimmer = providers.Factory(Trimmer, history_repo=history_repo, last_repo=last_repo)
-    shifter = providers.Factory(Shifter, ledger=history_repo, buffer=temp_repo, latest=last_repo)
+    trimmer = providers.Factory(Trimmer, ledger=chronicle, latest=latest)
+    shifter = providers.Factory(Shifter, ledger=chronicle, buffer=buffer, latest=latest)
     tailer = providers.Factory(
-        Tailer, latest=last_repo, ledger=history_repo, gateway=gateway,
-        orchestrator=view_orchestrator,
+        Tailer, latest=latest, ledger=chronicle, gateway=gateway,
+        orchestrator=orchestrator,
     )
     alarm = providers.Factory(
         Alarm,

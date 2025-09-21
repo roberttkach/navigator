@@ -20,23 +20,23 @@ logger = logging.getLogger(__name__)
 class Rewinder:
     def __init__(
             self,
-            history_repo: HistoryRepository,
-            state_repo: StateRepository,
+            ledger: HistoryRepository,
+            status: StateRepository,
             gateway: MessageGateway,
             restorer: ViewRestorer,
             orchestrator: ViewOrchestrator,
-            last_repo: LastMessageRepository,
+            latest: LastMessageRepository,
     ):
-        self._history_repo = history_repo
-        self._state_repo = state_repo
+        self._ledger = ledger
+        self._status = status
         self._gateway = gateway
         self._restorer = restorer
         self._orchestrator = orchestrator
-        self._last_repo = last_repo
+        self._latest = latest
 
     @trace(None, None, None)
     async def execute(self, scope: Scope, context: Dict[str, Any]) -> None:
-        history = await self._history_repo.recall()
+        history = await self._ledger.recall()
         jlog(
             logger,
             logging.DEBUG,
@@ -47,86 +47,86 @@ class Rewinder:
         )
         if len(history) < 2:
             raise HistoryEmpty("Cannot go back, history is too short.")
-        entry_from = history[-1]
-        entry_to = history[-2]
-        is_inline = bool(scope.inline)
-        memory: Dict[str, Any] = await self._state_repo.payload()
+        origin = history[-1]
+        target = history[-2]
+        inline = bool(scope.inline)
+        memory: Dict[str, Any] = await self._status.payload()
         merged = {**memory, **context}
-        restored_payloads = await self._restorer.revive(entry_to, merged, inline=is_inline)
-        resolved_payloads = [normalize(p) for p in restored_payloads]
-        if not is_inline:
-            render_result = await self._orchestrator.render_node(
+        restored = await self._restorer.revive(target, merged, inline=inline)
+        resolved = [normalize(p) for p in restored]
+        if not inline:
+            render = await self._orchestrator.render_node(
                 "back",
                 scope,
-                resolved_payloads,
-                entry_from,
+                resolved,
+                origin,
                 inline=False,
             )
         else:
-            render_result = await self._orchestrator.render_node(
+            render = await self._orchestrator.render_node(
                 "back",
                 scope,
-                resolved_payloads,
-                entry_from,
+                resolved,
+                origin,
                 inline=True,
             )
 
         from ..internal import policy as _pol
-        if is_inline and _pol.TailMode in ("delete", "collapse") and getattr(scope, "business", None):
-            to_delete = []
-            for m in entry_from.messages[1:]:
-                to_delete.append(m.id)
-                to_delete.extend(list(getattr(m, "extras", []) or []))
-            if to_delete:
-                first_n = to_delete[:20]
+        if inline and _pol.TailMode in ("delete", "collapse") and getattr(scope, "business", None):
+            targets = []
+            for msg in origin.messages[1:]:
+                targets.append(msg.id)
+                targets.extend(list(getattr(msg, "extras", []) or []))
+            if targets:
+                sample = targets[:20]
                 jlog(
                     logger,
                     logging.DEBUG,
                     LogCode.INLINE_TAIL_DELETE_IDS,
-                    ids=first_n,
-                    total=len(to_delete),
+                    ids=sample,
+                    total=len(targets),
                 )
-                await self._gateway.delete(scope, to_delete)
+                await self._gateway.delete(scope, targets)
 
-        if not render_result or not render_result.changed:
+        if not render or not render.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="back")
-            await self._state_repo.assign(entry_to.state)
-            if entry_to.messages:
-                mid = entry_to.messages[0].id
-                await self._last_repo.mark(mid)
-            history_updated = history[:-1]
-            await self._history_repo.archive(history_updated)
-            jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="back", history={"len": len(history_updated)})
+            await self._status.assign(target.state)
+            if target.messages:
+                marker = target.messages[0].id
+                await self._latest.mark(marker)
+            trimmed = history[:-1]
+            await self._ledger.archive(trimmed)
+            jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="back", history={"len": len(trimmed)})
             return
-        patched_len = min(len(entry_to.messages), len(render_result.ids))
-        patched_msgs = [
-            type(entry_to.messages[i])(
-                id=render_result.ids[i],
-                text=entry_to.messages[i].text,
-                media=entry_to.messages[i].media,
-                group=entry_to.messages[i].group,
-                markup=entry_to.messages[i].markup,
-                preview=entry_to.messages[i].preview,
-                extra=entry_to.messages[i].extra,
-                extras=render_result.extras[i],
-                inline=entry_to.messages[i].inline,
-                automated=entry_to.messages[i].automated,
-                ts=entry_to.messages[i].ts,
+        limit = min(len(target.messages), len(render.ids))
+        patched = [
+            type(target.messages[i])(
+                id=render.ids[i],
+                text=target.messages[i].text,
+                media=target.messages[i].media,
+                group=target.messages[i].group,
+                markup=target.messages[i].markup,
+                preview=target.messages[i].preview,
+                extra=target.messages[i].extra,
+                extras=render.extras[i],
+                inline=target.messages[i].inline,
+                automated=target.messages[i].automated,
+                ts=target.messages[i].ts,
             )
-            for i in range(patched_len)
+            for i in range(limit)
         ]
-        new_msgs = patched_msgs + entry_to.messages[patched_len:]
-        patched_to = type(entry_to)(
-            state=entry_to.state,
-            view=entry_to.view,
-            messages=new_msgs,
-            root=entry_to.root,
+        merged = patched + target.messages[limit:]
+        rebuilt = type(target)(
+            state=target.state,
+            view=target.view,
+            messages=merged,
+            root=target.root,
         )
-        history_updated = history[:-1]
-        history_updated[-1] = patched_to
-        await self._history_repo.archive(history_updated)
-        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="back", history={"len": len(history_updated)})
-        await self._state_repo.assign(entry_to.state)
-        jlog(logger, logging.INFO, LogCode.STATE_SET, op="back", state={"target": entry_to.state})
-        await self._last_repo.mark(render_result.ids[0])
-        jlog(logger, logging.INFO, LogCode.LAST_SET, op="back", message={"id": render_result.ids[0]})
+        trimmed = history[:-1]
+        trimmed[-1] = rebuilt
+        await self._ledger.archive(trimmed)
+        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="back", history={"len": len(trimmed)})
+        await self._status.assign(target.state)
+        jlog(logger, logging.INFO, LogCode.STATE_SET, op="back", state={"target": target.state})
+        await self._latest.mark(render.ids[0])
+        jlog(logger, logging.INFO, LogCode.LAST_SET, op="back", message={"id": render.ids[0]})

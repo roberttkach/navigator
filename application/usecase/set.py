@@ -19,28 +19,28 @@ logger = logging.getLogger(__name__)
 class Setter:
     def __init__(
             self,
-            history_repo: HistoryRepository,
-            state_repo: StateRepository,
+            ledger: HistoryRepository,
+            status: StateRepository,
             gateway: MessageGateway,
             restorer: ViewRestorer,
             orchestrator: ViewOrchestrator,
-            last_repo: LastMessageRepository,
+            latest: LastMessageRepository,
     ):
-        self._history_repo = history_repo
-        self._state_repo = state_repo
+        self._ledger = ledger
+        self._status = status
         self._gateway = gateway
         self._restorer = restorer
         self._orchestrator = orchestrator
-        self._last_repo = last_repo
+        self._latest = latest
 
     @trace(None, None, None)
     async def execute(
             self,
             scope: Scope,
-            target_state: str,
+            goal: str,
             context: Dict[str, Any],
     ) -> None:
-        history = await self._history_repo.recall()
+        history = await self._ledger.recall()
         jlog(
             logger,
             logging.DEBUG,
@@ -49,12 +49,12 @@ class Setter:
             history={"len": len(history)},
             scope={"chat": scope.chat, "inline": bool(scope.inline)},
         )
-        target_idx: Optional[int] = None
+        cursor: Optional[int] = None
         for i in range(len(history) - 1, -1, -1):
-            if history[i].state == target_state:
-                target_idx = i
+            if history[i].state == goal:
+                cursor = i
                 break
-        if target_idx is None:
+        if cursor is None:
             await self._gateway.alert(scope)
             jlog(
                 logger,
@@ -64,85 +64,85 @@ class Setter:
                 scope={"chat": scope.chat, "inline": bool(scope.inline)},
             )
             return
-        target_entry = history[target_idx]
-        is_inline = bool(scope.inline)
-        current_tail = history[-1]
-        new_history = history[: target_idx + 1]
-        await self._history_repo.archive(new_history)
-        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="set", history={"len": len(new_history)})
-        await self._state_repo.assign(target_entry.state)
-        jlog(logger, logging.INFO, LogCode.STATE_SET, op="set", state={"target": target_entry.state})
-        memory = await self._state_repo.payload()
+        target = history[cursor]
+        inline = bool(scope.inline)
+        tail = history[-1]
+        trimmed = history[: cursor + 1]
+        await self._ledger.archive(trimmed)
+        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="set", history={"len": len(trimmed)})
+        await self._status.assign(target.state)
+        jlog(logger, logging.INFO, LogCode.STATE_SET, op="set", state={"target": target.state})
+        memory = await self._status.payload()
         merged = {**memory, **context}
-        restored_payloads = await self._restorer.revive(target_entry, merged, inline=is_inline)
-        resolved_payloads = [normalize(p) for p in restored_payloads]
-        if not is_inline:
-            render_result = await self._orchestrator.render_node(
+        restored = await self._restorer.revive(target, merged, inline=inline)
+        resolved = [normalize(p) for p in restored]
+        if not inline:
+            render = await self._orchestrator.render_node(
                 "set",
                 scope,
-                resolved_payloads,
-                current_tail,
+                resolved,
+                tail,
                 inline=False,
             )
         else:
-            render_result = await self._orchestrator.render_node(
+            render = await self._orchestrator.render_node(
                 "set",
                 scope,
-                resolved_payloads,
-                current_tail,
+                resolved,
+                tail,
                 inline=True,
             )
-        if render_result and render_result.changed:
+        if render and render.changed:
             from ..internal import policy as _pol
-            if is_inline and _pol.TailMode in ("delete", "collapse") and getattr(scope, "business", None):
-                to_delete = []
-                for m in current_tail.messages[1:]:
-                    to_delete.append(m.id)
-                    to_delete.extend(list(getattr(m, "extras", []) or []))
-                if to_delete:
-                    first_n = to_delete[:20]
+            if inline and _pol.TailMode in ("delete", "collapse") and getattr(scope, "business", None):
+                targets = []
+                for msg in tail.messages[1:]:
+                    targets.append(msg.id)
+                    targets.extend(list(getattr(msg, "extras", []) or []))
+                if targets:
+                    sample = targets[:20]
                     jlog(
                         logger,
                         logging.DEBUG,
                         LogCode.INLINE_TAIL_DELETE_IDS,
-                        ids=first_n,
-                        total=len(to_delete),
+                        ids=sample,
+                        total=len(targets),
                     )
-                    await self._gateway.delete(scope, to_delete)
+                    await self._gateway.delete(scope, targets)
 
-            current_history = await self._history_repo.recall()
-            if current_history:
-                tail = current_history[-1]
-                patched_tail = type(tail)(
+            current = await self._ledger.recall()
+            if current:
+                tail = current[-1]
+                patched = type(tail)(
                     state=tail.state,
                     view=tail.view,
                     messages=[
-                                 type(tail.messages[i])(
-                                     id=render_result.ids[i],
-                                     text=tail.messages[i].text,
-                                     media=tail.messages[i].media,
-                                     group=tail.messages[i].group,
-                                     markup=tail.messages[i].markup,
-                                     preview=tail.messages[i].preview,
-                                     extra=tail.messages[i].extra,
-                                     extras=render_result.extras[i],
-                                     inline=tail.messages[i].inline,
-                                     automated=tail.messages[i].automated,
-                                     ts=tail.messages[i].ts,
-                                 )
-                                 for i in range(min(len(tail.messages), len(render_result.ids)))
-                             ]
-                             + tail.messages[min(len(tail.messages), len(render_result.ids)):],
+                        type(tail.messages[i])(
+                            id=render.ids[i],
+                            text=tail.messages[i].text,
+                            media=tail.messages[i].media,
+                            group=tail.messages[i].group,
+                            markup=tail.messages[i].markup,
+                            preview=tail.messages[i].preview,
+                            extra=tail.messages[i].extra,
+                            extras=render.extras[i],
+                            inline=tail.messages[i].inline,
+                            automated=tail.messages[i].automated,
+                            ts=tail.messages[i].ts,
+                        )
+                        for i in range(min(len(tail.messages), len(render.ids)))
+                    ]
+                    + tail.messages[min(len(tail.messages), len(render.ids)):],
                     root=tail.root,
                 )
-                await self._history_repo.archive(current_history[:-1] + [patched_tail])
-                jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="set", history={"len": len(current_history)})
-            await self._last_repo.mark(render_result.ids[0])
-            jlog(logger, logging.INFO, LogCode.LAST_SET, op="set", message={"id": render_result.ids[0]})
+                await self._ledger.archive(current[:-1] + [patched])
+                jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="set", history={"len": len(current)})
+            await self._latest.mark(render.ids[0])
+            jlog(logger, logging.INFO, LogCode.LAST_SET, op="set", message={"id": render.ids[0]})
         else:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="set")
-            current = await self._history_repo.recall()
-            tail = current[-1] if current else target_entry
+            current = await self._ledger.recall()
+            tail = current[-1] if current else target
             if tail.messages:
-                await self._last_repo.mark(tail.messages[0].id)
+                await self._latest.mark(tail.messages[0].id)
             return
