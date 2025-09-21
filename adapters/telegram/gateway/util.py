@@ -14,8 +14,8 @@ def targets(scope: Scope, message_id: Optional[int] = None) -> Dict[str, Any]:
             data["message_id"] = message_id
     if scope.business:
         data["business_connection_id"] = scope.business
-    if scope.direct_topic_id is not None:
-        data["direct_messages_topic_id"] = scope.direct_topic_id
+    if scope.topic is not None:
+        data["direct_messages_topic_id"] = scope.topic
     return data
 
 
@@ -28,48 +28,48 @@ def _msg_to_meta(msg: Message) -> dict:
     if getattr(msg, "text", None) is not None and not getattr(msg, "photo", None) \
             and not getattr(msg, "document", None) and not getattr(msg, "video", None) \
             and not getattr(msg, "audio", None) and not getattr(msg, "animation", None):
-        return {"kind": "text", "text": msg.text, "inline_id": None}
+        return {"kind": "text", "text": msg.text, "inline": None}
     # media, порядок: photo, video, animation, document, audio, voice, video_note
     if getattr(msg, "photo", None):
         fid = msg.photo[-1].file_id
-        return {"kind": "media", "media_type": "photo", "file_id": fid, "caption": msg.caption, "inline_id": None}
+        return {"kind": "media", "media_type": "photo", "file_id": fid, "caption": msg.caption, "inline": None}
     if getattr(msg, "video", None):
         return {"kind": "media", "media_type": "video", "file_id": msg.video.file_id, "caption": msg.caption,
-                "inline_id": None}
+                "inline": None}
     if getattr(msg, "animation", None):
         return {"kind": "media", "media_type": "animation", "file_id": msg.animation.file_id, "caption": msg.caption,
-                "inline_id": None}
+                "inline": None}
     if getattr(msg, "document", None):
         return {"kind": "media", "media_type": "document", "file_id": msg.document.file_id, "caption": msg.caption,
-                "inline_id": None}
+                "inline": None}
     if getattr(msg, "audio", None):
         return {"kind": "media", "media_type": "audio", "file_id": msg.audio.file_id, "caption": msg.caption,
-                "inline_id": None}
+                "inline": None}
     if getattr(msg, "voice", None):
         return {"kind": "media", "media_type": "voice", "file_id": msg.voice.file_id, "caption": msg.caption,
-                "inline_id": None}
+                "inline": None}
     if getattr(msg, "video_note", None):
         return {"kind": "media", "media_type": "video_note", "file_id": msg.video_note.file_id, "caption": None,
-                "inline_id": None}
+                "inline": None}
     # fallback
-    return {"kind": "text", "text": getattr(msg, "text", None), "inline_id": None}
+    return {"kind": "text", "text": getattr(msg, "text", None), "inline": None}
 
 
 def extract_meta(result_msg_or_bool: Any, payload: Any, scope: Scope) -> dict:
     """
-    Возвращает dict: kind, media_type, file_id, caption, text, group_items, inline_id.
-    Для inline всегда проставлять inline_id из scope.
+    Возвращает dict: kind, media_type, file_id, caption, text, group_items, inline.
+    Для inline всегда проставлять inline из scope.
     Для media_group собирать group_items в send.py и передавать сюда готовым dict.
     """
-    inline_id = getattr(scope, "inline", None)
+    token = getattr(scope, "inline", None)
     if hasattr(result_msg_or_bool, "message_id"):
         m = _msg_to_meta(result_msg_or_bool)
-        m["inline_id"] = inline_id
+        m["inline"] = token
         return m
     # для edit_caption/edit_markup, когда Telegram возвращает bool
     # ориентируемся на payload
     if getattr(payload, "group", None):
-        return {"kind": "group", "group_items": None, "inline_id": inline_id}
+        return {"kind": "group", "group_items": None, "inline": token}
     if getattr(payload, "media", None):
         mt = getattr(payload.media.type, "value", None)
         return {
@@ -79,6 +79,6 @@ def extract_meta(result_msg_or_bool: Any, payload: Any, scope: Scope) -> dict:
             "caption": None,
             "text": None,
             "group_items": None,
-            "inline_id": inline_id,
+            "inline": token,
         }
-    return {"kind": "text", "text": getattr(payload, "text", None), "inline_id": inline_id}
+    return {"kind": "text", "text": getattr(payload, "text", None), "inline": token}

@@ -18,7 +18,7 @@ class Result:
     caption: Optional[str] = None
     text: Optional[str] = None
     group_items: Optional[List[dict]] = None  # [{"media_type":..., "file_id":..., "caption": str|None}]
-    inline_id: Optional[str] = None
+    inline: Optional[str] = None
 
 
 @runtime_checkable

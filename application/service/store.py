@@ -49,7 +49,7 @@ def reindex(entry: Entry, ids: List[int], extras: Optional[List[List[int]]] = No
                 preview=entry.messages[i].preview,
                 extra=entry.messages[i].extra,
                 extras=(extras[i] if extras and i < len(extras) else entry.messages[i].extras),
-                inline_id=entry.messages[i].inline_id,
+                inline=entry.messages[i].inline,
                 automated=entry.messages[i].automated,
                 ts=entry.messages[i].ts,
             )

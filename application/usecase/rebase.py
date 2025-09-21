@@ -46,7 +46,7 @@ class Shifter:
             preview=first.preview,
             extra=first.extra,
             extras=first.extras,
-            inline_id=first.inline_id,
+            inline=first.inline,
             automated=first.automated,
             ts=first.ts,
         )

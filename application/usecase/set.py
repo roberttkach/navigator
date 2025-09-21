@@ -127,7 +127,7 @@ class Setter:
                                      preview=tail.messages[i].preview,
                                      extra=tail.messages[i].extra,
                                      extras=render_result.extras[i],
-                                     inline_id=tail.messages[i].inline_id,
+                                     inline=tail.messages[i].inline,
                                      automated=tail.messages[i].automated,
                                      ts=tail.messages[i].ts,
                                  )

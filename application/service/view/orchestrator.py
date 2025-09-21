@@ -157,7 +157,7 @@ class ViewOrchestrator:
                 "caption": getattr(r, "caption", None),
                 "text": getattr(r, "text", None),
                 "group_items": getattr(r, "group_items", None),
-                "inline_id": getattr(r, "inline_id", None),
+                "inline": getattr(r, "inline", None),
             }
             norm_meta = self._normalize_meta(raw_meta, base_msg, dec, payload)
             return RenderResult(id=r.id, extra=r.extra, meta=self._require_kind(norm_meta))
@@ -302,7 +302,7 @@ class ViewOrchestrator:
                     "group_items": [
                         {"media_type": it.type.value, "file_id": it.path, "caption": it.caption} for it in o.group
                     ],
-                    "inline_id": o.inline_id,
+                    "inline": o.inline,
                 }
             if o.media:
                 return {
@@ -310,9 +310,9 @@ class ViewOrchestrator:
                     "media_type": o.media.type.value,
                     "file_id": o.media.path,
                     "caption": o.media.caption,
-                    "inline_id": o.inline_id,
+                    "inline": o.inline,
                 }
-            return {"kind": "text", "text": o.text, "inline_id": o.inline_id}
+            return {"kind": "text", "text": o.text, "inline": o.inline}
 
         shield(scope, new[0] if new else Payload())
         old: List[Msg] = list(last_node.messages) if last_node else []
@@ -428,7 +428,7 @@ class ViewOrchestrator:
                 out_ids.append(ids[0])
                 out_extras.append(list(old[0].extras))
                 out_metas.append(
-                    self._require_kind({"kind": "group", "group_items": group_items, "inline_id": old[0].inline_id})
+                    self._require_kind({"kind": "group", "group_items": group_items, "inline": old[0].inline})
                 )
 
                 # продолжить обработку узла с индекса 1
@@ -496,7 +496,7 @@ class ViewOrchestrator:
                                 preview=o.preview,
                                 extra=o.extra,
                                 extras=getattr(o, "extras", []),
-                                inline_id=o.inline_id,
+                                inline=o.inline,
                                 automated=o.automated,
                                 ts=o.ts,
                             )
@@ -539,7 +539,7 @@ class ViewOrchestrator:
                         "caption": getattr(rr, "caption", None),
                         "text": getattr(rr, "text", None),
                         "group_items": getattr(rr, "group_items", None),
-                        "inline_id": getattr(rr, "inline_id", None),
+                        "inline": getattr(rr, "inline", None),
                     }
                     out_metas.append(self._require_kind(meta))
                     changed = True
@@ -554,7 +554,7 @@ class ViewOrchestrator:
                 "caption": getattr(r, "caption", None),
                 "text": getattr(r, "text", None),
                 "group_items": getattr(r, "group_items", None),
-                "inline_id": getattr(r, "inline_id", None),
+                "inline": getattr(r, "inline", None),
             }
             out_metas.append(self._require_kind(meta))
             changed = True
@@ -580,7 +580,7 @@ class ViewOrchestrator:
                         "caption": getattr(r, "caption", None),
                         "text": getattr(r, "text", None),
                         "group_items": getattr(r, "group_items", None),
-                        "inline_id": getattr(r, "inline_id", None),
+                        "inline": getattr(r, "inline", None),
                     }
                     out_metas.append(self._require_kind(meta))
                     changed = True

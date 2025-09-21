@@ -110,7 +110,7 @@ class Rewinder:
                 preview=entry_to.messages[i].preview,
                 extra=entry_to.messages[i].extra,
                 extras=render_result.extras[i],
-                inline_id=entry_to.messages[i].inline_id,
+                inline=entry_to.messages[i].inline,
                 automated=entry_to.messages[i].automated,
                 ts=entry_to.messages[i].ts,
             )

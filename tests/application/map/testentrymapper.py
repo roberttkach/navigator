@@ -42,7 +42,7 @@ def testText() -> None:
     result = NodeResult(
         ids=[1],
         extras=[[]],
-        metas=[{"kind": "text", "text": "meta", "inline_id": "123"}],
+        metas=[{"kind": "text", "text": "meta", "inline": "123"}],
     )
 
     entry = mapper.convert(result, [payload], state="s", view="view", root=True)
@@ -51,7 +51,7 @@ def testText() -> None:
     assert entry.messages[0].text == "meta"
     assert entry.messages[0].media is None
     assert entry.messages[0].group is None
-    assert entry.messages[0].inline_id == "123"
+    assert entry.messages[0].inline == "123"
 
 
 def testMedia() -> None:
@@ -65,7 +65,7 @@ def testMedia() -> None:
             "media_type": "photo",
             "file_id": "file-id",
             "caption": "meta caption",
-            "inline_id": "inline",
+            "inline": "inline",
         }],
     )
 
@@ -78,7 +78,7 @@ def testMedia() -> None:
     assert msg.media.caption == "meta caption"
     assert msg.text is None
     assert msg.group is None
-    assert msg.inline_id == "inline"
+    assert msg.inline == "inline"
     assert msg.extras == [42]
 
 
@@ -99,7 +99,7 @@ def testGroup() -> None:
                 {"media_type": "photo", "file_id": "f1", "caption": "c1"},
                 {"media_type": "video", "file_id": "f2", "caption": ""},
             ],
-            "inline_id": None,
+            "inline": None,
         }],
     )
 

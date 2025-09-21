@@ -56,7 +56,7 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                 payload=_payload_kind(payload),
                 message={"id": sent_messages[0].message_id, "extra_len": len(sent_messages) - 1},
             )
-            meta = {"kind": "group", "group_items": items, "inline_id": scope.inline}
+            meta = {"kind": "group", "group_items": items, "inline": scope.inline}
             return Result(
                 id=sent_messages[0].message_id,
                 extra=[m.message_id for m in sent_messages[1:]],

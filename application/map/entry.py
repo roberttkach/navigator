@@ -35,7 +35,7 @@ class EntryMapper:
                 raise ValueError("meta_missing_kind")
             if k not in ("text", "media", "group"):
                 raise ValueError(f"meta_unsupported_kind:{k}")
-            inline = meta.get("inline_id")
+            inline = meta.get("inline")
 
             previous = None
             if base and idx < len(getattr(base, "messages", []) or []):
@@ -91,7 +91,7 @@ class EntryMapper:
                     preview=payload.preview,
                     extra=extra,
                     extras=list(aux),
-                    inline_id=inline,
+                    inline=inline,
                     automated=True,
                     ts=now,
                 )
