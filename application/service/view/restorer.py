@@ -69,8 +69,7 @@ class ViewRestorer:
 
     @staticmethod
     def _static_restore_msg(m) -> Payload:
-        drop_text = bool((getattr(m, "extra", {}) or {}).get("degraded"))
-        text = None if drop_text else getattr(m, "text", None)
+        text = getattr(m, "text", None)
 
         if text is None and getattr(m, "media", None):
             cap = getattr(m.media, "caption", None)
