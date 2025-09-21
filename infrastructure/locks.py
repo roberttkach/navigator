@@ -44,7 +44,7 @@ class _RedisLockAdapter:
         self._locked = True
         return True
 
-    async def release_async(self) -> None:
+    async def untether(self) -> None:
         try:
             if self._lock:
                 await self._lock.release()
@@ -55,7 +55,7 @@ class _RedisLockAdapter:
 
     def release(self) -> None:
         self._locked = False
-        asyncio.get_running_loop().create_task(self.release_async())
+        asyncio.get_running_loop().create_task(self.untether())
 
     def locked(self) -> bool:
         return bool(self._locked)
@@ -71,13 +71,13 @@ class RedisLocksmith(Locksmith):
         self._ttl = float(ttl)
         self._blocking = float(blocking)
 
-    def box_for(self, key: tuple[object, object | None]) -> Latch:  # type: ignore[override]
+    def latch(self, key: tuple[object, object | None]) -> Latch:  # type: ignore[override]
         name = f"nav:lock:{key[0]}:{key[1]}"
         adapter = _RedisLockAdapter(self._redis, name, self._ttl, self._blocking)
         return Latch(lock=adapter)
 
 
-def configure_from_env() -> None:
+def configure() -> None:
     """Configure lock provider based on environment variables."""
 
     mode = os.getenv("NAV_LOCKS", "memory").lower()
@@ -95,5 +95,5 @@ class RedisLockProvider(RedisLocksmith):
         super().__init__(url, ttl, blocking)
 
 
-__all__ = ["RedisLocksmith", "RedisLockProvider", "configure_from_env"]
+__all__ = ["RedisLocksmith", "RedisLockProvider", "configure"]
 
