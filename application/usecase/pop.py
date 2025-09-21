@@ -10,36 +10,36 @@ logger = logging.getLogger(__name__)
 
 
 class Trimmer:
-    def __init__(self, history_repo: HistoryRepository, last_repo: LastMessageRepository):
-        self._history_repo = history_repo
-        self._last_repo = last_repo
+    def __init__(self, ledger: HistoryRepository, latest: LastMessageRepository):
+        self._ledger = ledger
+        self._latest = latest
 
     @trace(None, None, None)
     async def execute(self, count: int = 1) -> None:
         if count <= 0:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="pop", note="count_le_0")
             return
-        history = await self._history_repo.recall()
+        history = await self._ledger.recall()
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, op="pop", history={"len": len(history)})
         if len(history) <= 1:
             return
-        num_to_delete = min(count, len(history) - 1)
-        if num_to_delete <= 0:
+        limit = min(count, len(history) - 1)
+        if limit <= 0:
             return
-        new_history = history[:-num_to_delete]
-        await self._history_repo.archive(new_history)
-        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="pop", history={"len": len(new_history)})
+        trimmed = history[:-limit]
+        await self._ledger.archive(trimmed)
+        jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="pop", history={"len": len(trimmed)})
 
-        new_last_id = None
-        if new_history and new_history[-1].messages:
-            new_last_id = int(new_history[-1].messages[0].id)
-        await self._last_repo.mark(new_last_id)
+        marker = None
+        if trimmed and trimmed[-1].messages:
+            marker = int(trimmed[-1].messages[0].id)
+        await self._latest.mark(marker)
         jlog(
             logger,
             logging.INFO,
-            LogCode.LAST_SET if new_last_id is not None else LogCode.LAST_DELETE,
+            LogCode.LAST_SET if marker is not None else LogCode.LAST_DELETE,
             op="pop",
-            message={"id": new_last_id},
+            message={"id": marker},
         )
 
         jlog(
@@ -47,6 +47,6 @@ class Trimmer:
             logging.INFO,
             LogCode.POP_SUCCESS,
             op="pop",
-            history={"len": len(new_history)},
-            note=f"deleted:{num_to_delete}",
+            history={"len": len(trimmed)},
+            note=f"deleted:{limit}",
         )
