@@ -91,9 +91,9 @@ class AppContainer(containers.DeclarativeContainer):
         orchestrator=view_orchestrator, last_repo=last_repo,
     )
     trimmer = providers.Factory(Trimmer, history_repo=history_repo, last_repo=last_repo)
-    shifter = providers.Factory(Shifter, history_repo=history_repo, temp_repo=temp_repo, last_repo=last_repo)
+    shifter = providers.Factory(Shifter, ledger=history_repo, buffer=temp_repo, latest=last_repo)
     tailer = providers.Factory(
-        Tailer, last_repo=last_repo, history_repo=history_repo, gateway=gateway,
+        Tailer, latest=last_repo, ledger=history_repo, gateway=gateway,
         orchestrator=view_orchestrator,
     )
     alarm = providers.Factory(
