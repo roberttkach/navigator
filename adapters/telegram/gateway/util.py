@@ -19,7 +19,7 @@ def targets(scope: Scope, message_id: Optional[int] = None) -> Dict[str, Any]:
     return data
 
 
-def _msg_to_meta(msg: Message) -> dict:
+def _digest(msg: Message) -> dict:
     if getattr(msg, "media_group_id", None):
         pass
     if getattr(msg, "text", None) is not None and not getattr(msg, "photo", None) \
@@ -50,7 +50,7 @@ def _msg_to_meta(msg: Message) -> dict:
     return {"kind": "text", "text": getattr(msg, "text", None), "inline": None}
 
 
-def extract_meta(result_msg_or_bool: Any, payload: Any, scope: Scope) -> dict:
+def extract(result_msg_or_bool: Any, payload: Any, scope: Scope) -> dict:
     """
     Возвращает dict: kind, media_type, file_id, caption, text, group_items, inline.
     Для inline всегда проставлять inline из scope.
@@ -58,7 +58,7 @@ def extract_meta(result_msg_or_bool: Any, payload: Any, scope: Scope) -> dict:
     """
     token = getattr(scope, "inline", None)
     if hasattr(result_msg_or_bool, "message_id"):
-        m = _msg_to_meta(result_msg_or_bool)
+        m = _digest(result_msg_or_bool)
         m["inline"] = token
         return m
     if getattr(payload, "group", None):

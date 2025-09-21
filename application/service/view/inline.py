@@ -25,11 +25,11 @@ def _looks_like_file_id(s: str) -> bool:
 
 
 class InlineStrategy:
-    def __init__(self, gateway, is_url_input_file, strict_inline_media_path):
+    def __init__(self, gateway, probe, strictpath):
         self._gateway = gateway
-        self._is_url_input_file = is_url_input_file
+        self._probe = probe
         self._logger = logging.getLogger(__name__)
-        self._strict_inline_media_path = strict_inline_media_path
+        self._strictpath = strictpath
 
     def _media_editable_inline(self, p) -> bool:
         """
@@ -45,13 +45,13 @@ class InlineStrategy:
         if getattr(m, "type", None) in (MediaType.VOICE, MediaType.VIDEO_NOTE):
             return False
         path = getattr(m, "path", None)
-        if self._is_url_input_file(path):
+        if self._probe(path):
             return True
         if isinstance(path, str):
             if remote(path):
                 return True
             if not local(path):
-                return _looks_like_file_id(path) if self._strict_inline_media_path else True
+                return _looks_like_file_id(path) if self._strictpath else True
         return False
 
     def _reply_changed(self, base_msg, p) -> bool:

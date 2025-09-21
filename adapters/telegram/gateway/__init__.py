@@ -34,16 +34,16 @@ class TelegramGateway(MessageGateway):
             raise InlineUnsupported("inline_send_not_supported")
         return await dispatch(self._bot, self._codec, scope, payload, truncate=self._truncate)
 
-    async def edit_text(self, scope: Scope, message_id: int, payload: Payload) -> Result:
+    async def rewrite(self, scope: Scope, message_id: int, payload: Payload) -> Result:
         return await rewrite(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
 
-    async def edit_media(self, scope: Scope, message_id: int, payload: Payload) -> Result:
+    async def recast(self, scope: Scope, message_id: int, payload: Payload) -> Result:
         return await recast(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
 
-    async def edit_caption(self, scope: Scope, message_id: int, payload: Payload) -> Result:
+    async def retitle(self, scope: Scope, message_id: int, payload: Payload) -> Result:
         return await retitle(self._bot, self._codec, scope, message_id, payload, truncate=self._truncate)
 
-    async def edit_markup(self, scope: Scope, message_id: int, payload: Payload) -> Result:
+    async def remap(self, scope: Scope, message_id: int, payload: Payload) -> Result:
         return await remap(self._bot, self._codec, scope, message_id, payload)
 
     async def delete(self, scope: Scope, ids: List[int]) -> None:

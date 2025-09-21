@@ -6,24 +6,25 @@ from typing import Dict, Any, Optional
 
 from aiogram.types import LinkPreviewOptions
 
-from .extra import validate_extra, ALLOWED_TEXT, ALLOWED_CAPTION_TEXT
-from .keyfilter import accept_for
+from .extra import audit, ALLOWED_TEXT, ALLOWED_CAPTION_TEXT
+from .keyfilter import screen
 from ...domain.entity.markup import Markup
 from ...domain.log.emit import jlog
 from ...domain.util.entities import sanitize
-from ...domain.value.content import Payload, caption
+from ...domain.value import content
+from ...domain.value.content import Payload
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
 
-def decode_reply(codec, reply):
+def decode(codec, reply):
     if isinstance(reply, Markup):
         return codec.decode(reply)
     return None
 
 
-def map_preview(preview):
+def preview(preview):
     if not preview:
         return None
     if is_dataclass(preview):
@@ -37,20 +38,20 @@ def map_preview(preview):
     return None
 
 
-def caption_for(payload: Payload):
-    return caption(payload)
+def caption(payload: Payload):
+    return content.caption(payload)
 
 
-def caption_for_edit(payload: Payload) -> Optional[str]:
+def restate(payload: Payload) -> Optional[str]:
     """
-    Правило для edit_caption:
+    Правило для retitle:
     - вернуть текст подписи, если он вычисляется (caption(payload));
     - если payload.erase установлен — вернуть "" для очистки подписи;
     - иначе вернуть None (не менять подпись).
     Пустая строка → явная очистка подписи на стороне Telegram.
     Примечание: пустая строка из payload.text без маркера erase игнорируется и приводит к no-op.
     """
-    cap = caption(payload)
+    cap = content.caption(payload)
     if cap is not None:
         return cap
     if payload.erase:
@@ -58,7 +59,7 @@ def caption_for_edit(payload: Payload) -> Optional[str]:
     return None
 
 
-def split_extra(extra: dict | None) -> tuple[dict, dict]:
+def divide(extra: dict | None) -> tuple[dict, dict]:
     extra = extra or {}
     cap = {k: extra[k] for k in ("mode", "entities", "message_effect_id") if k in extra}
     med = {k: extra[k] for k in (
@@ -68,7 +69,7 @@ def split_extra(extra: dict | None) -> tuple[dict, dict]:
     return cap, med
 
 
-def sanitize_text_kwargs(
+def cleanse(
         extra: Dict[str, Any] | None,
         is_caption: bool,
         target=None,
@@ -78,7 +79,7 @@ def sanitize_text_kwargs(
     if (text_len or 0) <= 0:
         return {}
     allowed = ALLOWED_CAPTION_TEXT if is_caption else ALLOWED_TEXT
-    validate_extra(extra, allowed)
+    audit(extra, allowed)
     kv = dict(extra or {})
     if "entities" in kv:
         cleaned = sanitize(kv.get("entities"), text_len or 0)
@@ -91,7 +92,7 @@ def sanitize_text_kwargs(
     if is_caption and "entities" in kv:
         kv["caption_entities"] = kv.pop("entities")
     if target is not None:
-        filtered = accept_for(target, kv)
+        filtered = screen(target, kv)
         if set(kv.keys()) != set(filtered.keys()):
             tgt = getattr(target, "__name__", str(target))
             jlog(
@@ -108,7 +109,7 @@ def sanitize_text_kwargs(
     return kv
 
 
-def normalize_extra_for(scope, extra: Dict[str, Any] | None, *, is_edit: bool) -> Optional[Dict[str, Any]]:
+def scrub(scope, extra: Dict[str, Any] | None, *, is_edit: bool) -> Optional[Dict[str, Any]]:
     """
     Нормализация extra:
     - message_effect_id удаляется при edit и во всех чатах, кроме private.

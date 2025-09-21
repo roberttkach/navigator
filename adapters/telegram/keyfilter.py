@@ -9,7 +9,7 @@ _seen: set[tuple[str, FrozenSet[str]]] = set()
 _logger = logging.getLogger(__name__)
 
 
-def _sig_params(target: Any) -> set:
+def _signature(target: Any) -> set:
     obj = target.__init__ if inspect.isclass(target) else target
     try:
         sig = inspect.signature(obj)
@@ -20,10 +20,10 @@ def _sig_params(target: Any) -> set:
         return {"__ANY__"}
 
 
-def accept_for(target: Any, extra: Dict[str, Any] | None) -> Dict[str, Any]:
+def screen(target: Any, extra: Dict[str, Any] | None) -> Dict[str, Any]:
     if not extra:
         return {}
-    allowed = _sig_params(target)
+    allowed = _signature(target)
     if "__ANY__" in allowed:
         tgt = getattr(target, "__name__", str(target))
         keys = frozenset(extra.keys())

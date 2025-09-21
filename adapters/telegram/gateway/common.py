@@ -2,7 +2,7 @@ import logging
 
 from aiogram.types import InlineKeyboardMarkup
 
-from .util import extract_meta
+from .util import extract
 from .. import serializer
 from ....domain.log.emit import jlog
 from ....domain.port.message import Result
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def markup(codec, reply, *, edit: bool):
-    obj = serializer.decode_reply(codec, reply)
+    obj = serializer.decode(codec, reply)
     if not edit:
         return obj
     return obj if isinstance(obj, InlineKeyboardMarkup) else None
@@ -26,7 +26,7 @@ def finalize(scope, payload, identifier, result):
     else:
         fallback = getattr(result, "message_id", None)
         mid = fallback if fallback is not None else identifier
-    meta = extract_meta(result, payload, scope)
+    meta = extract(result, payload, scope)
     jlog(
         logger,
         logging.INFO,

@@ -8,7 +8,7 @@ from ...adapters.storage.temprepo import TempRepo
 from ...adapters.storage.transitionrecorder import TransitionRecorder
 from ...adapters.telegram.gateway import TelegramGateway
 from ...adapters.telegram.markupcodec import AiogramMarkupCodec
-from ...adapters.telegram.media import is_url_input_file
+from ...adapters.telegram.media import weblink
 from ...application.map.entry import EntryMapper
 from ...application.service.view.inline import InlineStrategy
 from ...application.service.view.orchestrator import ViewOrchestrator
@@ -52,8 +52,8 @@ class AppContainer(containers.DeclarativeContainer):
     inline_strategy = providers.Factory(
         InlineStrategy,
         gateway=gateway,
-        is_url_input_file=is_url_input_file,
-        strict_inline_media_path=providers.Object(SETTINGS.strict_inline_media_path),
+        probe=weblink,
+        strictpath=providers.Object(SETTINGS.strictpath),
     )
     rendering_config = providers.Object(RenderingConfig(thumbguard=SETTINGS.thumbguard))
     view_orchestrator = providers.Factory(
