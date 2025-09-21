@@ -1,6 +1,6 @@
 import logging
 
-from ..log.decorators import log_io
+from ..log.decorators import trace
 from ..log.emit import jlog
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LastMessageRepository
@@ -14,12 +14,12 @@ class Trimmer:
         self._history_repo = history_repo
         self._last_repo = last_repo
 
-    @log_io(None, None, None)
+    @trace(None, None, None)
     async def execute(self, count: int = 1) -> None:
         if count <= 0:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="pop", note="count_le_0")
             return
-        history = await self._history_repo.get_history()
+        history = await self._history_repo.recall()
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, op="pop", history={"len": len(history)})
         if len(history) <= 1:
             return
@@ -27,13 +27,13 @@ class Trimmer:
         if num_to_delete <= 0:
             return
         new_history = history[:-num_to_delete]
-        await self._history_repo.save_history(new_history)
+        await self._history_repo.archive(new_history)
         jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="pop", history={"len": len(new_history)})
 
         new_last_id = None
         if new_history and new_history[-1].messages:
             new_last_id = int(new_history[-1].messages[0].id)
-        await self._last_repo.set_last_id(new_last_id)
+        await self._last_repo.mark(new_last_id)
         jlog(
             logger,
             logging.INFO,

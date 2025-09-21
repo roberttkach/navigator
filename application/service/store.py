@@ -27,11 +27,11 @@ async def persist(archive, ledger, policy, limit, history, *, op: str):
             op=op,
             history={"before": len(history), "after": len(trimmed)},
         )
-    await archive.save_history(trimmed)
+    await archive.archive(trimmed)
     jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op=op, history={"len": len(trimmed)})
     if trimmed and trimmed[-1].messages:
         mid = trimmed[-1].messages[0].id
-        await ledger.set_last_id(mid)
+        await ledger.mark(mid)
         jlog(logger, logging.INFO, LogCode.LAST_SET, op=op, message={"id": mid})
 
 

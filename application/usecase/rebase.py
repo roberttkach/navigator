@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-from ..log.decorators import log_io
+from ..log.decorators import trace
 from ..log.emit import jlog
 from ...domain.entity.history import Entry, Msg
 from ...domain.port.history import HistoryRepository
@@ -19,18 +19,18 @@ class Shifter:
         self._temp_repo = temp_repo
         self._last_repo = last_repo
 
-    @log_io(None, None, None)
+    @trace(None, None, None)
     async def execute(self, new_id: int) -> None:
-        history = await self._history_repo.get_history()
+        history = await self._history_repo.recall()
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, op="rebase", history={"len": len(history)})
         if not history:
             return
 
         last = history[-1]
         if not last.messages:
-            await self._temp_repo.save_temp_ids([])
+            await self._temp_repo.stash([])
             jlog(logger, logging.INFO, LogCode.TEMP_SAVE, op="rebase", temp={"len": 0})
-            await self._last_repo.set_last_id(int(new_id))
+            await self._last_repo.mark(int(new_id))
             jlog(logger, logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(new_id)})
             jlog(logger, logging.INFO, LogCode.REBASE_SUCCESS, op="rebase",
                  message={"id": int(new_id)}, history={"len": len(history)})
@@ -58,13 +58,13 @@ class Shifter:
         )
         rebased: List[Entry] = history[:-1] + [rebased_last]
 
-        await self._history_repo.save_history(rebased)
+        await self._history_repo.archive(rebased)
         jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="rebase", history={"len": len(rebased)})
 
-        await self._temp_repo.save_temp_ids([])
+        await self._temp_repo.stash([])
         jlog(logger, logging.INFO, LogCode.TEMP_SAVE, op="rebase", temp={"len": 0})
 
-        await self._last_repo.set_last_id(int(new_id))
+        await self._last_repo.mark(int(new_id))
         jlog(logger, logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(new_id)})
 
         jlog(logger, logging.INFO, LogCode.REBASE_SUCCESS, op="rebase",

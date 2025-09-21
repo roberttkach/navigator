@@ -141,13 +141,13 @@ class HistoryRepo:
     def __init__(self, state: FSMContext):
         self._state = state
 
-    async def get_history(self) -> List[Entry]:
+    async def recall(self) -> List[Entry]:
         data = await self._state.get_data()
         raw = data.get(FSM_HISTORY_KEY, [])
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, history={"len": len(raw)})
         return [self._load(d) for d in raw]
 
-    async def save_history(self, history: List[Entry]) -> None:
+    async def archive(self, history: List[Entry]) -> None:
         payload = [self._dump(entry) for entry in history]
         await self._state.update_data({FSM_HISTORY_KEY: payload})
         jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, history={"len": len(payload)})

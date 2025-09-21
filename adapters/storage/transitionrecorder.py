@@ -14,7 +14,7 @@ class TransitionRecorder(TransitionObserver):
         self._logger = logging.getLogger(__name__)
 
     async def on_transition(self, from_state: Optional[str], to_state: str) -> None:
-        graph = await self._state_repo.get_graph()
+        graph = await self._state_repo.diagram()
         nodes_before = list(graph.nodes)
         before_edges_raw: Dict[str, List[str]] = dict(graph.edges)
         if from_state is None:
@@ -24,7 +24,7 @@ class TransitionRecorder(TransitionObserver):
                 nodes=sorted(list(nodes)),
                 edges={k: list(v) for k, v in graph.edges.items()},
             )
-            await self._state_repo.save_graph(new_graph)
+            await self._state_repo.capture(new_graph)
             jlog(
                 self._logger,
                 logging.DEBUG,
@@ -44,7 +44,7 @@ class TransitionRecorder(TransitionObserver):
         edges_sets.setdefault(to_state, set()).add(from_state)
         updated_edges: Dict[str, List[str]] = {st: sorted(list(neigh)) for st, neigh in edges_sets.items()}
         new_graph = Graph(nodes=sorted(list(nodes)), edges=updated_edges)
-        await self._state_repo.save_graph(new_graph)
+        await self._state_repo.capture(new_graph)
         before_edges: Dict[str, Set[str]] = {st: set(neigh) for st, neigh in before_edges_raw.items()}
         after_edges: Dict[str, Set[str]] = {st: set(neigh) for st, neigh in new_graph.edges.items()}
         added_from = sorted(list(after_edges.get(from_state, set()) - before_edges.get(from_state, set())))

@@ -7,7 +7,7 @@ from ..view.inline import InlineStrategy
 from .policy import adapt
 from ...internal import policy as _pol
 from ...internal.policy import shield
-from ...log.decorators import log_io
+from ...log.decorators import trace
 from ...log.emit import jlog
 from ....domain.entity.history import Entry, Msg
 from ....domain.entity.media import MediaItem
@@ -129,7 +129,7 @@ class ViewOrchestrator:
             raise ValueError(f"render_meta_unsupported_kind:{kind}")
         return meta
 
-    @log_io(LogCode.RENDER_START, LogCode.RENDER_OK, LogCode.RENDER_SKIP)
+    @trace(LogCode.RENDER_START, LogCode.RENDER_OK, LogCode.RENDER_SKIP)
     async def swap(
             self,
             scope: Scope,

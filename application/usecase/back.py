@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any
 
-from ..log.decorators import log_io
+from ..log.decorators import trace
 from ..log.emit import jlog
 from ..service.view.orchestrator import ViewOrchestrator
 from ..service.view.restorer import ViewRestorer
@@ -34,9 +34,9 @@ class Rewinder:
         self._orchestrator = orchestrator
         self._last_repo = last_repo
 
-    @log_io(None, None, None)
+    @trace(None, None, None)
     async def execute(self, scope: Scope, context: Dict[str, Any]) -> None:
-        history = await self._history_repo.get_history()
+        history = await self._history_repo.recall()
         jlog(
             logger,
             logging.DEBUG,
@@ -50,7 +50,7 @@ class Rewinder:
         entry_from = history[-1]
         entry_to = history[-2]
         is_inline = bool(scope.inline)
-        memory: Dict[str, Any] = await self._state_repo.get_data()
+        memory: Dict[str, Any] = await self._state_repo.payload()
         merged = {**memory, **context}
         restored_payloads = await self._restorer.restore_node(entry_to, merged, inline=is_inline)
         resolved_payloads = [normalize(p) for p in restored_payloads]
@@ -90,12 +90,12 @@ class Rewinder:
 
         if not render_result or not render_result.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="back")
-            await self._state_repo.set_state(entry_to.state)
+            await self._state_repo.assign(entry_to.state)
             if entry_to.messages:
                 mid = entry_to.messages[0].id
-                await self._last_repo.set_last_id(mid)
+                await self._last_repo.mark(mid)
             history_updated = history[:-1]
-            await self._history_repo.save_history(history_updated)
+            await self._history_repo.archive(history_updated)
             jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="back", history={"len": len(history_updated)})
             return
         patched_len = min(len(entry_to.messages), len(render_result.ids))
@@ -124,9 +124,9 @@ class Rewinder:
         )
         history_updated = history[:-1]
         history_updated[-1] = patched_to
-        await self._history_repo.save_history(history_updated)
+        await self._history_repo.archive(history_updated)
         jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="back", history={"len": len(history_updated)})
-        await self._state_repo.set_state(entry_to.state)
+        await self._state_repo.assign(entry_to.state)
         jlog(logger, logging.INFO, LogCode.STATE_SET, op="back", state={"target": entry_to.state})
-        await self._last_repo.set_last_id(render_result.ids[0])
+        await self._last_repo.mark(render_result.ids[0])
         jlog(logger, logging.INFO, LogCode.LAST_SET, op="back", message={"id": render_result.ids[0]})

@@ -9,19 +9,19 @@ from ..entity.stategraph import Graph
 class StateRepository(Protocol):
     """FSM state and graph storage."""
 
-    async def get_state(self) -> Optional[str]:
+    async def status(self) -> Optional[str]:
         """Return current state or None."""
 
-    async def set_state(self, state: Optional[str]) -> None:
+    async def assign(self, state: Optional[str]) -> None:
         """Set current state."""
 
-    async def get_graph(self) -> Graph:
+    async def diagram(self) -> Graph:
         """Return state graph."""
 
-    async def save_graph(self, graph: Graph) -> None:
+    async def capture(self, graph: Graph) -> None:
         """Persist state graph."""
 
-    async def get_data(self) -> Dict[str, Any]:
+    async def payload(self) -> Dict[str, Any]:
         """Return FSM data payload."""
 
 

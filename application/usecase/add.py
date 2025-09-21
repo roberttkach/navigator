@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, List
 
-from ..log.decorators import log_io
+from ..log.decorators import trace
 from ..log.emit import jlog
 from ..map.entry import EntryMapper, Outcome
 from ..service.view.orchestrator import ViewOrchestrator
@@ -35,7 +35,7 @@ class Appender:
         self._mapper = mapper
         self._limit = limit
 
-    @log_io(None, None, None)
+    @trace(None, None, None)
     async def execute(
             self,
             scope: Scope,
@@ -44,7 +44,7 @@ class Appender:
             root: bool = False,
     ) -> None:
         adjusted = [adapt(scope, normalize(p)) for p in bundle]
-        records = await self._archive.get_history()
+        records = await self._archive.recall()
         jlog(
             logger,
             logging.DEBUG,
@@ -58,7 +58,7 @@ class Appender:
         if not render or not render.ids or not render.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="add")
             return
-        status = await self._state.get_state()
+        status = await self._state.status()
         jlog(logger, logging.INFO, LogCode.STATE_GET, op="add", state={"current": status})
 
         usable = adjusted[:len(render.ids)]

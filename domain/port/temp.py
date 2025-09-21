@@ -7,10 +7,10 @@ from typing import Protocol, List, runtime_checkable
 class TemporaryRepository(Protocol):
     """Storage for temporary message ids."""
 
-    async def get_temp_ids(self) -> List[int]:
+    async def collect(self) -> List[int]:
         """Return list of ids."""
 
-    async def save_temp_ids(self, ids: List[int]) -> None:
+    async def stash(self, ids: List[int]) -> None:
         """Persist list of ids."""
 
 

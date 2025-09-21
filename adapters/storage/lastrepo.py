@@ -15,13 +15,13 @@ class LastRepo(LastMessageRepository):
     def __init__(self, state: FSMContext):
         self._state = state
 
-    async def get_last_id(self) -> Optional[int]:
+    async def peek(self) -> Optional[int]:
         data = await self._state.get_data()
         mid = data.get(FSM_LAST_ID_KEY)
         jlog(logger, logging.DEBUG, LogCode.LAST_GET, message={"id": mid})
         return mid
 
-    async def set_last_id(self, id: Optional[int]) -> None:
+    async def mark(self, id: Optional[int]) -> None:
         await self._state.update_data({FSM_LAST_ID_KEY: id})
         code = LogCode.LAST_DELETE if id is None else LogCode.LAST_SET
         jlog(logger, logging.DEBUG, code, message={"id": id})

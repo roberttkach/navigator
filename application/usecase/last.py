@@ -30,24 +30,24 @@ class Tailer:
         self._orchestrator = orchestrator
 
     async def get_id(self) -> Optional[int]:
-        mid = await self._last_repo.get_last_id()
+        mid = await self._last_repo.peek()
         jlog(logger, logging.INFO, LogCode.LAST_GET, message={"id": mid})
         return mid
 
     async def delete(self, scope: Scope) -> None:
-        history = await self._history_repo.get_history()
+        history = await self._history_repo.recall()
         if not history:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="last.delete", note="no_history")
             return
         if scope.inline and not scope.business:
             if TailPrune:
                 new_history = history[:-1]
-                await self._history_repo.save_history(new_history)
+                await self._history_repo.archive(new_history)
                 jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.delete", history={"len": len(new_history)})
                 new_last_id = None
                 if new_history and new_history[-1].messages:
                     new_last_id = int(new_history[-1].messages[0].id)
-                await self._last_repo.set_last_id(new_last_id)
+                await self._last_repo.mark(new_last_id)
                 jlog(
                     logger,
                     logging.INFO,
@@ -72,9 +72,9 @@ class Tailer:
             ids.extend(list(getattr(m, "extras", []) or []))
         if ids:
             await self._gateway.delete(scope, ids)
-        await self._history_repo.save_history(history[:-1])
+        await self._history_repo.archive(history[:-1])
         jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.delete", history={"len": len(history) - 1})
-        await self._last_repo.set_last_id(None)
+        await self._last_repo.mark(None)
         jlog(
             logger,
             logging.INFO,
@@ -84,7 +84,7 @@ class Tailer:
         )
 
     async def edit(self, scope: Scope, payload: Payload) -> Optional[int]:
-        last_id = await self._last_repo.get_last_id()
+        last_id = await self._last_repo.peek()
         if not last_id:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="last.edit", note="no_last_id")
             return None
@@ -94,7 +94,7 @@ class Tailer:
             first = p.group[0]
             p = p.morph(media=first, group=None)
 
-        history = await self._history_repo.get_history()
+        history = await self._history_repo.recall()
         last_entry = None
         for e in reversed(history):
             if e.messages and e.messages[0].id == last_id:
@@ -124,7 +124,7 @@ class Tailer:
                     result = await self._orchestrator.swap(scope, p.morph(media=base_msg.media, group=None), base,
                                                            remapped)
                     if result:
-                        await self._last_repo.set_last_id(result.id)
+                        await self._last_repo.mark(result.id)
                         jlog(logger, logging.INFO, LogCode.LAST_SET, op="last.edit", message={"id": result.id})
                         return result.id
                     jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="last.edit", note="inline_remap_markup_noop")
@@ -132,7 +132,7 @@ class Tailer:
                 if remapped in (decision.Decision.EDIT_TEXT, decision.Decision.EDIT_MEDIA):
                     result = await self._orchestrator.swap(scope, p, base, remapped)
                     if result:
-                        await self._last_repo.set_last_id(result.id)
+                        await self._last_repo.mark(result.id)
                         jlog(logger, logging.INFO, LogCode.LAST_SET, op="last.edit", message={"id": result.id})
                         return result.id
                     jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="last.edit", note="inline_remap_noop")
@@ -159,7 +159,7 @@ class Tailer:
             result = await self._orchestrator.swap(scope, p, base, dec)
 
         if result:
-            await self._last_repo.set_last_id(result.id)
+            await self._last_repo.mark(result.id)
             jlog(logger, logging.INFO, LogCode.LAST_SET, op="last.edit", message={"id": result.id})
 
             if last_entry is not None:
@@ -175,7 +175,7 @@ class Tailer:
                     new_extras = [result.extra] if need_patch else None
                     patched = reindex(history[idx], [result.id], new_extras)
                     history[idx] = patched
-                    await self._history_repo.save_history(history)
+                    await self._history_repo.archive(history)
                     jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.edit", history={"len": len(history)})
             return result.id
 
@@ -205,9 +205,9 @@ class Tailer:
                     from ..service.store import reindex
                     patched = reindex(history[idx], [resend_result.id], [resend_result.extra])
                     history[idx] = patched
-                    await self._history_repo.save_history(history)
+                    await self._history_repo.archive(history)
                     jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.edit", history={"len": len(history)})
-                await self._last_repo.set_last_id(resend_result.id)
+                await self._last_repo.mark(resend_result.id)
                 jlog(logger, logging.INFO, LogCode.LAST_SET, op="last.edit", message={"id": resend_result.id})
                 return resend_result.id
         return None
