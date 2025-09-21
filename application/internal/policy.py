@@ -60,10 +60,3 @@ ResendOnIdle: bool = False
 ImplicitCaption: bool = True
 
 StrictAbort: bool = False
-
-INLINE_DELETE_TRIMS_HISTORY = TailPrune
-INLINE_TAIL_MODE = TailMode
-RESEND_FALLBACK_ON_FORBIDDEN = ResendOnBan
-RESEND_FALLBACK_ON_NOT_MODIFIED = ResendOnIdle
-IMPLICIT_MEDIA_TO_CAPTION = ImplicitCaption
-STRICT_VALIDATION_FAIL = StrictAbort
