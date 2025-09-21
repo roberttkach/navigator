@@ -72,7 +72,6 @@ class ViewRestorer:
         drop_text = bool((getattr(m, "extra", {}) or {}).get("degraded"))
         text = None if drop_text else getattr(m, "text", None)
 
-        # Восстановление подписи для медиа: берем caption и переэкранируем как HTML.
         if text is None and getattr(m, "media", None):
             cap = getattr(m.media, "caption", None)
             if isinstance(cap, str) and cap:

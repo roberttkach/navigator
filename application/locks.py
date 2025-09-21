@@ -60,7 +60,6 @@ class _LatchAdapter:
         self._l.release()
 
     async def untether(self) -> None:
-        # asyncio.Lock.release() синхронный; для совместимости оставляем await-обёртку
         self._l.release()
 
     def locked(self) -> bool:
@@ -73,7 +72,7 @@ class MemoryLocksmith:
             tuple[object, object | None], Latch
         ] = WeakValueDictionary()
 
-    def latch(self, key: tuple[object, object | None]) -> Latch:  # type: ignore[override]
+    def latch(self, key: tuple[object, object | None]) -> Latch:
         latch = self._locks.get(key)
         if latch is None:
             latch = Latch(lock=_LatchAdapter())
@@ -125,15 +124,13 @@ __all__ = [
 ]
 
 
-# --- Legacy aliases -------------------------------------------------------
-
 ScopeLike = ScopeForm
 LockProvider = Locksmith
 
 
 @dataclass
 class LockBox(Latch):
-    def __post_init__(self) -> None:  # pragma: no cover - compatibility shim
+    def __post_init__(self) -> None:
         warnings.warn("LockBox is deprecated; use Latch", DeprecationWarning, stacklevel=2)
 
 

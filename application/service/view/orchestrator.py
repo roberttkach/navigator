@@ -38,7 +38,7 @@ class RenderResultNode:
     ids: List[int]
     extras: List[List[int]]
     metas: List[dict]
-    changed: bool  # были ли фактические операции отправки/редактирования/удаления
+    changed: bool
 
 
 class ViewOrchestrator:
@@ -50,8 +50,6 @@ class ViewOrchestrator:
     @property
     def rendering_config(self) -> RenderingConfig:
         return self._rendering_config
-
-    # === Helpers (локальные, без изменения контрактов) ===
 
     @staticmethod
     def _head_msg(e: Any) -> Optional[Msg]:
@@ -69,7 +67,7 @@ class ViewOrchestrator:
             except Exception:
                 return None
         if hasattr(e, "id") and hasattr(e, "ts"):
-            return e  # Msg
+            return e
         return None
 
     def _album_ids(self, base_msg: Msg) -> List[int]:
@@ -96,29 +94,25 @@ class ViewOrchestrator:
         m = dict(meta or {})
         kind = m.get("kind")
         if kind == "media" and base_msg and getattr(base_msg, "media", None):
-            # media_type fallback
             if m.get("media_type") is None:
                 m["media_type"] = getattr(base_msg.media.type, "value", None)
 
-            # file_id fallback: сперва пробуем взять новый file_id из payload, иначе старый
             if m.get("file_id") is None:
                 pth = getattr(getattr(payload, "media", None), "path", None)
                 if isinstance(pth, str) and not remote(pth) and not local(pth):
-                    m["file_id"] = pth  # новый file_id из payload
+                    m["file_id"] = pth
                 elif isinstance(getattr(base_msg.media, "path", None), str):
-                    m["file_id"] = base_msg.media.path  # прежний file_id из истории
+                    m["file_id"] = base_msg.media.path
 
-            # caption fallback с поддержкой очистки
             if m.get("caption") is None:
-                # Для EDIT_MEDIA и EDIT_MEDIA_CAPTION берём подпись из payload; учитываем очистку
-                from ....domain.value.content import caption as _cap  # локальный импорт
+                from ....domain.value.content import caption as _cap
                 new_cap = _cap(payload)
                 if new_cap is not None:
                     m["caption"] = new_cap
                 elif (getattr(payload, "media", None) and getattr(payload.media, "caption", None) == ""):
-                    m["caption"] = ""  # очистка через media.caption=""
+                    m["caption"] = ""
                 elif payload.erase:
-                    m["caption"] = ""  # явная очистка через erase
+                    m["caption"] = ""
                 else:
                     m["caption"] = base_msg.media.caption
         elif kind == "text" and base_msg and (getattr(base_msg, "text", None) is not None):

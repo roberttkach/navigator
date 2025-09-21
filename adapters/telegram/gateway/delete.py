@@ -69,7 +69,6 @@ class BatchDeleteRunner:
                             )
                             await asyncio.sleep(_DELAY_SEC)
                         except Exception:
-                            # Фоллбэк на обычное удаление
                             try:
                                 await call_tg(
                                     self._bot.delete_messages,

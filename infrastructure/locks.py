@@ -7,13 +7,13 @@ import os
 from typing import TYPE_CHECKING, Any
 
 try:
-    from redis.asyncio import Redis  # type: ignore[attr-defined]
-except Exception:  # pragma: no cover - optional dependency
-    Redis = None  # type: ignore[assignment]
+    from redis.asyncio import Redis
+except Exception:
+    Redis = None
 
 if TYPE_CHECKING:
-    from redis.asyncio import Redis as RedisClient  # pragma: no cover
-else:  # pragma: no cover
+    from redis.asyncio import Redis as RedisClient
+else:
     RedisClient = Any
 
 from ..application.locks import Latch, Locksmith, appoint
@@ -48,7 +48,7 @@ class _RedisLockAdapter:
         try:
             if self._lock:
                 await self._lock.release()
-        except Exception as exc:  # pragma: no cover - defensive logging
+        except Exception as exc:
             logger.warning("redis_lock_release_failed: %s", type(exc).__name__)
         finally:
             self._locked = False

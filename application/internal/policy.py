@@ -49,29 +49,18 @@ def shield(scope, payload):
         raise InlineUnsupported(SHIELD_MESSAGE)
 
 
-# Если True: при inline last.delete без удаления в Telegram
-# выполняется срез последнего Entry из истории и сброс last_id.
 TailPrune: bool = True
 
-# Политика «хвоста» при inline back/set:
-# keep   — оставлять как есть;
-# delete — пытаться удалить «хвост» (только при наличии business);
-# collapse — синоним delete (удаление при business; иначе поведение как keep).
 TailMode: Literal["keep", "delete", "collapse"] = "keep"
 
-# --- Флаги resend-фоллбека при неуспешном edit (не для inline) ---
-
-# При MessageEditForbidden в non-inline выполняется send(new) + delete(old_id + extras)
 ResendOnBan: bool = True
 
-# При MessageNotChanged фоллбек по умолчанию выключен, чтобы не плодить дубликаты
 ResendOnIdle: bool = False
 
-# Разрешать имплицитный EDIT_MEDIA_CAPTION вместо DELETE_SEND при last.edit (non-inline)?
-ImplicitCaption: bool = True  # для сохранения текущего поведения
+ImplicitCaption: bool = True
 
-# Поднимать исключения в swap() вместо тихого skip?
-StrictAbort: bool = False  # для сохранения текущей семантики
+StrictAbort: bool = False
+
 INLINE_DELETE_TRIMS_HISTORY = TailPrune
 INLINE_TAIL_MODE = TailMode
 RESEND_FALLBACK_ON_FORBIDDEN = ResendOnBan

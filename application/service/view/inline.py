@@ -13,11 +13,10 @@ from ....domain.util.path import local, remote
 from ....domain.log.code import LogCode
 
 
-def _canon(d):  # noqa: ANN001
+def _canon(d):
     return json.dumps(d, sort_keys=True, separators=(",", ":")) if isinstance(d, dict) else None
 
 
-# Ослабленный шаблон: допускаем '.', ':', '='
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-=]{20,}$")
 
 
@@ -89,10 +88,8 @@ class InlineStrategy:
             m = getattr(p, "media", None)
 
             if m:
-                # Медиа редактируемо?
                 if getattr(m, "type", None) in (MediaType.VOICE,
                                                 MediaType.VIDEO_NOTE) or not self._media_editable_inline(p):
-                    # Разрешаем только смену клавиатуры, иначе — запрет.
                     if base_msg and self._reply_changed(base_msg, p):
                         return await swap(
                             scope,
@@ -102,7 +99,6 @@ class InlineStrategy:
                         )
                     jlog(self._logger, logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
                     return None
-                # Редактируемое медиа: решаем точный тип правки.
                 base = Entry(state=None, view=None, messages=[last_message]) if last_message else None
                 dec0 = _d.decide(base, p, rendering_config)
                 if dec0 is _d.Decision.DELETE_SEND:
@@ -128,9 +124,7 @@ class InlineStrategy:
                     return await swap(scope, p, last_message, _d.Decision.EDIT_MARKUP)
                 return await swap(scope, p, last_message, _d.Decision.EDIT_MEDIA)
 
-            # Нет media в payload:
             if base_msg and getattr(base_msg, "media", None):
-                # Разрешаем правку подписи без смены файла. Иначе — только клавиатура.
                 has_caption_change = (
                         p.text is not None
                         or ((p.extra or {}).get("mode") is not None)

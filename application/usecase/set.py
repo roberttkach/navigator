@@ -93,7 +93,6 @@ class Setter:
                 inline=True,
             )
         if render_result and render_result.changed:
-            # Политика хвоста: удаление при inline и наличии business.
             from ..internal import policy as _pol
             if is_inline and _pol.TailMode in ("delete", "collapse") and getattr(scope, "business", None):
                 to_delete = []

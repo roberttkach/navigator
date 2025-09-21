@@ -1,4 +1,3 @@
-# adapters/telegram/gateway/send.py
 import logging
 from inspect import signature
 from typing import Any, Dict
@@ -35,7 +34,6 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
             )
             ctx = accept_for(bot.send_media_group, context)
             sent_messages = await call_tg(bot.send_media_group, media=tg_group, **ctx)
-            # собрать group_items
             items = []
             for m in sent_messages:
                 if m.photo:
@@ -106,8 +104,6 @@ async def do_send(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: b
                     media_kwargs["thumbnail"] = media_mapper.as_input_file(
                         opts.get("thumb"), allow_local=allow_local
                     )
-
-            # новые поля send_*
             if t == "audio":
                 if opts.get("title") is not None:
                     media_kwargs["title"] = opts.get("title")

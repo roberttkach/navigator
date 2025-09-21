@@ -20,16 +20,12 @@ def targets(scope: Scope, message_id: Optional[int] = None) -> Dict[str, Any]:
 
 
 def _msg_to_meta(msg: Message) -> dict:
-    # kind / media_type / file_id / caption / text / group_items
     if getattr(msg, "media_group_id", None):
-        # для одиночного Message не используется; группы собираются в send.py
         pass
-    # чистый текст
     if getattr(msg, "text", None) is not None and not getattr(msg, "photo", None) \
             and not getattr(msg, "document", None) and not getattr(msg, "video", None) \
             and not getattr(msg, "audio", None) and not getattr(msg, "animation", None):
         return {"kind": "text", "text": msg.text, "inline": None}
-    # media, порядок: photo, video, animation, document, audio, voice, video_note
     if getattr(msg, "photo", None):
         fid = msg.photo[-1].file_id
         return {"kind": "media", "media_type": "photo", "file_id": fid, "caption": msg.caption, "inline": None}
@@ -51,7 +47,6 @@ def _msg_to_meta(msg: Message) -> dict:
     if getattr(msg, "video_note", None):
         return {"kind": "media", "media_type": "video_note", "file_id": msg.video_note.file_id, "caption": None,
                 "inline": None}
-    # fallback
     return {"kind": "text", "text": getattr(msg, "text", None), "inline": None}
 
 
@@ -66,8 +61,6 @@ def extract_meta(result_msg_or_bool: Any, payload: Any, scope: Scope) -> dict:
         m = _msg_to_meta(result_msg_or_bool)
         m["inline"] = token
         return m
-    # для edit_caption/edit_markup, когда Telegram возвращает bool
-    # ориентируемся на payload
     if getattr(payload, "group", None):
         return {"kind": "group", "group_items": None, "inline": token}
     if getattr(payload, "media", None):
@@ -75,7 +68,7 @@ def extract_meta(result_msg_or_bool: Any, payload: Any, scope: Scope) -> dict:
         return {
             "kind": "media",
             "media_type": mt,
-            "file_id": None,  # при edit без смены файла Telegram не присылает новый file_id
+            "file_id": None,
             "caption": None,
             "text": None,
             "group_items": None,

@@ -96,7 +96,6 @@ async def do_edit_caption(bot, codec: MarkupCodec, scope: Scope, message_id: int
         cap_extra, is_caption=True, target=bot.edit_message_caption, text_len=cap_len
     )
     trg = _targets(scope, message_id)
-    # caption=None — не изменяем подпись; caption="" — очищаем подпись (см. serializer.caption_for_edit).
     if caption is not None and len(caption) > CaptionLimit:
         if truncate:
             caption = caption[:CaptionLimit]

@@ -75,7 +75,6 @@ def sanitize_text_kwargs(
         *,
         text_len: int | None = None,
 ) -> Dict[str, Any]:
-    # При пустом тексте/подписи не отправлять parse_mode/entities
     if (text_len or 0) <= 0:
         return {}
     allowed = ALLOWED_CAPTION_TEXT if is_caption else ALLOWED_TEXT
@@ -122,6 +121,5 @@ def normalize_extra_for(scope, extra: Dict[str, Any] | None, *, is_edit: bool) -
     ct = getattr(scope, "category", None)
     if "message_effect_id" in d and (is_edit or ct != "private"):
         d.pop("message_effect_id", None)
-        # Лог-маркер: эффект удалён нормализацией
         jlog(logger, logging.DEBUG, LogCode.EXTRA_EFFECT_STRIPPED, note="effect_stripped")
     return d

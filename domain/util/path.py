@@ -20,7 +20,6 @@ def local(s: str) -> bool:
         return True
     if os.path.isabs(s):
         return True
-    # Явные признаки относительного пути: наличие разделителя каталога.
     if "/" in s or "\\" in s:
         return True
     return False

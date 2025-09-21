@@ -115,7 +115,6 @@ class Tailer:
 
         base = last_entry if last_entry is not None else prime(last_id, p)
 
-        # Единый inline-ремап DELETE_SEND
         if scope.inline and dec == decision.Decision.DELETE_SEND:
             base_msg = base.messages[0] if (base and base.messages) else None
             if base_msg:

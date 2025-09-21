@@ -15,13 +15,13 @@ if TYPE_CHECKING:
 class Msg:
     id: int
     text: str | None
-    media: MediaItem | None  # В истории path = Telegram file_id
-    group: list[MediaItem] | None  # В истории path = Telegram file_id
+    media: MediaItem | None
+    group: list[MediaItem] | None
     markup: Markup | None
     preview: "Preview" | None = None
     extra: dict[str, Any] | None = None
     extras: list[int] = field(default_factory=list)
-    inline: str | None = None  # inline_message_id, если есть
+    inline: str | None = None
     automated: bool = True
     ts: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 

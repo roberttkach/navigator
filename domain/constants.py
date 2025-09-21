@@ -8,7 +8,6 @@ CaptionLimit: Final = 1024
 AlbumFloor: Final = 2
 AlbumCeiling: Final = 10
 AlbumBlend: Final = {"photo", "video"}
-# Если True: любое присутствие thumb в extra при partial-edit альбомов триггерит EDIT_MEDIA.
 ThumbWatch: Final[bool] = False
 
 _DEPRECATED = {

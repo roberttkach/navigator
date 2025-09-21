@@ -16,5 +16,5 @@ class MediaType(Enum):
 @dataclass(frozen=True, slots=True)
 class MediaItem:
     type: MediaType
-    path: object  # В объектах истории path хранит Telegram file_id; в Payload может быть локал/URLInputFile/str.
+    path: object
     caption: Optional[str] = None

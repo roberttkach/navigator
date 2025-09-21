@@ -11,13 +11,12 @@ from ..value.message import Scope
 class Result:
     id: int
     extra: List[int]
-    # meta:
     kind: Literal["text", "media", "group"]
     media_type: Optional[str] = None
     file_id: Optional[str] = None
     caption: Optional[str] = None
     text: Optional[str] = None
-    group_items: Optional[List[dict]] = None  # [{"media_type":..., "file_id":..., "caption": str|None}]
+    group_items: Optional[List[dict]] = None
     inline: Optional[str] = None
 
 

@@ -8,10 +8,6 @@ from typing import Any, Dict
 from .code import LogCode
 
 REDACT_KEYS = {"path", "inline", "business", "url", "caption", "thumb"}
-# Режимы:
-# - debug: без редактирования;
-# - safe (по умолчанию): редактируются ключи из REDACT_KEYS;
-# - paranoid: дополнительно редактируются text и entities.
 _DEFAULT_REDACTION_MODE = "safe"
 _redaction_mode = _DEFAULT_REDACTION_MODE
 

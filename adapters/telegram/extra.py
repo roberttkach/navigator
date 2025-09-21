@@ -46,7 +46,6 @@ def validate_extra(extra: Dict[str, Any] | None, allowed: Set[str]) -> None:
         raise ExtraKeyForbidden()
     if "thumb" in extra:
         cv = extra["thumb"]
-        # Разрешаем также str. Фактическую проверку и запрет локальных путей в inline выполняет media.as_input_file().
         if not isinstance(cv, (FSInputFile, BufferedInputFile, URLInputFile, str)):
             raise ExtraKeyForbidden()
     if "message_effect_id" in extra and not isinstance(extra["message_effect_id"], str):

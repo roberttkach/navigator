@@ -44,8 +44,8 @@ class _MediaCaptionOpts:
 @dataclass(frozen=True, slots=True)
 class _MediaEditOpts:
     spoiler: bool
-    start: object  # noqa: ANN401
-    thumb_present: bool  # сравниваем только по факту наличия миниатюры
+    start: object
+    thumb_present: bool
 
 
 def _view_of(obj: Any):

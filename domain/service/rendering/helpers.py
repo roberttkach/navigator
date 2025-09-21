@@ -13,7 +13,7 @@ def payload_kind(p: Payload) -> Dict[str, Any]:
     return {"kind": "text"}
 
 
-def _canon(d):  # noqa: ANN001
+def _canon(d):
     return json.dumps(d, sort_keys=True, separators=(",", ":")) if isinstance(d, dict) else None
 
 

@@ -63,7 +63,6 @@ def _to_group(items: Optional[List[Media]]) -> Optional[List[MediaItem]]:
 
 
 def to_payload(dto: Content) -> Payload:
-    # При media и erase=True — выставляем text="" для явной очистки подписи.
     text = dto.text
     erase = False
     if dto.media and dto.erase:

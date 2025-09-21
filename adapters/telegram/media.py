@@ -95,8 +95,6 @@ def to_input_media(
     if item.type in (MediaType.VIDEO, MediaType.ANIMATION, MediaType.AUDIO, MediaType.DOCUMENT):
         if opts.get("thumb") is not None:
             kv["thumbnail"] = as_input_file(opts.get("thumb"), allow_local=allow_local)
-
-    # поля InputMedia*
     if item.type == MediaType.AUDIO:
         if opts.get("title") is not None:
             kv["title"] = str(opts.get("title"))
@@ -117,7 +115,7 @@ def to_input_media(
             cap = str(cap)[:CaptionLimit]
         else:
             raise CaptionTooLong()
-    # Фильтрация ключей под сигнатуру конкретного InputMedia* класса
+
     kv = accept_for(input_class, kv)
     kwargs = {"media": to_input_file(item, allow_local=allow_local), **kv}
     if cap is not None:
