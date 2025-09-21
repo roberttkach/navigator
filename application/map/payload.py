@@ -12,7 +12,7 @@ _AUDIO = {".mp3", ".m4a", ".ogg", ".oga", ".flac", ".wav"}
 _ANIM = {".gif"}
 
 
-def _name_like(x: object) -> str:
+def _moniker(x: object) -> str:
     for attr in ("filename", "file_name", "name"):
         v = getattr(x, attr, None)
         if isinstance(v, str) and v:
@@ -31,8 +31,8 @@ def _name_like(x: object) -> str:
     return ""
 
 
-def _infer_type(path: object) -> MediaType:
-    name = _name_like(path).lower()
+def _classify(path: object) -> MediaType:
+    name = _moniker(path).lower()
     ext = Path(name).suffix.lower()
     if ext in _PHOTO:
         return MediaType.PHOTO
@@ -45,24 +45,24 @@ def _infer_type(path: object) -> MediaType:
     return MediaType.DOCUMENT
 
 
-def _convert_media_item(item: Media) -> MediaItem:
-    mtype = MediaType(item.type) if item.type else _infer_type(item.path)
+def _marshal(item: Media) -> MediaItem:
+    mtype = MediaType(item.type) if item.type else _classify(item.path)
     return MediaItem(type=mtype, path=item.path, caption=item.caption)
 
 
-def _to_media(item: Optional[Media]) -> Optional[MediaItem]:
+def _single(item: Optional[Media]) -> Optional[MediaItem]:
     if not item:
         return None
-    return _convert_media_item(item)
+    return _marshal(item)
 
 
-def _to_group(items: Optional[List[Media]]) -> Optional[List[MediaItem]]:
+def _cluster(items: Optional[List[Media]]) -> Optional[List[MediaItem]]:
     if not items:
         return None
-    return [_convert_media_item(i) for i in items]
+    return [_marshal(i) for i in items]
 
 
-def to_payload(dto: Content) -> Payload:
+def convert(dto: Content) -> Payload:
     text = dto.text
     erase = False
     if dto.media and dto.erase:
@@ -75,8 +75,8 @@ def to_payload(dto: Content) -> Payload:
         raise ValueError("empty_caption_without_erase_flag")
     return Payload(
         text=text,
-        media=_to_media(dto.media),
-        group=_to_group(dto.group),
+        media=_single(dto.media),
+        group=_cluster(dto.group),
         reply=dto.reply,
         preview=dto.preview,
         extra=dto.extra,
@@ -84,5 +84,5 @@ def to_payload(dto: Content) -> Payload:
     )
 
 
-def to_node_payload(node: Node) -> List[Payload]:
-    return [to_payload(m) for m in node.messages]
+def collect(node: Node) -> List[Payload]:
+    return [convert(m) for m in node.messages]

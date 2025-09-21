@@ -18,10 +18,10 @@ class ViewRestorer:
         self._markup_codec = markup_codec
         self._factory_registry = factory_registry
 
-    async def restore_node(self, entry: Entry, handler_data: Dict[str, Any], *, inline: bool) -> List[Payload]:
+    async def restore_node(self, entry: Entry, context: Dict[str, Any], *, inline: bool) -> List[Payload]:
         if entry.view:
             jlog(logger, logging.INFO, LogCode.RESTORE_DYNAMIC, factory_key=entry.view)
-            content = await self._try_dynamic_restore(entry.view, handler_data)
+            content = await self._try_dynamic_restore(entry.view, context)
             if content:
                 if isinstance(content, list):
                     if inline and len(content) > 1:
@@ -38,22 +38,22 @@ class ViewRestorer:
                 return [content]
         return [self._static_restore_msg(m) for m in entry.messages]
 
-    async def restore(self, entry: Entry, handler_data: Dict[str, Any], *, inline: bool = False) -> Payload:
-        res = await self.restore_node(entry, handler_data, inline=inline)
+    async def restore(self, entry: Entry, context: Dict[str, Any], *, inline: bool = False) -> Payload:
+        res = await self.restore_node(entry, context, inline=inline)
         return res[0] if res else Payload()
 
     async def _try_dynamic_restore(
-            self, key: str, handler_data: Dict[str, Any]
+            self, key: str, context: Dict[str, Any]
     ) -> Optional[Payload | List[Payload]]:
         try:
-            factory_func = self._factory_registry.get(key)
+            factory = self._factory_registry.get(key)
         except KeyError:
             jlog(logger, logging.WARNING, LogCode.RESTORE_DYNAMIC_FALLBACK, factory_key=key, note="factory_not_found")
             return None
         try:
-            factory_params = inspect.signature(factory_func).parameters
-            deps_to_inject = {name: handler_data[name] for name in factory_params if name in handler_data}
-            content = await factory_func(**deps_to_inject)
+            factory_params = inspect.signature(factory).parameters
+            supplies = {name: context[name] for name in factory_params if name in context}
+            content = await factory(**supplies)
             return content
         except Exception as e:
             jlog(

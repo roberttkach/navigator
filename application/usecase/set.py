@@ -38,7 +38,7 @@ class Setter:
             self,
             scope: Scope,
             target_state: str,
-            handler_data: Dict[str, Any],
+            context: Dict[str, Any],
     ) -> None:
         history = await self._history_repo.get_history()
         jlog(
@@ -72,9 +72,9 @@ class Setter:
         jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="set", history={"len": len(new_history)})
         await self._state_repo.set_state(target_entry.state)
         jlog(logger, logging.INFO, LogCode.STATE_SET, op="set", state={"target": target_entry.state})
-        fsm_data = await self._state_repo.get_data()
-        merged_handler_data = {**fsm_data, **handler_data}
-        restored_payloads = await self._restorer.restore_node(target_entry, merged_handler_data, inline=is_inline)
+        memory = await self._state_repo.get_data()
+        merged = {**memory, **context}
+        restored_payloads = await self._restorer.restore_node(target_entry, merged, inline=is_inline)
         resolved_payloads = [normalize(p) for p in restored_payloads]
         if not is_inline:
             render_result = await self._orchestrator.render_node(

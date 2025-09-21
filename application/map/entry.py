@@ -14,7 +14,7 @@ class EntryMapper:
 
     def convert(
             self,
-            result: "NodeResult",
+            outcome: "Outcome",
             payloads: List[Payload],
             state: Optional[str],
             view: Optional[str],
@@ -28,8 +28,8 @@ class EntryMapper:
         msgs: List[Msg] = []
         now = datetime.now(timezone.utc)
         for idx, payload in enumerate(payloads):
-            mid = result.ids[idx]
-            meta = result.metas[idx] if idx < len(result.metas) else {}
+            mid = outcome.ids[idx]
+            meta = outcome.metas[idx] if idx < len(outcome.metas) else {}
             k = meta.get("kind")
             if not isinstance(k, str):
                 raise ValueError("meta_missing_kind")
@@ -80,7 +80,7 @@ class EntryMapper:
                 length = 0
 
             extra = cleanse(source, length=length)
-            aux = result.extras[idx] if idx < len(result.extras) else []
+            aux = outcome.extras[idx] if idx < len(outcome.extras) else []
             msgs.append(
                 Msg(
                     id=mid,
@@ -100,11 +100,11 @@ class EntryMapper:
         return Entry(state=state, view=vk, messages=msgs, root=bool(root))
 
 
-class NodeResult:
+class Outcome:
     def __init__(self, ids: List[int], extras: List[List[int]], metas: List[dict]):
         self.ids = list(ids)
         self.extras = [list(x) for x in (extras or [])]
         self.metas = [dict(m or {}) for m in (metas or [])]
 
 
-__all__ = ["EntryMapper", "NodeResult"]
+__all__ = ["EntryMapper", "Outcome"]

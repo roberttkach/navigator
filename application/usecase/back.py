@@ -35,7 +35,7 @@ class Rewinder:
         self._last_repo = last_repo
 
     @log_io(None, None, None)
-    async def execute(self, scope: Scope, handler_data: Dict[str, Any]) -> None:
+    async def execute(self, scope: Scope, context: Dict[str, Any]) -> None:
         history = await self._history_repo.get_history()
         jlog(
             logger,
@@ -50,9 +50,9 @@ class Rewinder:
         entry_from = history[-1]
         entry_to = history[-2]
         is_inline = bool(scope.inline)
-        fsm_data: Dict[str, Any] = await self._state_repo.get_data()
-        merged_handler_data = {**fsm_data, **handler_data}
-        restored_payloads = await self._restorer.restore_node(entry_to, merged_handler_data, inline=is_inline)
+        memory: Dict[str, Any] = await self._state_repo.get_data()
+        merged = {**memory, **context}
+        restored_payloads = await self._restorer.restore_node(entry_to, merged, inline=is_inline)
         resolved_payloads = [normalize(p) for p in restored_payloads]
         if not is_inline:
             render_result = await self._orchestrator.render_node(
