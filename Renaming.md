@@ -43,6 +43,15 @@
 - Promote `MessageGateway` verbs such as `edit_text`, `edit_media`, `edit_caption`, and `edit_markup` to single-word alternatives once downstream call sites have adopted the helper renames listed above.
 - Consolidate result metadata fields (`media_type`, `file_id`, `group_items`) under single-word terms after aligning storage and rendering pipelines.
 
+## View Restoration Plan
+
+| Scope | Legacy Identifier | Replacement |
+|-------|-------------------|-------------|
+| View restorer service | `restore_node` | `revive` |
+| View restorer service | `_try_dynamic_restore` | `_dynamic` |
+| View restorer service | `_static_restore_msg` | `_static` |
+| View restorer logging | `factory_key` keyword | `forge` |
+
 ## Guidelines for Future Renames
 - When multiple contexts share similar operations, choose consistent vocabulary (e.g., prefer `store`/`load` across repositories).
 - Use existing domain terminology (history, tail, scope, ledger) to inform replacement words instead of inventing artificial compounds.

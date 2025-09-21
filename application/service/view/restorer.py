@@ -18,10 +18,10 @@ class ViewRestorer:
         self._codec = codec
         self._ledger = ledger
 
-    async def restore_node(self, entry: Entry, context: Dict[str, Any], *, inline: bool) -> List[Payload]:
+    async def revive(self, entry: Entry, context: Dict[str, Any], *, inline: bool) -> List[Payload]:
         if entry.view:
-            jlog(logger, logging.INFO, LogCode.RESTORE_DYNAMIC, factory_key=entry.view)
-            content = await self._try_dynamic_restore(entry.view, context)
+            jlog(logger, logging.INFO, LogCode.RESTORE_DYNAMIC, forge=entry.view)
+            content = await self._dynamic(entry.view, context)
             if content:
                 if isinstance(content, list):
                     if inline and len(content) > 1:
@@ -29,30 +29,30 @@ class ViewRestorer:
                             logger,
                             logging.WARNING,
                             LogCode.RESTORE_DYNAMIC_FALLBACK,
-                            factory_key=entry.view,
+                            forge=entry.view,
                             note="inline_multi_payload_trimmed",
                             count=len(content),
                         )
                         return [content[0]]
                     return content
                 return [content]
-        return [self._static_restore_msg(m) for m in entry.messages]
+        return [self._static(m) for m in entry.messages]
 
     async def restore(self, entry: Entry, context: Dict[str, Any], *, inline: bool = False) -> Payload:
-        res = await self.restore_node(entry, context, inline=inline)
+        res = await self.revive(entry, context, inline=inline)
         return res[0] if res else Payload()
 
-    async def _try_dynamic_restore(
+    async def _dynamic(
             self, key: str, context: Dict[str, Any]
     ) -> Optional[Payload | List[Payload]]:
         try:
             forge = self._ledger.get(key)
         except KeyError:
-            jlog(logger, logging.WARNING, LogCode.RESTORE_DYNAMIC_FALLBACK, factory_key=key, note="factory_not_found")
+            jlog(logger, logging.WARNING, LogCode.RESTORE_DYNAMIC_FALLBACK, forge=key, note="factory_not_found")
             return None
         try:
-            forge_params = inspect.signature(forge).parameters
-            supplies = {name: context[name] for name in forge_params if name in context}
+            params = inspect.signature(forge).parameters
+            supplies = {name: context[name] for name in params if name in context}
             content = await forge(**supplies)
             return content
         except Exception as e:
@@ -60,7 +60,7 @@ class ViewRestorer:
                 logger,
                 logging.WARNING,
                 LogCode.RESTORE_DYNAMIC_FALLBACK,
-                factory_key=key,
+                forge=key,
                 note=type(e).__name__,
                 exc_info=True,
                 error={"type": type(e).__name__},
@@ -68,7 +68,7 @@ class ViewRestorer:
             return None
 
     @staticmethod
-    def _static_restore_msg(m) -> Payload:
+    def _static(m) -> Payload:
         text = getattr(m, "text", None)
 
         if text is None and getattr(m, "media", None):
