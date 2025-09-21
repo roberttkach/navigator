@@ -31,7 +31,7 @@ class AppContainer(containers.DeclarativeContainer):
     state = providers.Dependency(instance_of=FSMContext)
     ledger = providers.Dependency(instance_of=ViewLedger)
 
-    history_limit = providers.Object(SETTINGS.history_limit)
+    retention = providers.Object(SETTINGS.retention)
     chunk = providers.Object(SETTINGS.chunk)
 
     markup_codec = providers.Singleton(AiogramMarkupCodec)
@@ -55,7 +55,7 @@ class AppContainer(containers.DeclarativeContainer):
         is_url_input_file=is_url_input_file,
         strict_inline_media_path=providers.Object(SETTINGS.strict_inline_media_path),
     )
-    rendering_config = providers.Object(RenderingConfig(thumb_watch=SETTINGS.thumb_watch))
+    rendering_config = providers.Object(RenderingConfig(thumbguard=SETTINGS.thumbguard))
     view_orchestrator = providers.Factory(
         ViewOrchestrator,
         gateway=gateway,
@@ -70,13 +70,13 @@ class AppContainer(containers.DeclarativeContainer):
         Appender,
         history_repo=history_repo, state_repo=state_repo, last_repo=last_repo,
         orchestrator=view_orchestrator,
-        mapper=entry_mapper, history_limit=history_limit,
+        mapper=entry_mapper, limit=retention,
     )
     swapper = providers.Factory(
         Swapper,
         history_repo=history_repo, state_repo=state_repo, last_repo=last_repo,
         orchestrator=view_orchestrator,
-        mapper=entry_mapper, history_limit=history_limit,
+        mapper=entry_mapper, limit=retention,
     )
     rewinder = providers.Factory(
         Rewinder,

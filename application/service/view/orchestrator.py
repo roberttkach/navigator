@@ -354,7 +354,7 @@ class ViewOrchestrator:
 
                 media_extra_changed = _media_affects_changed(old_e, new_e)
 
-                if self._rendering_config.thumb_watch:
+                if self._rendering_config.thumbguard:
                     if bool(old_e.get("has_thumb")) != bool(new_e.get("thumb") is not None):
                         media_extra_changed = True
 
