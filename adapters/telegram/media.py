@@ -36,21 +36,21 @@ def weblink(obj) -> bool:
     return isinstance(obj, URLInputFile)
 
 
-def adapt(x: object, *, allow_local: bool) -> InputFile:
+def adapt(x: object, *, native: bool) -> InputFile:
     if not isinstance(x, (FSInputFile, BufferedInputFile, URLInputFile, str)):
         raise ValueError("unsupported input file descriptor")
     s = x
     if isinstance(s, str) and remote(s):
         return URLInputFile(s)
     if isinstance(s, str) and local(s):
-        if not allow_local:
+        if not native:
             raise MessageEditForbidden("inline_local_path_forbidden")
         return FSInputFile(s)
     return s
 
 
-def convert(item: MediaItem, *, allow_local: bool) -> InputFile:
-    return adapt(item.path, allow_local=allow_local)
+def convert(item: MediaItem, *, native: bool) -> InputFile:
+    return adapt(item.path, native=native)
 
 
 def _screen(extra: Dict[str, Any] | None) -> None:
@@ -62,18 +62,18 @@ def compose(
         caption: str | None = None,
         *,
         extra: Dict[str, Any] | None = None,
-        allow_local: bool = True,
+        native: bool = True,
         truncate: bool = False,
 ) -> InputMedia:
-    media_map = {
+    catalog = {
         MediaType.PHOTO: InputMediaPhoto,
         MediaType.VIDEO: InputMediaVideo,
         MediaType.DOCUMENT: InputMediaDocument,
         MediaType.AUDIO: InputMediaAudio,
         MediaType.ANIMATION: InputMediaAnimation,
     }
-    input_class = media_map.get(item.type)
-    if not input_class:
+    handler = catalog.get(item.type)
+    if not handler:
         jlog(logger, logging.WARNING, LogCode.MEDIA_UNSUPPORTED, kind=str(getattr(item.type, "value", None)))
         if item.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
             raise MessageEditForbidden("edit_media_type_forbidden")
@@ -82,7 +82,7 @@ def compose(
     _screen(bundle["media"])
     caption = caption if caption is not None else item.caption
     length = len(caption or "")
-    mapping = cleanse(bundle["caption"], captioning=True, target=input_class, length=length)
+    mapping = cleanse(bundle["caption"], captioning=True, target=handler, length=length)
     settings = bundle["media"] or {}
     if item.type in (MediaType.PHOTO, MediaType.VIDEO, MediaType.ANIMATION):
         if settings.get("spoiler") is not None:
@@ -94,7 +94,7 @@ def compose(
             mapping["start_timestamp"] = settings.get("start")
     if item.type in (MediaType.VIDEO, MediaType.ANIMATION, MediaType.AUDIO, MediaType.DOCUMENT):
         if settings.get("thumb") is not None:
-            mapping["thumbnail"] = adapt(settings.get("thumb"), allow_local=allow_local)
+            mapping["thumbnail"] = adapt(settings.get("thumb"), native=native)
     if item.type == MediaType.AUDIO:
         if settings.get("title") is not None:
             mapping["title"] = str(settings.get("title"))
@@ -116,14 +116,14 @@ def compose(
         else:
             raise CaptionTooLong()
 
-    mapping = screen(input_class, mapping)
-    arguments = {"media": convert(item, allow_local=allow_local), **mapping}
+    mapping = screen(handler, mapping)
+    arguments = {"media": convert(item, native=native), **mapping}
     if caption is not None:
         arguments["caption"] = caption
-    return input_class(**arguments)
+    return handler(**arguments)
 
 
-def assemble(items: List[MediaItem], extra: Dict[str, Any] | None = None, *, allow_local: bool = True,
+def assemble(items: List[MediaItem], extra: Dict[str, Any] | None = None, *, native: bool = True,
              truncate: bool = False) -> List[InputMedia]:
     kinds = [getattr(i.type, "value", None) for i in (items or [])]
     try:
@@ -150,5 +150,5 @@ def assemble(items: List[MediaItem], extra: Dict[str, Any] | None = None, *, all
     result: List[InputMedia] = []
     for index, item in enumerate(items):
         caption = item.caption if index == 0 else ""
-        result.append(compose(item, caption=caption, extra=extra, allow_local=allow_local, truncate=truncate))
+        result.append(compose(item, caption=caption, extra=extra, native=native, truncate=truncate))
     return result

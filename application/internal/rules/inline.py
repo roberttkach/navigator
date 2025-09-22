@@ -4,7 +4,7 @@ from ....domain.service.rendering import decision as D
 from ....domain.value.content import Payload
 
 
-def remap(old_msg, new: Payload, *, inline: bool) -> D.Decision:
+def remap(origin, fresh: Payload, *, inline: bool) -> D.Decision:
     """
     Единый ремап для inline при изначальном DELETE_SEND.
 
@@ -17,11 +17,11 @@ def remap(old_msg, new: Payload, *, inline: bool) -> D.Decision:
     if not inline:
         return D.Decision.DELETE_SEND
 
-    o_has_media = bool(getattr(old_msg, "media", None) or getattr(old_msg, "group", None))
-    n_has_media = bool(getattr(new, "media", None) or getattr(new, "group", None))
+    origin = bool(getattr(origin, "media", None) or getattr(origin, "group", None))
+    fresh = bool(getattr(fresh, "media", None) or getattr(fresh, "group", None))
 
-    if o_has_media and not n_has_media:
+    if origin and not fresh:
         return D.Decision.EDIT_MARKUP
-    if (not o_has_media) and n_has_media:
+    if (not origin) and fresh:
         return D.Decision.DELETE_SEND
-    return D.Decision.EDIT_MEDIA if o_has_media else D.Decision.EDIT_TEXT
+    return D.Decision.EDIT_MEDIA if origin else D.Decision.EDIT_TEXT

@@ -13,7 +13,7 @@ class TransitionRecorder(TransitionObserver):
         self._status = status
         self._logger = logging.getLogger(__name__)
 
-    async def on_transition(self, origin: Optional[str], target: str) -> None:
+    async def shift(self, origin: Optional[str], target: str) -> None:
         chart = await self._status.diagram()
         baseline = list(chart.nodes)
         prior: Dict[str, Set[str]] = {name: set(paths) for name, paths in chart.edges.items()}
@@ -46,8 +46,6 @@ class TransitionRecorder(TransitionObserver):
         fresh = Graph(nodes=sorted(list(nodes)), edges=edges)
         await self._status.capture(fresh)
         after: Dict[str, Set[str]] = {name: set(paths) for name, paths in fresh.edges.items()}
-        origin_added = sorted(list(after.get(origin, set()) - prior.get(origin, set())))
-        target_added = sorted(list(after.get(target, set()) - prior.get(target, set())))
         jlog(
             self._logger,
             logging.DEBUG,
@@ -55,7 +53,10 @@ class TransitionRecorder(TransitionObserver):
             state={"from": origin, "to": target},
             nodes_before=len(baseline),
             nodes_after=len(fresh.nodes),
-            edges_added={"from": origin_added, "to": target_added},
+            edges_added={
+                "from": sorted(list(after.get(origin, set()) - prior.get(origin, set()))),
+                "to": sorted(list(after.get(target, set()) - prior.get(target, set()))),
+            },
         )
 
 

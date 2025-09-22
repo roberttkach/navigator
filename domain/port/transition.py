@@ -7,7 +7,7 @@ from typing import Protocol, Optional, runtime_checkable
 class TransitionObserver(Protocol):
     """Observer for state transitions."""
 
-    async def on_transition(self, from_state: Optional[str], to_state: str) -> None:
+    async def shift(self, origin: Optional[str], target: str) -> None:
         """React to transition."""
 
 

@@ -58,9 +58,10 @@ class InlineStrategy:
         if (ra is None) != (rb is None):
             return True
         try:
-            same_kind = getattr(ra, "kind", None) == getattr(rb, "kind", None)
-            same_data = _canon(getattr(ra, "data", None)) == _canon(getattr(rb, "data", None))
-            return not (same_kind and same_data)
+            return not (
+                getattr(ra, "kind", None) == getattr(rb, "kind", None)
+                and _canon(getattr(ra, "data", None)) == _canon(getattr(rb, "data", None))
+            )
         except Exception:
             return True
 

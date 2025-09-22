@@ -25,12 +25,12 @@ logger = logging.getLogger(__name__)
 async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: bool = False) -> Result:
     context = _targets(scope)
     inline = bool(scope.inline)
-    local = not inline
+    native = not inline
     try:
         if payload.group:
             extras = serializer.scrub(scope, payload.extra, editing=False)
             bundle = media_mapper.assemble(
-                payload.group, extra=extras, allow_local=local, truncate=truncate
+                payload.group, extra=extras, native=native, truncate=truncate
             )
             filtered = screen(bot.send_media_group, context)
             messages = await invoke(bot.send_media_group, media=bundle, **filtered)
@@ -62,7 +62,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             )
         if payload.media:
             try:
-                medium = media_mapper.convert(payload.media, allow_local=local)
+                medium = media_mapper.convert(payload.media, native=native)
             except MessageEditForbidden:
                 jlog(
                     logger,
@@ -98,7 +98,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             if kind in ("video", "animation", "audio", "document"):
                 if options.get("thumb") is not None:
                     settings["thumbnail"] = media_mapper.adapt(
-                        options.get("thumb"), allow_local=local
+                        options.get("thumb"), native=native
                     )
             if kind == "audio":
                 if options.get("title") is not None:

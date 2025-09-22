@@ -38,10 +38,10 @@ class AiogramMarkupCodec(MarkupCodec):
     def decode(self, stored: Optional[Markup]) -> Any:
         if not stored:
             return None
-        markup_class = self._MAP.get(stored.kind)
-        if markup_class:
+        target = self._MAP.get(stored.kind)
+        if target:
             try:
-                obj = markup_class(**stored.data)
+                obj = target(**stored.data)
                 jlog(logger, logging.DEBUG, LogCode.MARKUP_DECODE, recognized=True, kind=stored.kind)
                 return obj
             except TypeError:

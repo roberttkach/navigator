@@ -21,6 +21,6 @@ _LEXICON: Dict[str, Dict[str, str]] = {
 
 def lexeme(key: str, lang: str = "en") -> str:
     """Return a localized lexeme for Telegram presentation."""
-    lang_norm = (lang or "en").split("-")[0].lower()
+    locale = (lang or "en").split("-")[0].lower()
     d = _LEXICON.get(key, {})
-    return d.get(lang_norm) or d.get("en") or ""
+    return d.get(locale) or d.get("en") or ""
