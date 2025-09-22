@@ -55,7 +55,7 @@ class Rewinder:
         restored = await self._restorer.revive(target, merged, inline=inline)
         resolved = [normalize(p) for p in restored]
         if not inline:
-            render = await self._orchestrator.render_node(
+            render = await self._orchestrator.render(
                 "back",
                 scope,
                 resolved,
@@ -63,7 +63,7 @@ class Rewinder:
                 inline=False,
             )
         else:
-            render = await self._orchestrator.render_node(
+            render = await self._orchestrator.render(
                 "back",
                 scope,
                 resolved,

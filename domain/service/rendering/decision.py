@@ -180,7 +180,7 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
     Контракт:
     - Любые группы в old/new ⇒ DELETE_SEND.
     - Частичное редактирование альбомов выполняется вне decide: ранняя ветка в
-      ViewOrchestrator.render_node обрабатывает совместимые альбомы.
+      ViewOrchestrator.render обрабатывает совместимые альбомы.
     - Inline-ограничения и ремап DELETE_SEND применяются на уровне стратегий inline.
     """
     if not old:

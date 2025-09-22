@@ -21,6 +21,7 @@
 - Logging decorator utilities now rely on `_capture` and `_snapshot`, with the `trace` decorator exposing the public `begin`/`success`/`skip` argument trio for clarity.
 - Gateway error pattern builders collapse to the classmethod `collect`, removing the final `from_phrases` snake-case entry point.
 - Gateway result metadata now settles on single-word keys `medium`/`file`/`clusters`, with the view orchestrator mirroring the terminology through its `rendering` profile accessor.
+- View orchestrator API now exposes `render` with single-word helpers (`head`/`album`/`refine`/`verify`) and accumulators (`primary`/`bundles`/`notes`) to replace the legacy `render_node` flow.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.
