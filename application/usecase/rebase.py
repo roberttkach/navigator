@@ -6,17 +6,14 @@ from ..log.emit import jlog
 from ...domain.entity.history import Entry, Message
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LatestRepository
-from ...domain.port.temp import TemporaryRepository
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
 
 class Shifter:
-    def __init__(self, ledger: HistoryRepository, buffer: TemporaryRepository,
-                 latest: LatestRepository):
+    def __init__(self, ledger: HistoryRepository, latest: LatestRepository):
         self._ledger = ledger
-        self._buffer = buffer
         self._latest = latest
 
     @trace(None, None, None)
@@ -28,8 +25,6 @@ class Shifter:
 
         last = history[-1]
         if not last.messages:
-            await self._buffer.stash([])
-            jlog(logger, logging.INFO, LogCode.TEMP_SAVE, op="rebase", temp={"len": 0})
             await self._latest.mark(int(marker))
             jlog(logger, logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(marker)})
             jlog(logger, logging.INFO, LogCode.REBASE_SUCCESS, op="rebase",
@@ -60,9 +55,6 @@ class Shifter:
 
         await self._ledger.archive(rebuilt)
         jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="rebase", history={"len": len(rebuilt)})
-
-        await self._buffer.stash([])
-        jlog(logger, logging.INFO, LogCode.TEMP_SAVE, op="rebase", temp={"len": 0})
 
         await self._latest.mark(int(marker))
         jlog(logger, logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(marker)})

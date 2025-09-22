@@ -4,7 +4,6 @@ from ...adapters.aiogram.types import FSMContext
 from ...adapters.storage.chronicle import Chronicle
 from ...adapters.storage.latest import Latest
 from ...adapters.storage.status import Status
-from ...adapters.storage.buffer import Buffer
 from ...adapters.storage.recorder import TransitionRecorder
 from ...adapters.telegram.gateway import TelegramGateway
 from ...adapters.telegram.codec import AiogramCodec
@@ -47,7 +46,6 @@ class AppContainer(containers.DeclarativeContainer):
     latest = providers.Factory(Latest, state=state)
     observer = providers.Factory(TransitionRecorder, status=status)
 
-    buffer = providers.Factory(Buffer, state=state)
     mapper = providers.Factory(EntryMapper, ledger=ledger)
     strategy = providers.Factory(
         InlineStrategy,
@@ -91,7 +89,7 @@ class AppContainer(containers.DeclarativeContainer):
         orchestrator=orchestrator, latest=latest,
     )
     trimmer = providers.Factory(Trimmer, ledger=chronicle, latest=latest)
-    shifter = providers.Factory(Shifter, ledger=chronicle, buffer=buffer, latest=latest)
+    shifter = providers.Factory(Shifter, ledger=chronicle, latest=latest)
     tailer = providers.Factory(
         Tailer, latest=latest, ledger=chronicle, gateway=gateway,
         orchestrator=orchestrator,
