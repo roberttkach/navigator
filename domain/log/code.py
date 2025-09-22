@@ -12,7 +12,6 @@ class LogCode(Enum):
     # Inline
     INLINE_DROP_EXTRA = "inline_drop_extra"
     INLINE_CONTENT_SWITCH_FORBIDDEN = "inline_content_switch_forbidden"
-    INLINE_DELETE_SEND_FORBIDDEN = "inline_delete_send_forbidden"
     INLINE_TAIL_DELETE_IDS = "inline_tail_delete_ids"
     INLINE_REMAP_DELETE_SEND = "inline_remap_delete_send"
 
@@ -20,7 +19,7 @@ class LogCode(Enum):
     ALBUM_PARTIAL_OK = "album_partial_ok"
     ALBUM_PARTIAL_FALLBACK = "album_partial_fallback"
 
-    # History / Last / State / Temp
+    # History / Last / State
     HISTORY_LOAD = "history_load"
     HISTORY_SAVE = "history_save"
     HISTORY_TRIM = "history_trim"
@@ -30,8 +29,6 @@ class LogCode(Enum):
     STATE_GET = "state_get"
     STATE_SET = "state_set"
     STATE_DATA_GET = "state_data_get"
-    TEMP_LOAD = "temp_load"
-    TEMP_SAVE = "temp_save"
 
     # Registry / Navigator / Router
     REGISTRY_REGISTER = "registry_register"
@@ -64,8 +61,7 @@ class LogCode(Enum):
     MEDIA_UNSUPPORTED = "media_unsupported"
     TOO_LONG_TRUNCATED = "too_long_truncated"
 
-    # Transitions / Ops
-    TRANSITION = "transition"
+    # Ops
     POP_SUCCESS = "pop_success"
     REBASE_SUCCESS = "rebase_success"
     RESTORE_DYNAMIC = "restore_dynamic"
