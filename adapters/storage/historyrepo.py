@@ -38,10 +38,10 @@ class MediaCodec:
         if not isinstance(data, Dict):
             return None
         kind = data.get("type")
-        file_id = data.get("file")
-        if not (isinstance(kind, str) and isinstance(file_id, str) and file_id):
+        identifier = data.get("file")
+        if not (isinstance(kind, str) and isinstance(identifier, str) and identifier):
             return None
-        return MediaItem(type=MediaType(kind), path=file_id, caption=data.get("caption"))
+        return MediaItem(type=MediaType(kind), path=identifier, caption=data.get("caption"))
 
 
 class GroupCodec:

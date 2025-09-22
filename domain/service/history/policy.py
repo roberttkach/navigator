@@ -8,6 +8,6 @@ def prune(history: List[Entry], limit: int) -> List[Entry]:
         return history
     overflow = len(history) - limit
     if history and getattr(history[0], "root", False):
-        cut_from = 1 + overflow
-        return [history[0]] + history[cut_from:]
+        start = 1 + overflow
+        return [history[0]] + history[start:]
     return history[overflow:]

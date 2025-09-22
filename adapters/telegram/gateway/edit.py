@@ -64,10 +64,10 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *
         raise ValueError("Cannot edit media without a media payload")
     extras = serializer.scrub(scope, payload.extra, editing=True)
     caption = serializer.caption(payload)
-    local = not bool(scope.inline)
+    native = not bool(scope.inline)
     try:
         medium = media_mapper.compose(
-            payload.media, caption, extra=extras, allow_local=local, truncate=truncate
+            payload.media, caption, extra=extras, native=native, truncate=truncate
         )
     except MessageEditForbidden:
         jlog(

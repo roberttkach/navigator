@@ -105,13 +105,13 @@ def cleanse(
     if target is not None:
         screened = screen(target, mapping)
         if set(mapping.keys()) != set(screened.keys()):
-            target_name = getattr(target, "__name__", str(target))
+            name = getattr(target, "__name__", str(target))
             jlog(
                 logger,
                 logging.DEBUG,
                 LogCode.EXTRA_FILTERED_OUT,
-                stage=f"{'edit' if 'edit' in target_name.lower() else 'send'}.{'caption' if captioning else 'text'}",
-                target=target_name,
+                stage=f"{'edit' if 'edit' in name.lower() else 'send'}.{'caption' if captioning else 'text'}",
+                target=name,
                 before=sorted(mapping.keys()),
                 after=sorted(screened.keys()),
                 filtered_keys=sorted(set(mapping) - set(screened)),

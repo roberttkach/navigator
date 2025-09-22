@@ -19,103 +19,100 @@ class Decision(Enum):
     NO_CHANGE = auto()
 
 
-def _has_group(x) -> bool:
-    if x is None:
+def _grouped(obj) -> bool:
+    if obj is None:
         return False
-    mg = getattr(x, "group", None)
-    return bool(mg)
+    pack = getattr(obj, "group", None)
+    return bool(pack)
 
 
-def _has_media_single(x) -> bool:
-    if x is None:
+def _single(obj) -> bool:
+    if obj is None:
         return False
-    return bool(getattr(x, "media", None))
+    return bool(getattr(obj, "media", None))
 
 
-def _has_any_media(x) -> bool:
-    return _has_group(x) or _has_media_single(x)
+def _mediated(obj) -> bool:
+    return _grouped(obj) or _single(obj)
 
 
 @dataclass(frozen=True, slots=True)
-class _MediaCaptionOpts:
-    show_caption_above_media: bool
+class _CaptionFlag:
+    above: bool
 
 
 @dataclass(frozen=True, slots=True)
-class _MediaEditOpts:
+class _MediaFlag:
     spoiler: bool
     start: object
-    thumb_present: bool
+    thumb: bool
 
 
-def _view_of(obj: Any):
+@dataclass(frozen=True, slots=True)
+class _MediaProfile:
+    caption: _CaptionFlag
+    edit: _MediaFlag
+
+
+def _view(obj: Any):
     """Normalize to an object with attributes: text, media, group, reply, extra."""
     if obj is None:
         return type("V", (), dict(text=None, media=None, group=None, reply=None, extra=None))()
     if isinstance(obj, Entry):
-        m = obj.messages[0] if (getattr(obj, "messages", None) or []) else None
-        return type("V", (), dict(
-            text=getattr(m, "text", None),
-            media=getattr(m, "media", None),
-            group=getattr(m, "group", None),
-            reply=getattr(m, "markup", None),
-            extra=getattr(m, "extra", None),
-        ))()
+        message = obj.messages[0] if (getattr(obj, "messages", None) or []) else None
+        return type(
+            "V",
+            (),
+            dict(
+                text=getattr(message, "text", None),
+                media=getattr(message, "media", None),
+                group=getattr(message, "group", None),
+                reply=getattr(message, "markup", None),
+                extra=getattr(message, "extra", None),
+            ),
+        )()
     return obj
 
 
-def _norm_text_caption_extra(obj) -> dict:
+def _extras(obj) -> dict:
     """
     Нормализация extra для текста/подписи:
     учитываются только mode/entities. message_effect_id игнорируется.
     """
-    v = getattr(_view_of(obj), "extra", None) or {}
+    value = getattr(_view(obj), "extra", None) or {}
     out = {}
-    if "mode" in v:
-        out["mode"] = v["mode"]
-    if "entities" in v:
-        out["entities"] = v["entities"]
+    if "mode" in value:
+        out["mode"] = value["mode"]
+    if "entities" in value:
+        out["entities"] = value["entities"]
     return out
 
 
-def _text_extra_equal(a, b) -> bool:
-    return _norm_text_caption_extra(a) == _norm_text_caption_extra(b)
-
-
-def _caption_extra_equal(a, b) -> bool:
-    return _norm_text_caption_extra(a) == _norm_text_caption_extra(b)
-
-
-def _media_opts_split(e, config: RenderingConfig) -> tuple[_MediaCaptionOpts, _MediaEditOpts]:
-    """
-    Делит медиа-опции на:
-      - влияющие на подпись/её позицию (EDIT_MEDIA_CAPTION),
-      - требующие полной замены медиа (EDIT_MEDIA).
-    """
-    x = getattr(_view_of(e), "extra", {}) or {}
-    cap = _MediaCaptionOpts(show_caption_above_media=bool(x.get("show_caption_above_media")))
-    st = x.get("start")
+def _mediaplan(entry, config: RenderingConfig) -> _MediaProfile:
+    payload = getattr(_view(entry), "extra", {}) or {}
+    caption = _CaptionFlag(above=bool(payload.get("show_caption_above_media")))
+    start = payload.get("start")
     try:
-        st = int(st) if st is not None else None
+        start = int(start) if start is not None else None
     except Exception:
         pass
-    present = bool((x.get("thumb") is not None) or x.get("has_thumb"))
-    edt = _MediaEditOpts(
-        spoiler=bool(x.get("spoiler")),
-        start=st,
-        thumb_present=(present if config.thumbguard else False),
+    present = bool((payload.get("thumb") is not None) or payload.get("has_thumb"))
+    edit = _MediaFlag(
+        spoiler=bool(payload.get("spoiler")),
+        start=start,
+        thumb=(present if config.thumbguard else False),
     )
-    return cap, edt
+    return _MediaProfile(caption=caption, edit=edit)
 
 
-def _text_of(obj) -> Optional[str]:
-    if obj is None or _has_any_media(obj):
+def _text(obj) -> Optional[str]:
+    if obj is None or _mediated(obj):
         return None
-    t = getattr(obj, "text", None)
-    return str(t).strip() if t is not None else None
+    value = getattr(obj, "text", None)
+    return str(value).strip() if value is not None else None
 
 
-def _reply_of(obj):
+def _reply(obj):
     if obj is None:
         return None
     if isinstance(obj, Entry):
@@ -126,53 +123,51 @@ def _reply_of(obj):
     return getattr(obj, "reply", None)
 
 
-def _match(a, b) -> bool:
-    ra = _reply_of(a)
-    rb = _reply_of(b)
-    return _match_markups(ra, rb)
+def _replymatch(a, b) -> bool:
+    return _match_markups(_reply(a), _reply(b))
 
 
-def _preview_of(obj):
+def _preview(obj):
     if obj is None:
         return None
     if isinstance(obj, Entry):
         try:
-            m = obj.messages[0] if obj.messages else None
-            return getattr(m, "preview", None)
+            message = obj.messages[0] if obj.messages else None
+            return getattr(message, "preview", None)
         except Exception:
             return None
     return getattr(obj, "preview", None)
 
 
-def _preview_equal(a, b) -> bool:
-    pa = _preview_of(a)
-    pb = _preview_of(b)
+def _previewmatch(a, b) -> bool:
+    pa = _preview(a)
+    pb = _preview(b)
     if pa is None and pb is None:
         return True
     if (pa is None) != (pb is None):
         return False
     return (
-            getattr(pa, "url", None) == getattr(pb, "url", None)
-            and bool(getattr(pa, "small", False)) == bool(getattr(pb, "small", False))
-            and bool(getattr(pa, "large", False)) == bool(getattr(pb, "large", False))
-            and bool(getattr(pa, "above", False)) == bool(getattr(pb, "above", False))
-            and getattr(pa, "disabled", None) == getattr(pb, "disabled", None)
+        getattr(pa, "url", None) == getattr(pb, "url", None)
+        and bool(getattr(pa, "small", False)) == bool(getattr(pb, "small", False))
+        and bool(getattr(pa, "large", False)) == bool(getattr(pb, "large", False))
+        and bool(getattr(pa, "above", False)) == bool(getattr(pb, "above", False))
+        and getattr(pa, "disabled", None) == getattr(pb, "disabled", None)
     )
 
 
-def _same_media_file(o, n) -> bool:
+def _samefile(old, new) -> bool:
     """
     Сравнение по Telegram file_id:
     - в истории o.media.path — это file_id (str),
     - «тот же файл» только если new.media.path — тоже str и равен старому file_id.
     """
-    if not (o and getattr(o, "media", None) and n and getattr(n, "media", None)):
+    if not (old and getattr(old, "media", None) and new and getattr(new, "media", None)):
         return False
-    if o.media.type != n.media.type:
+    if old.media.type != new.media.type:
         return False
-    old_id = getattr(o.media, "path", None)
-    new_path = getattr(n.media, "path", None)
-    return isinstance(old_id, str) and isinstance(new_path, str) and (old_id == new_path)
+    former = getattr(old.media, "path", None)
+    latter = getattr(new.media, "path", None)
+    return isinstance(former, str) and isinstance(latter, str) and (former == latter)
 
 
 def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Decision:
@@ -186,47 +181,48 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
     if not old:
         return Decision.RESEND
 
-    o = _view_of(old)
-    n = _view_of(new)
+    prior = _view(old)
+    fresh = _view(new)
 
     # Любые группы в old/new → DELETE_SEND
-    if _has_group(o) or _has_group(n):
+    if _grouped(prior) or _grouped(fresh):
         return Decision.DELETE_SEND
 
     # Запрет VOICE/VIDEO_NOTE в редактировании: всегда DELETE_SEND
-    if n.media and n.media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
+    if fresh.media and fresh.media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
         return Decision.DELETE_SEND
-    if o.media and o.media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
+    if prior.media and prior.media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
         return Decision.DELETE_SEND
 
     # Переход media↔text → DELETE_SEND
-    if _has_any_media(o) != _has_any_media(n):
+    if _mediated(prior) != _mediated(fresh):
         return Decision.DELETE_SEND
 
     # Текст↔текст
-    if not _has_any_media(o) and not _has_any_media(n):
-        if (_text_of(o) or "") == (_text_of(n) or ""):
-            if (not _text_extra_equal(o, n)) or (not _preview_equal(o, n)):
+    if not _mediated(prior) and not _mediated(fresh):
+        if (_text(prior) or "") == (_text(fresh) or ""):
+            if (_extras(prior) != _extras(fresh)) or (not _previewmatch(prior, fresh)):
                 return Decision.EDIT_TEXT
-            return Decision.NO_CHANGE if _match(o, n) else Decision.EDIT_MARKUP
+            return Decision.NO_CHANGE if _replymatch(prior, fresh) else Decision.EDIT_MARKUP
         return Decision.EDIT_TEXT
 
     # Медиа↔медиа
-    if _has_any_media(o) and _has_any_media(n):
+    if _mediated(prior) and _mediated(fresh):
         # Сравниваем только по file_id и типу
-        if _same_media_file(o, n):
-            cap_o, edt_o = _media_opts_split(o, config)
-            cap_n, edt_n = _media_opts_split(n, config)
+        if _samefile(prior, fresh):
+            before = _mediaplan(prior, config)
+            after = _mediaplan(fresh, config)
 
             # Любое изменение медиа-уровня (spoiler/start/thumb*) требует EDIT_MEDIA.
-            if edt_o != edt_n:
+            if before.edit != after.edit:
                 return Decision.EDIT_MEDIA
 
-            same_caption_text = (caption(o) or "") == (caption(n) or "")
-            same_caption_extra = _caption_extra_equal(o, n)
-            same_caption_pos = (cap_o == cap_n)
-            if same_caption_text and same_caption_extra and same_caption_pos:
-                return Decision.NO_CHANGE if _match(o, n) else Decision.EDIT_MARKUP
+            if (
+                (caption(prior) or "") == (caption(fresh) or "")
+                and _extras(prior) == _extras(fresh)
+                and before.caption == after.caption
+            ):
+                return Decision.NO_CHANGE if _replymatch(prior, fresh) else Decision.EDIT_MARKUP
             return Decision.EDIT_MEDIA_CAPTION
         return Decision.EDIT_MEDIA
 

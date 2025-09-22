@@ -42,15 +42,15 @@ def sanitize(entities: Any, length: int) -> List[Dict[str, Any]]:
         if kind not in _ALLOWED_ENTITY_TYPES:
             continue
         try:
-            offset_value = int(offset)
-            span_value = int(span)
+            offset = int(offset)
+            span = int(span)
         except Exception:
             continue
-        if offset_value < 0 or span_value < 1:
+        if offset < 0 or span < 1:
             continue
-        if (offset_value + span_value) > max(0, int(length)):
+        if (offset + span) > max(0, int(length)):
             continue
-        entry = {"type": kind, "offset": offset_value, "length": span_value}
+        entry = {"type": kind, "offset": offset, "length": span}
         if kind == "text_link" and isinstance(entity.get("url"), str):
             entry["url"] = entity["url"]
         if kind == "text_mention" and entity.get("user") is not None:

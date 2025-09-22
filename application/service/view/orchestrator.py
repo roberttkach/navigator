@@ -244,8 +244,8 @@ class ViewOrchestrator:
             if not _pol.ResendOnBan:
                 return None
             stem = self._head(last)
-            rr_fallback = await _fallback(stem)
-            return rr_fallback
+            fallback = await _fallback(stem)
+            return fallback
         except MessageNotChanged:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="not_modified")
             if scope.inline:
@@ -254,8 +254,8 @@ class ViewOrchestrator:
             if not _pol.ResendOnIdle:
                 return None
             stem = self._head(last)
-            rr_fallback = await _fallback(stem)
-            return rr_fallback
+            fallback = await _fallback(stem)
+            return fallback
 
         stem = self._head(last)
         return _compose(result, stem)

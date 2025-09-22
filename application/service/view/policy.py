@@ -21,8 +21,8 @@ def permit(scope: Scope, reply: Optional[Markup]) -> Optional[Markup]:
     if bool(getattr(scope, "business", None)):
         return reply if reply.kind == _INLINE_KEYBOARD_KIND else None
 
-    chat_kind = getattr(scope, "category", None)
-    if chat_kind in {"private", "group"}:
+    category = getattr(scope, "category", None)
+    if category in {"private", "group"}:
         return reply
 
     return reply if reply.kind == _INLINE_KEYBOARD_KIND else None
