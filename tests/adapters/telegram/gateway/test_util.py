@@ -12,7 +12,8 @@ for path in (_ROOT, _PARENT):
 
 import sitecustomize  # noqa: F401
 
-from navigator.adapters.telegram.gateway.util import _digest
+from navigator.adapters.telegram.gateway.util import _digest, extract
+from navigator.domain.value.message import Scope
 
 
 def test_digest_rejects_media_groups():
@@ -26,3 +27,11 @@ def test_digest_text_message_passthrough():
     message = SimpleNamespace(media_group_id=None, text="hello")
 
     assert _digest(message) == {"kind": "text", "text": "hello", "inline": None}
+
+
+def test_extract_rejects_group_payload_without_result_message_id():
+    scope = Scope(chat=123)
+    payload = SimpleNamespace(group=[object()])
+
+    with pytest.raises(AssertionError):
+        extract(SimpleNamespace(), payload, scope)
