@@ -61,7 +61,7 @@ def extract(outcome: Any, payload: Any, scope: Scope) -> dict:
         body["inline"] = token
         return body
     if getattr(payload, "group", None):
-        return {"kind": "group", "clusters": None, "inline": token}
+        raise AssertionError("Grouped payloads must be handled before extract()")
     if getattr(payload, "media", None):
         media = getattr(payload.media.type, "value", None)
         return {
