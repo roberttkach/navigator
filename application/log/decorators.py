@@ -27,11 +27,11 @@ def _capture(fn: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, An
 
 
 def _snapshot(result: Any) -> Optional[dict]:
-    mid = getattr(result, "id", None)
+    identifier = getattr(result, "id", None)
     extra = getattr(result, "extra", None)
-    if mid is None and extra is None:
+    if identifier is None and extra is None:
         return None
-    return {"id": mid, "extra_len": len(extra) if isinstance(extra, list) else 0}
+    return {"id": identifier, "extra_len": len(extra) if isinstance(extra, list) else 0}
 
 
 def trace(begin, success, skip, augment: Optional[Callable[[Any], dict]] = None):

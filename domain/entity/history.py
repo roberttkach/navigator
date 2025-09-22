@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, slots=True)
-class Msg:
+class Message:
     id: int
     text: str | None
     media: MediaItem | None
@@ -30,5 +30,5 @@ class Msg:
 class Entry:
     state: str | None
     view: str | None
-    messages: list[Msg]
+    messages: list[Message]
     root: bool = False

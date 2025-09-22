@@ -7,7 +7,7 @@ from ..service.view.orchestrator import ViewOrchestrator
 from ..service.view.restorer import ViewRestorer
 from ...domain.error import HistoryEmpty
 from ...domain.port.history import HistoryRepository
-from ...domain.port.last import LastMessageRepository
+from ...domain.port.last import LatestRepository
 from ...domain.port.message import MessageGateway
 from ...domain.port.state import StateRepository
 from ...domain.value.content import normalize
@@ -25,7 +25,7 @@ class Rewinder:
             gateway: MessageGateway,
             restorer: ViewRestorer,
             orchestrator: ViewOrchestrator,
-            latest: LastMessageRepository,
+            latest: LatestRepository,
     ):
         self._ledger = ledger
         self._status = status
@@ -74,9 +74,9 @@ class Rewinder:
         from ..internal import policy as _pol
         if inline and _pol.TailMode in ("delete", "collapse") and getattr(scope, "business", None):
             targets = []
-            for msg in origin.messages[1:]:
-                targets.append(msg.id)
-                targets.extend(list(getattr(msg, "extras", []) or []))
+            for message in origin.messages[1:]:
+                targets.append(message.id)
+                targets.extend(list(getattr(message, "extras", []) or []))
             if targets:
                 sample = targets[:20]
                 jlog(

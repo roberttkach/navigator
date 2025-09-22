@@ -3,9 +3,9 @@ from typing import List
 
 from ..log.decorators import trace
 from ..log.emit import jlog
-from ...domain.entity.history import Entry, Msg
+from ...domain.entity.history import Entry, Message
 from ...domain.port.history import HistoryRepository
-from ...domain.port.last import LastMessageRepository
+from ...domain.port.last import LatestRepository
 from ...domain.port.temp import TemporaryRepository
 from ...domain.log.code import LogCode
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class Shifter:
     def __init__(self, ledger: HistoryRepository, buffer: TemporaryRepository,
-                 latest: LastMessageRepository):
+                 latest: LatestRepository):
         self._ledger = ledger
         self._buffer = buffer
         self._latest = latest
@@ -37,7 +37,7 @@ class Shifter:
             return
 
         first = last.messages[0]
-        patched = Msg(
+        patched = Message(
             id=int(marker),
             text=first.text,
             media=first.media,

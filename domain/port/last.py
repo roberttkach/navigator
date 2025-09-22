@@ -4,14 +4,14 @@ from typing import Protocol, Optional, runtime_checkable
 
 
 @runtime_checkable
-class LastMessageRepository(Protocol):
-    """Storage for last sent message identifier."""
+class LatestRepository(Protocol):
+    """Storage for latest sent message identifier."""
 
     async def peek(self) -> Optional[int]:
-        """Return last message id or None."""
+        """Return latest message id or None."""
 
     async def mark(self, marker: Optional[int]) -> None:
-        """Set or clear last message identifier."""
+        """Set or clear latest message identifier."""
 
 
-__all__ = ["LastMessageRepository"]
+__all__ = ["LatestRepository"]

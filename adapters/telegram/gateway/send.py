@@ -8,7 +8,7 @@ from .util import extract
 from .util import targets as _targets
 from .. import media as media_mapper
 from .. import serializer
-from ..keyfilter import screen
+from ..screen import screen
 from ....domain.constants import CaptionLimit, TextLimit
 from ....domain.error import EmptyPayload, MessageEditForbidden, TextTooLong, CaptionTooLong
 from ....domain.log.emit import jlog

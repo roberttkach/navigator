@@ -50,14 +50,14 @@ BACK_TEXTS: Final = {lexeme("back", "ru"), lexeme("back", "en")}
 
 
 @router.message(F.func(lambda m: getattr(m, "text", None) in BACK_TEXTS))
-async def recall(msg: Message, navigator: Navigator, **data: Dict[str, Any]) -> None:
+async def recall(message: Message, navigator: Navigator, **data: Dict[str, Any]) -> None:
     try:
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_ENTER, kind="text",
-             scope={"chat": msg.chat.id, "inline": False})
-        context = {**data, "event": msg}
+             scope={"chat": message.chat.id, "inline": False})
+        context = {**data, "event": message}
         await navigator.back(context=context)
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_DONE, kind="text",
-             scope={"chat": msg.chat.id, "inline": False})
+             scope={"chat": message.chat.id, "inline": False})
     except HistoryEmpty:
         jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="text", note="history_empty")
         await navigator.alert()

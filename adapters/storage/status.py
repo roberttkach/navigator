@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from aiogram.fsm.context import FSMContext
 
 from .keys import FSM_GRAPH_NODES_KEY, FSM_GRAPH_EDGES_KEY
-from ...domain.entity.stategraph import Graph
+from ...domain.entity.graph import Graph
 from ...domain.log.emit import jlog
 from ...domain.port.state import StateRepository
 from ...domain.log.code import LogCode

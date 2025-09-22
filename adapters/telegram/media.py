@@ -15,7 +15,7 @@ from aiogram.types import (
 )
 
 from .extra import audit, ALLOWED_MEDIA_EXTRA
-from .keyfilter import screen
+from .screen import screen
 from .serializer import cleanse, divide
 from ...domain.constants import CaptionLimit
 from ...domain.entity.media import MediaItem, MediaType
