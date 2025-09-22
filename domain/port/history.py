@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Protocol, List, runtime_checkable
+import typing
+from typing import Protocol, List
 
 from ..entity.history import Entry
 
 
-@runtime_checkable
+@typing.runtime_checkable
 class HistoryRepository(Protocol):
     """Storage for navigation history."""
 

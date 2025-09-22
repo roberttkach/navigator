@@ -1,7 +1,7 @@
 import inspect
 import logging
 from functools import wraps
-from time import perf_counter
+import time
 from typing import Any, Optional, Callable, Tuple, Dict
 
 from .emit import jlog
@@ -40,7 +40,7 @@ def trace(begin, success, skip, augment: Optional[Callable[[Any], dict]] = None)
         async def wrapper(*args: Any, **kwargs: Any):
             module = getattr(fn, "__module__", __name__)
             logger = logging.getLogger(module)
-            start = perf_counter()
+            start = time.perf_counter()
             scope, payload = _capture(fn, args, kwargs)
             if begin is not None:
                 fields: Dict[str, Any] = {}
@@ -50,7 +50,7 @@ def trace(begin, success, skip, augment: Optional[Callable[[Any], dict]] = None)
                     fields["payload"] = payload
                 jlog(logger, logging.INFO, begin, **fields)
             result = await fn(*args, **kwargs)
-            duration = int((perf_counter() - start) * 1000)
+            duration = int((time.perf_counter() - start) * 1000)
             if success is not None or skip is not None:
                 fields: Dict[str, Any] = {"duration_ms": duration}
                 if scope is not None:

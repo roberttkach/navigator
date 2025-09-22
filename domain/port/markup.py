@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Protocol, Optional, Any, runtime_checkable
+import typing
+from typing import Protocol, Optional, Any
 
 from ..entity.markup import Markup
 
 
-@runtime_checkable
+@typing.runtime_checkable
 class MarkupCodec(Protocol):
     """Codec to serialize and deserialize reply markups."""
 

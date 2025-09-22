@@ -44,8 +44,8 @@ class Status(StateRepository):
              graph={"nodes_len": len(graph.nodes), "edges_keys": len(graph.edges)})
 
     async def payload(self) -> Dict[str, Any]:
-        data_map = await self._state.get_data()
-        filtered = {k: v for k, v in data_map.items() if not str(k).startswith("nav")}
+        mapping = await self._state.get_data()
+        filtered = {k: v for k, v in mapping.items() if not str(k).startswith("nav")}
         count = len(filtered)
         jlog(logger, logging.DEBUG, LogCode.STATE_DATA_GET, data={"keys": count})
         return filtered

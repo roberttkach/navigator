@@ -6,7 +6,7 @@ from .common import markup
 from .retry import invoke
 from .util import extract
 from .util import targets as _targets
-from .. import media as media_mapper
+from .. import media
 from .. import serializer
 from ..screen import screen
 from ....domain.constants import CaptionLimit, TextLimit
@@ -29,7 +29,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
     try:
         if payload.group:
             extras = serializer.scrub(scope, payload.extra, editing=False)
-            bundle = media_mapper.assemble(
+            bundle = media.assemble(
                 payload.group, extra=extras, native=native, truncate=truncate
             )
             filtered = screen(bot.send_media_group, context)
@@ -62,7 +62,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             )
         if payload.media:
             try:
-                medium = media_mapper.convert(payload.media, native=native)
+                medium = media.convert(payload.media, native=native)
             except MessageEditForbidden:
                 jlog(
                     logger,
@@ -97,7 +97,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                     settings["start_timestamp"] = options.get("start")
             if kind in ("video", "animation", "audio", "document"):
                 if options.get("thumb") is not None:
-                    settings["thumbnail"] = media_mapper.adapt(
+                    settings["thumbnail"] = media.adapt(
                         options.get("thumb"), native=native
                     )
             if kind == "audio":

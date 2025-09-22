@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Protocol, Optional, runtime_checkable
+import typing
+from typing import Protocol, Optional
 
 
-@runtime_checkable
+@typing.runtime_checkable
 class LatestRepository(Protocol):
     """Storage for latest sent message identifier."""
 

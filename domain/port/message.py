@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import typing
 from dataclasses import dataclass
-from typing import Protocol, List, Optional, Literal, runtime_checkable
+from typing import Protocol, List, Optional, Literal
 
 from ..value.content import Payload
 from ..value.message import Scope
@@ -20,7 +21,7 @@ class Result:
     inline: Optional[str] = None
 
 
-@runtime_checkable
+@typing.runtime_checkable
 class MessageGateway(Protocol):
     async def send(self, scope: Scope, payload: Payload) -> Result:
         ...

@@ -4,7 +4,7 @@ from typing import Any, Dict
 from .common import markup, finalize
 from .retry import invoke
 from .util import targets as _targets
-from .. import media as media_mapper
+from .. import media
 from .. import serializer
 from ..screen import screen
 from ....domain.constants import CaptionLimit, TextLimit
@@ -66,7 +66,7 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *
     caption = serializer.caption(payload)
     native = not bool(scope.inline)
     try:
-        medium = media_mapper.compose(
+        medium = media.compose(
             payload.media, caption, extra=extras, native=native, truncate=truncate
         )
     except MessageEditForbidden:

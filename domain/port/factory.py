@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Protocol, Callable, Awaitable, runtime_checkable
+import typing
+from typing import Protocol, Callable, Awaitable
 
 from ..value.content import Payload
 
 ViewForge = Callable[..., Awaitable[Payload]]
 
 
-@runtime_checkable
+@typing.runtime_checkable
 class ViewLedger(Protocol):
     def get(self, key: str) -> ViewForge: ...
 
