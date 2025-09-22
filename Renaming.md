@@ -32,6 +32,7 @@
 - Navigator logging context uses the single-word `handlers` key when capturing callback metadata.
 - View orchestrator internals drop single-letter placeholders by funnelling decision flow through `verdict`, mapping gateway outputs to `result`, and aligning album iteration on `stored`/`incoming` counters and `latest` media markers.
 - Storage helpers replace residual one-letter locals: persistence now accepts an `operation` keyword, the history chronicle iterates over each `record`/`message`, status payload filters operate on `key`/`value` pairs, and the view ledger exposes the collected `signature`.
+- Gateway util tests now reside in the single-word `trial.py` module, collapsing discrete cases into the `digest`/`extract` functions for underscore-free discovery.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.
@@ -40,6 +41,7 @@
 - Extend presenter-facing protocols (e.g., `send_media`) to the new single-word vocabulary established for the gateway.
 - Continue migrating dependency-injection providers and application use-case locals (e.g., `history_repo`, `to_delete`) away from snake_case once core gateway flows stabilise.
 - Align tail orchestration helpers with the inline vocabulary by renaming locals such as `base_msg`/`ids_to_del`/`last_entry` to concise single-word alternatives after the new inline strategy API settles.
+- Continue migrating pytest discovery away from snake_case names by adopting module-level single-word tests and updating configuration as additional suites are ported.
 
 ## Gateway Renaming Plan
 
@@ -115,6 +117,15 @@ Renaming these adapters removes the lingering abbreviation-based names, keeps fi
 | View restorer service | `_try_dynamic_restore` | `_dynamic` |
 | View restorer service | `_static_restore_msg` | `_static` |
 | View restorer logging | `factory_key` keyword | `forge` |
+
+## Test Suite Renaming Plan
+
+| Scope | Legacy Identifier | Replacement |
+|-------|-------------------|-------------|
+| Gateway util tests | `test_util.py` | `trial.py` |
+| Gateway util tests | `test_digest_rejects_media_groups` | `digest` |
+| Gateway util tests | `test_digest_text_message_passthrough` | `digest` (folded case) |
+| Gateway util tests | `test_extract_rejects_group_payload_without_result_message_id` | `extract` |
 
 ## Guidelines for Future Renames
 - When multiple contexts share similar operations, choose consistent vocabulary (e.g., prefer `store`/`load` across repositories).

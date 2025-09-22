@@ -27,3 +27,7 @@ fix = false
 [tool.ruff.lint.isort]
 known-first-party = ["navigator"]
 force-single-line = false
+
+[tool.pytest.ini_options]
+python_files = ["trial.py"]
+python_functions = ["digest", "extract"]
