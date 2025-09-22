@@ -30,6 +30,8 @@
 - Telegram gateway helpers drop the `media_mapper` alias in favour of direct `media.compose`/`assemble`/`convert`/`adapt` usage.
 - Serializer and logging utilities now reference standard helpers through their parent modules (`dataclasses.is_dataclass`, `time.perf_counter`), and protocol decorators rely on `typing.runtime_checkable` to keep local namespaces underscore-free.
 - Navigator logging context uses the single-word `handlers` key when capturing callback metadata.
+- View orchestrator internals drop single-letter placeholders by funnelling decision flow through `verdict`, mapping gateway outputs to `result`, and aligning album iteration on `stored`/`incoming` counters and `latest` media markers.
+- Storage helpers replace residual one-letter locals: persistence now accepts an `operation` keyword, the history chronicle iterates over each `record`/`message`, status payload filters operate on `key`/`value` pairs, and the view ledger exposes the collected `signature`.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.

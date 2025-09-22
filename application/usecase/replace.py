@@ -63,5 +63,10 @@ class Swapper:
             timeline = records[:-1] + [entry]
         from ..service.store import persist
         await persist(
-            self._archive, self._tail, chronicle, self._limit, timeline, op="replace"
+            self._archive,
+            self._tail,
+            chronicle,
+            self._limit,
+            timeline,
+            operation="replace",
         )

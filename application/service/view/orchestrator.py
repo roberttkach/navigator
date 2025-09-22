@@ -84,7 +84,7 @@ class ViewOrchestrator:
         return False
 
     @staticmethod
-    def _refine(meta: dict, stem: Optional[Message], dec: decision.Decision, payload: Payload) -> dict:
+    def _refine(meta: dict, stem: Optional[Message], verdict: decision.Decision, payload: Payload) -> dict:
         """
         Нормализация meta:
         - Для media: восстанавливает medium/file/caption при edit_*, когда Telegram вернул bool.
@@ -135,29 +135,29 @@ class ViewOrchestrator:
             scope: Scope,
             payload: Payload,
             last: Optional[Entry | Message],
-            dec: decision.Decision,
+            verdict: decision.Decision,
     ) -> Optional[RenderResult]:
         shield(scope, payload)
         payload = adapt(scope, payload)
 
-        def _head(e):
-            return self._head(e)
+        def _head(entity):
+            return self._head(entity)
 
-        def _compose(r: Result, stem: Optional[Message]) -> RenderResult:
-            rawmeta = {
-                "kind": getattr(r, "kind", None),
-                "medium": getattr(r, "medium", None),
-                "file": getattr(r, "file", None),
-                "caption": getattr(r, "caption", None),
-                "text": getattr(r, "text", None),
-                "clusters": getattr(r, "clusters", None),
-                "inline": getattr(r, "inline", None),
+        def _compose(result: Result, stem: Optional[Message]) -> RenderResult:
+            raw = {
+                "kind": getattr(result, "kind", None),
+                "medium": getattr(result, "medium", None),
+                "file": getattr(result, "file", None),
+                "caption": getattr(result, "caption", None),
+                "text": getattr(result, "text", None),
+                "clusters": getattr(result, "clusters", None),
+                "inline": getattr(result, "inline", None),
             }
-            normmeta = self._refine(rawmeta, stem, dec, payload)
-            return RenderResult(id=r.id, extra=r.extra, meta=self._verify(normmeta))
+            refined = self._refine(raw, stem, verdict, payload)
+            return RenderResult(id=result.id, extra=result.extra, meta=self._verify(refined))
 
         async def _fallback(stem: Optional[Message]) -> Optional[RenderResult]:
-            rr = await self._gateway.send(scope, payload)
+            result = await self._gateway.send(scope, payload)
             if stem:
                 targets: List[int] = [int(stem.id)]
                 targets.extend(int(x) for x in (getattr(stem, "extras", []) or []))
@@ -165,48 +165,48 @@ class ViewOrchestrator:
                     await self._gateway.delete(scope, targets)
                 except Exception:
                     pass
-            return _compose(rr, stem)
+            return _compose(result, stem)
 
         try:
-            def _media(x):
-                return bool(getattr(x, "media", None))
+            def _media(message):
+                return bool(getattr(message, "media", None))
 
-            if _pol.ImplicitCaption and (dec is decision.Decision.DELETE_SEND) and (not scope.inline):
+            if _pol.ImplicitCaption and (verdict is decision.Decision.DELETE_SEND) and (not scope.inline):
                 stem2 = _head(last)
                 if stem2 and _media(stem2) and (payload.text is not None) and (
                         not payload.media) and (not payload.group):
-                    dec = decision.Decision.EDIT_MEDIA_CAPTION
+                    verdict = decision.Decision.EDIT_MEDIA_CAPTION
                     payload = payload.morph(media=stem2.media)
 
-            if dec is decision.Decision.NO_CHANGE:
+            if verdict is decision.Decision.NO_CHANGE:
                 return None
 
             async def _resend() -> Result:
                 return await self._gateway.send(scope, payload)
 
             async def _rewrite() -> Optional[Result]:
-                m = _head(last)
-                if not m:
+                message = _head(last)
+                if not message:
                     return None
-                return await self._gateway.rewrite(scope, m.id, payload)
+                return await self._gateway.rewrite(scope, message.id, payload)
 
             async def _recast() -> Optional[Result]:
-                m = _head(last)
-                if not m:
+                message = _head(last)
+                if not message:
                     return None
-                return await self._gateway.recast(scope, m.id, payload)
+                return await self._gateway.recast(scope, message.id, payload)
 
             async def _retitle() -> Optional[Result]:
-                m = _head(last)
-                if not m:
+                message = _head(last)
+                if not message:
                     return None
-                return await self._gateway.retitle(scope, m.id, payload)
+                return await self._gateway.retitle(scope, message.id, payload)
 
             async def _remap() -> Optional[Result]:
-                m = _head(last)
-                if not m:
+                message = _head(last)
+                if not message:
                     return None
-                return await self._gateway.remap(scope, m.id, payload)
+                return await self._gateway.remap(scope, message.id, payload)
 
             dispatch = {
                 decision.Decision.RESEND: _resend,
@@ -215,10 +215,10 @@ class ViewOrchestrator:
                 decision.Decision.EDIT_MEDIA_CAPTION: _retitle,
                 decision.Decision.EDIT_MARKUP: _remap,
             }
-            fn = dispatch.get(dec)
-            if not fn:
+            runner = dispatch.get(verdict)
+            if not runner:
                 return None
-            result = await fn()
+            result = await runner()
             if result is None:
                 return None
         except EmptyPayload:
@@ -262,7 +262,7 @@ class ViewOrchestrator:
 
     async def render(
             self,
-            op: str,
+            operation: str,
             scope: Scope,
             payloads: List[Payload],
             trail: Optional[Entry],
@@ -292,7 +292,12 @@ class ViewOrchestrator:
                 return {
                     "kind": "group",
                     "clusters": [
-                        {"medium": it.type.value, "file": it.path, "caption": it.caption} for it in node.group
+                        {
+                            "medium": item.type.value,
+                            "file": item.path,
+                            "caption": item.caption,
+                        }
+                        for item in node.group
                     ],
                     "inline": node.inline,
                 }
@@ -349,13 +354,13 @@ class ViewOrchestrator:
                     except Exception:
                         return value
 
-                def _mediaflip(prev, cur):
+                def _mediaflip() -> bool:
                     return (
-                        bool(prev.get("spoiler")) != bool(cur.get("spoiler"))
-                        or _intval(prev.get("start")) != _intval(cur.get("start"))
+                        bool(formerinfo.get("spoiler")) != bool(latterinfo.get("spoiler"))
+                        or _intval(formerinfo.get("start")) != _intval(latterinfo.get("start"))
                     )
 
-                mediaflip = _mediaflip(formerinfo, latterinfo)
+                mediaflip = _mediaflip()
 
                 if self._rendering.thumbguard:
                     if bool(formerinfo.get("has_thumb")) != bool(latterinfo.get("thumb") is not None):
@@ -379,12 +384,14 @@ class ViewOrchestrator:
                         and getattr(a, "path") == getattr(b, "path")
                     )
 
-                for i, (formerunit, latterunit) in enumerate(zip(former, latter)):
-                    target = album[0] if i == 0 else album[i]
-                    mediaswitch = self._alter(formerunit, latterunit)
-                    extraswitch = (not mediaswitch) and mediaflip and _same(formerunit, latterunit)
+                for index, pair in enumerate(zip(former, latter)):
+                    past = pair[0]
+                    latest = pair[1]
+                    target = album[0] if index == 0 else album[index]
+                    mediaswitch = self._alter(past, latest)
+                    extraswitch = (not mediaswitch) and mediaflip and _same(past, latest)
                     if mediaswitch or extraswitch:
-                        await self._gateway.recast(scope, target, fresh[0].morph(media=latterunit, group=None))
+                        await self._gateway.recast(scope, target, fresh[0].morph(media=latest, group=None))
                         mutated = True
 
                 def _pick(index):
@@ -395,11 +402,11 @@ class ViewOrchestrator:
 
                 clusters = [
                     {
-                        "medium": it.type.value,
-                        "file": _pick(i),
-                        "caption": (latter[i].caption if i == 0 else "")
+                        "medium": item.type.value,
+                        "file": _pick(index),
+                        "caption": (latter[index].caption if index == 0 else ""),
                     }
-                    for i, it in enumerate(latter)
+                    for index, item in enumerate(latter)
                 ]
 
                 jlog(logger, logging.INFO, LogCode.ALBUM_PARTIAL_OK, count=len(album))
@@ -414,51 +421,51 @@ class ViewOrchestrator:
             else:
                 jlog(logger, logging.INFO, LogCode.ALBUM_PARTIAL_FALLBACK)
 
-        pastcount = len(ledger)
-        newcount = len(fresh)
-        share = min(pastcount, newcount)
+        stored = len(ledger)
+        incoming = len(fresh)
+        limit = min(stored, incoming)
 
-        def _adapt(nm: Message):
+        def _adapt(message: Message):
             class _V:
-                def __init__(self, m: Message):
-                    self.text = m.text
-                    self.media = m.media
-                    self.group = m.group
-                    self.reply = m.markup
-                    self.extra = m.extra
+                def __init__(self, message: Message):
+                    self.text = message.text
+                    self.media = message.media
+                    self.group = message.group
+                    self.reply = message.markup
+                    self.extra = message.extra
 
-            return _V(nm)
+            return _V(message)
 
-        for i in range(origin, share):
-            prev = ledger[i]
-            cur = fresh[i]
-            dec = decision.decide(_adapt(prev), cur, self._rendering)
-            if dec is decision.Decision.NO_CHANGE:
-                primary.append(prev.id)
-                bundles.append(list(getattr(prev, "extras", []) or []))
-                notes.append(self._verify(_meta(prev)))
+        for index in range(origin, limit):
+            previous = ledger[index]
+            current = fresh[index]
+            verdict = decision.decide(_adapt(previous), current, self._rendering)
+            if verdict is decision.Decision.NO_CHANGE:
+                primary.append(previous.id)
+                bundles.append(list(getattr(previous, "extras", []) or []))
+                notes.append(self._verify(_meta(previous)))
                 continue
-            if dec in (
+            if verdict in (
                     decision.Decision.EDIT_TEXT,
                     decision.Decision.EDIT_MEDIA,
                     decision.Decision.EDIT_MEDIA_CAPTION,
                     decision.Decision.EDIT_MARKUP,
             ):
                 if inline:
-                    rr = await self._inline.handle(
+                    result = await self._inline.handle(
                         scope=scope,
-                        payload=cur,
-                        tail=prev,
+                        payload=current,
+                        tail=previous,
                         inline=True,
                         swap=self.swap,
                         config=self._rendering,
                     )
-                    primary.append(rr.id if rr else prev.id)
-                    bundles.append(list(rr.extra if rr else getattr(prev, "extras", []) or []))
-                    nm = dict(rr.meta) if rr else _meta(prev)
-                    nm = self._refine(nm, prev, dec, cur)
-                    notes.append(self._verify(nm))
-                    if rr:
+                    primary.append(result.id if result else previous.id)
+                    bundles.append(list(result.extra if result else getattr(previous, "extras", []) or []))
+                    record = dict(result.meta) if result else _meta(previous)
+                    record = self._refine(record, previous, verdict, current)
+                    notes.append(self._verify(record))
+                    if result:
                         mutated = True
                 else:
                     anchor = Entry(
@@ -466,99 +473,99 @@ class ViewOrchestrator:
                         view=None,
                         messages=[
                             Message(
-                                id=prev.id,
-                                text=prev.text,
-                                media=prev.media,
-                                group=prev.group,
-                                markup=prev.markup,
-                                preview=prev.preview,
-                                extra=prev.extra,
-                                extras=getattr(prev, "extras", []),
-                                inline=prev.inline,
-                                automated=prev.automated,
-                                ts=prev.ts,
+                                id=previous.id,
+                                text=previous.text,
+                                media=previous.media,
+                                group=previous.group,
+                                markup=previous.markup,
+                                preview=previous.preview,
+                                extra=previous.extra,
+                                extras=getattr(previous, "extras", []),
+                                inline=previous.inline,
+                                automated=previous.automated,
+                                ts=previous.ts,
                             )
                         ],
                     )
-                    rr = await self.swap(scope, cur, anchor, dec)
-                    primary.append(rr.id if rr else prev.id)
-                    bundles.append(list(rr.extra if rr else getattr(prev, "extras", []) or []))
-                    note = dict(rr.meta) if rr else _meta(prev)
+                    result = await self.swap(scope, current, anchor, verdict)
+                    primary.append(result.id if result else previous.id)
+                    bundles.append(list(result.extra if result else getattr(previous, "extras", []) or []))
+                    note = dict(result.meta) if result else _meta(previous)
                     notes.append(self._verify(note))
-                    if rr:
+                    if result:
                         mutated = True
                 continue
-            if dec == decision.Decision.DELETE_SEND:
+            if verdict == decision.Decision.DELETE_SEND:
                 if inline:
-                    rr = await self._inline.handle(
+                    result = await self._inline.handle(
                         scope=scope,
-                        payload=cur,
-                        tail=prev,
+                        payload=current,
+                        tail=previous,
                         inline=True,
                         swap=self.swap,
                         config=self._rendering,
                     )
-                    primary.append(rr.id if rr else prev.id)
-                    bundles.append(list(rr.extra if rr else getattr(prev, "extras", []) or []))
-                    nm = dict(rr.meta) if rr else _meta(prev)
-                    nm = self._refine(nm, prev, dec, cur)
-                    notes.append(self._verify(nm))
-                    if rr:
+                    primary.append(result.id if result else previous.id)
+                    bundles.append(list(result.extra if result else getattr(previous, "extras", []) or []))
+                    record = dict(result.meta) if result else _meta(previous)
+                    record = self._refine(record, previous, verdict, current)
+                    notes.append(self._verify(record))
+                    if result:
                         mutated = True
                 else:
-                    rr = await self._gateway.send(scope, cur)
-                    await self._gateway.delete(scope, [prev.id] + list(getattr(prev, "extras", []) or []))
-                    primary.append(rr.id)
-                    bundles.append(list(rr.extra))
+                    result = await self._gateway.send(scope, current)
+                    await self._gateway.delete(scope, [previous.id] + list(getattr(previous, "extras", []) or []))
+                    primary.append(result.id)
+                    bundles.append(list(result.extra))
                     meta = {
-                        "kind": getattr(rr, "kind", None),
-                        "medium": getattr(rr, "medium", None),
-                        "file": getattr(rr, "file", None),
-                        "caption": getattr(rr, "caption", None),
-                        "text": getattr(rr, "text", None),
-                        "clusters": getattr(rr, "clusters", None),
-                        "inline": getattr(rr, "inline", None),
+                        "kind": getattr(result, "kind", None),
+                        "medium": getattr(result, "medium", None),
+                        "file": getattr(result, "file", None),
+                        "caption": getattr(result, "caption", None),
+                        "text": getattr(result, "text", None),
+                        "clusters": getattr(result, "clusters", None),
+                        "inline": getattr(result, "inline", None),
                     }
                     notes.append(self._verify(meta))
                     mutated = True
                 continue
-            r = await self._gateway.send(scope, cur)
-            primary.append(r.id)
-            bundles.append(list(r.extra))
+            result = await self._gateway.send(scope, current)
+            primary.append(result.id)
+            bundles.append(list(result.extra))
             meta = {
-                "kind": getattr(r, "kind", None),
-                "medium": getattr(r, "medium", None),
-                "file": getattr(r, "file", None),
-                "caption": getattr(r, "caption", None),
-                "text": getattr(r, "text", None),
-                "clusters": getattr(r, "clusters", None),
-                "inline": getattr(r, "inline", None),
+                "kind": getattr(result, "kind", None),
+                "medium": getattr(result, "medium", None),
+                "file": getattr(result, "file", None),
+                "caption": getattr(result, "caption", None),
+                "text": getattr(result, "text", None),
+                "clusters": getattr(result, "clusters", None),
+                "inline": getattr(result, "inline", None),
             }
             notes.append(self._verify(meta))
             mutated = True
 
-        if pastcount > newcount:
+        if stored > incoming:
             targets: List[int] = []
-            for message in ledger[newcount:]:
+            for message in ledger[incoming:]:
                 targets.append(message.id)
                 targets.extend(list(getattr(message, "extras", []) or []))
             if targets and not inline:
                 await self._gateway.delete(scope, targets)
                 mutated = True
-        if newcount > pastcount:
+        if incoming > stored:
             if not inline:
-                for payload in fresh[pastcount:]:
-                    r = await self._gateway.send(scope, payload)
-                    primary.append(r.id)
-                    bundles.append(list(r.extra))
+                for payload in fresh[stored:]:
+                    result = await self._gateway.send(scope, payload)
+                    primary.append(result.id)
+                    bundles.append(list(result.extra))
                     meta = {
-                        "kind": getattr(r, "kind", None),
-                        "medium": getattr(r, "medium", None),
-                        "file": getattr(r, "file", None),
-                        "caption": getattr(r, "caption", None),
-                        "text": getattr(r, "text", None),
-                        "clusters": getattr(r, "clusters", None),
-                        "inline": getattr(r, "inline", None),
+                        "kind": getattr(result, "kind", None),
+                        "medium": getattr(result, "medium", None),
+                        "file": getattr(result, "file", None),
+                        "caption": getattr(result, "caption", None),
+                        "text": getattr(result, "text", None),
+                        "clusters": getattr(result, "clusters", None),
+                        "inline": getattr(result, "inline", None),
                     }
                     notes.append(self._verify(meta))
                     mutated = True

@@ -30,9 +30,9 @@ class ViewLedger(ViewLedgerProtocol):
         jlog(logger, logging.INFO, LogCode.REGISTRY_REGISTER, key=name, note="ok")
 
     def enlist(self, forge: ViewForge) -> str:
-        k = _stamp(forge)
-        self.register(k, forge)
-        return k
+        signature = _stamp(forge)
+        self.register(signature, forge)
+        return signature
 
     def get(self, key: str) -> ViewForge:
         try:
