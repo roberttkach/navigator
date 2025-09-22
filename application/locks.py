@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import typing
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 from weakref import WeakValueDictionary
 
 """
@@ -25,7 +26,7 @@ def _key(scope: ScopeForm) -> tuple[object | None, object | None]:
     )
 
 
-@runtime_checkable
+@typing.runtime_checkable
 class _LatchLike(Protocol):
     async def acquire(self) -> bool: ...
 

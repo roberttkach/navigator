@@ -26,6 +26,10 @@
 - Domain history message entity now uses the full word `Message`, with mapper/store helpers replacing `msg`/`msgs` locals by `message`/`messages` and removing short aliases such as `mid`/`idx`/`vk`.
 - Last message storage protocol shortened to `LatestRepository`, with adapters and use-cases updated accordingly.
 - Telegram helpers adopt single-word module names (`screen`, `codec`) while the state tracker moves to `graph`/`recorder` modules for clarity.
+- FSM state payload helper now maps data through `mapping`, replacing the interim `data_map` alias.
+- Telegram gateway helpers drop the `media_mapper` alias in favour of direct `media.compose`/`assemble`/`convert`/`adapt` usage.
+- Serializer and logging utilities now reference standard helpers through their parent modules (`dataclasses.is_dataclass`, `time.perf_counter`), and protocol decorators rely on `typing.runtime_checkable` to keep local namespaces underscore-free.
+- Navigator logging context uses the single-word `handlers` key when capturing callback metadata.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.

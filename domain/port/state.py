@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Protocol, Optional, Dict, Any, runtime_checkable
+import typing
+from typing import Protocol, Optional, Dict, Any
 
 from ..entity.graph import Graph
 
 
-@runtime_checkable
+@typing.runtime_checkable
 class StateRepository(Protocol):
     """FSM state and graph storage."""
 

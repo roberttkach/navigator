@@ -178,7 +178,7 @@ class Navigator:
             LogCode.NAVIGATOR_API,
             method="back",
             scope=profile(self._scope),
-            handler_keys=sorted(list(context.keys())) if isinstance(context, dict) else None,
+            handlers=sorted(list(context.keys())) if isinstance(context, dict) else None,
         )
         async with locks.guard(self._scope):
             await self._rewinder.execute(self._scope, context)

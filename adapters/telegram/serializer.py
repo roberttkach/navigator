@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import is_dataclass
+import dataclasses
 from typing import Dict, Any, Optional
 
 from aiogram.types import LinkPreviewOptions
@@ -27,7 +27,7 @@ def decode(codec, reply):
 def preview(preview):
     if not preview:
         return None
-    if is_dataclass(preview):
+    if dataclasses.is_dataclass(preview):
         return LinkPreviewOptions(
             url=preview.url,
             prefer_small_media=preview.small,
