@@ -3,14 +3,14 @@ import logging
 from ..log.decorators import trace
 from ..log.emit import jlog
 from ...domain.port.history import HistoryRepository
-from ...domain.port.last import LastMessageRepository
+from ...domain.port.last import LatestRepository
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
 
 class Trimmer:
-    def __init__(self, ledger: HistoryRepository, latest: LastMessageRepository):
+    def __init__(self, ledger: HistoryRepository, latest: LatestRepository):
         self._ledger = ledger
         self._latest = latest
 

@@ -3,7 +3,7 @@ from dataclasses import replace
 from typing import List, Optional
 
 from ..log.emit import jlog
-from ...domain.entity.history import Entry, Msg
+from ...domain.entity.history import Entry, Message
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
@@ -37,21 +37,21 @@ async def persist(archive, ledger, policy, limit, history, *, op: str):
 
 def reindex(entry: Entry, identifiers: List[int], extras: Optional[List[List[int]]] = None) -> Entry:
     limit = min(len(entry.messages), len(identifiers))
-    messages = []
-    for i in range(limit):
+    messages: List[Message] = []
+    for index in range(limit):
         messages.append(
-            Msg(
-                id=int(identifiers[i]),
-                text=entry.messages[i].text,
-                media=entry.messages[i].media,
-                group=entry.messages[i].group,
-                markup=entry.messages[i].markup,
-                preview=entry.messages[i].preview,
-                extra=entry.messages[i].extra,
-                extras=(extras[i] if extras and i < len(extras) else entry.messages[i].extras),
-                inline=entry.messages[i].inline,
-                automated=entry.messages[i].automated,
-                ts=entry.messages[i].ts,
+            Message(
+                id=int(identifiers[index]),
+                text=entry.messages[index].text,
+                media=entry.messages[index].media,
+                group=entry.messages[index].group,
+                markup=entry.messages[index].markup,
+                preview=entry.messages[index].preview,
+                extra=entry.messages[index].extra,
+                extras=(extras[index] if extras and index < len(extras) else entry.messages[index].extras),
+                inline=entry.messages[index].inline,
+                automated=entry.messages[index].automated,
+                ts=entry.messages[index].ts,
             )
         )
     messages += entry.messages[limit:]

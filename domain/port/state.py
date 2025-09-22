@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol, Optional, Dict, Any, runtime_checkable
 
-from ..entity.stategraph import Graph
+from ..entity.graph import Graph
 
 
 @runtime_checkable

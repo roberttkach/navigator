@@ -7,7 +7,7 @@ from ..map.entry import EntryMapper, Outcome
 from ..service.view.orchestrator import ViewOrchestrator
 from ..service.view.policy import adapt
 from ...domain.port.history import HistoryRepository
-from ...domain.port.last import LastMessageRepository
+from ...domain.port.last import LatestRepository
 from ...domain.port.state import StateRepository
 from ...domain.service.history import policy as chronicle
 from ...domain.service.scope import profile
@@ -23,7 +23,7 @@ class Appender:
             self,
             archive: HistoryRepository,
             state: StateRepository,
-            tail: LastMessageRepository,
+            tail: LatestRepository,
             orchestrator: ViewOrchestrator,
             mapper: EntryMapper,
             limit: int,

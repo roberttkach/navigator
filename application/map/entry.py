@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from ...domain.entity.history import Entry, Msg
+from ...domain.entity.history import Entry, Message
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.port.factory import ViewLedger
 from ...domain.service.history.extra import cleanse
@@ -25,11 +25,11 @@ class EntryMapper:
         Преобразует отправленные payload'ы в Entry на основе детерминированных meta.
         В истории медиа и группы хранят Telegram file_id.
         """
-        msgs: List[Msg] = []
+        messages: List[Message] = []
         now = datetime.now(timezone.utc)
-        for idx, payload in enumerate(payloads):
-            mid = outcome.ids[idx]
-            meta = outcome.metas[idx] if idx < len(outcome.metas) else {}
+        for index, payload in enumerate(payloads):
+            identifier = outcome.ids[index]
+            meta = outcome.metas[index] if index < len(outcome.metas) else {}
             k = meta.get("kind")
             if not isinstance(k, str):
                 raise ValueError("meta_missing_kind")
@@ -38,9 +38,9 @@ class EntryMapper:
             inline = meta.get("inline")
 
             previous = None
-            if base and idx < len(getattr(base, "messages", []) or []):
+            if base and index < len(getattr(base, "messages", []) or []):
                 try:
-                    previous = base.messages[idx].extra
+                    previous = base.messages[index].extra
                 except Exception:
                     previous = None
 
@@ -54,8 +54,8 @@ class EntryMapper:
                     mtype = MediaType(variant)
                 else:
                     raise ValueError("meta_missing_medium")
-                mi = MediaItem(type=mtype, path=meta.get("file"), caption=meta.get("caption"))
-                text, media, group = None, mi, None
+                item = MediaItem(type=mtype, path=meta.get("file"), caption=meta.get("caption"))
+                text, media, group = None, item, None
             elif k == "group":
                 items = []
                 for it in (meta.get("clusters") or []):
@@ -80,24 +80,24 @@ class EntryMapper:
                 length = 0
 
             extra = cleanse(source, length=length)
-            aux = outcome.extras[idx] if idx < len(outcome.extras) else []
-            msgs.append(
-                Msg(
-                    id=mid,
+            auxiliary = outcome.extras[index] if index < len(outcome.extras) else []
+            messages.append(
+                Message(
+                    id=identifier,
                     text=text,
                     media=media,
                     group=group,
                     markup=payload.reply,
                     preview=payload.preview,
                     extra=extra,
-                    extras=list(aux),
+                    extras=list(auxiliary),
                     inline=inline,
                     automated=True,
                     ts=now,
                 )
             )
-        vk = view if (view and self._ledger.has(view)) else None
-        return Entry(state=state, view=vk, messages=msgs, root=bool(root))
+        known = view if (view and self._ledger.has(view)) else None
+        return Entry(state=state, view=known, messages=messages, root=bool(root))
 
 
 class Outcome:

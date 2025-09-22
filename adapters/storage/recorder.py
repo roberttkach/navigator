@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, Set, Dict, List
 
-from ...domain.entity.stategraph import Graph
+from ...domain.entity.graph import Graph
 from ...domain.log.emit import jlog
 from ...domain.port.state import StateRepository
 from ...domain.port.transition import TransitionObserver

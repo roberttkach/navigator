@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Literal
 
-from ...domain.entity.history import Entry, Msg
+from ...domain.entity.history import Entry, Message
 from ...domain.entity.media import MediaItem
 from ...domain.service.history.extra import cleanse
 from ...domain.value.content import Payload, caption
@@ -25,7 +25,7 @@ def prime(id: int, payload: Payload) -> Entry:
         length = 0
 
     extra = cleanse(payload.extra, length=length)
-    msg = Msg(
+    message = Message(
         id=id,
         text=None if (payload.media or payload.group) else payload.text,
         media=media,
@@ -39,7 +39,7 @@ def prime(id: int, payload: Payload) -> Entry:
     return Entry(
         state=None,
         view=None,
-        messages=[msg],
+        messages=[message],
     )
 
 

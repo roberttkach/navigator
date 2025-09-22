@@ -6,7 +6,7 @@ from ..internal.rules.inline import remap as _inline
 from ..log.emit import jlog
 from ..service.view.orchestrator import ViewOrchestrator
 from ...domain.port.history import HistoryRepository
-from ...domain.port.last import LastMessageRepository
+from ...domain.port.last import LatestRepository
 from ...domain.port.message import MessageGateway
 from ...domain.service.rendering import decision
 from ...domain.value.content import Payload, normalize
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class Tailer:
     def __init__(
             self,
-            latest: LastMessageRepository,
+            latest: LatestRepository,
             ledger: HistoryRepository,
             gateway: MessageGateway,
             orchestrator: ViewOrchestrator,

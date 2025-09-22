@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from aiogram.types import LinkPreviewOptions
 
 from .extra import audit, ALLOWED_TEXT, ALLOWED_CAPTION_TEXT
-from .keyfilter import screen
+from .screen import screen
 from ...domain.entity.markup import Markup
 from ...domain.log.emit import jlog
 from ...domain.util.entities import sanitize

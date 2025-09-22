@@ -5,9 +5,9 @@ from ...adapters.storage.chronicle import Chronicle
 from ...adapters.storage.latest import Latest
 from ...adapters.storage.status import Status
 from ...adapters.storage.buffer import Buffer
-from ...adapters.storage.transitionrecorder import TransitionRecorder
+from ...adapters.storage.recorder import TransitionRecorder
 from ...adapters.telegram.gateway import TelegramGateway
-from ...adapters.telegram.markupcodec import AiogramMarkupCodec
+from ...adapters.telegram.codec import AiogramCodec
 from ...adapters.telegram.media import weblink
 from ...application.map.entry import EntryMapper
 from ...application.service.view.inline import InlineStrategy
@@ -34,7 +34,7 @@ class AppContainer(containers.DeclarativeContainer):
     retention = providers.Object(SETTINGS.retention)
     chunk = providers.Object(SETTINGS.chunk)
 
-    codec = providers.Singleton(AiogramMarkupCodec)
+    codec = providers.Singleton(AiogramCodec)
     gateway = providers.Singleton(
         TelegramGateway,
         bot=event.provided.bot,

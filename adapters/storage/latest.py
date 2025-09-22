@@ -5,13 +5,13 @@ from aiogram.fsm.context import FSMContext
 
 from .keys import FSM_LAST_ID_KEY
 from ...domain.log.emit import jlog
-from ...domain.port.last import LastMessageRepository
+from ...domain.port.last import LatestRepository
 from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
 
-class Latest(LastMessageRepository):
+class Latest(LatestRepository):
     def __init__(self, state: FSMContext):
         self._state = state
 

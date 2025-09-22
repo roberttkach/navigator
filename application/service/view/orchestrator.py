@@ -9,7 +9,7 @@ from ...internal import policy as _pol
 from ...internal.policy import shield
 from ...log.decorators import trace
 from ...log.emit import jlog
-from ....domain.entity.history import Entry, Msg
+from ....domain.entity.history import Entry, Message
 from ....domain.entity.media import MediaItem
 from ....domain.error import ExtraKeyForbidden, TextTooLong, CaptionTooLong
 from ....domain.error import MessageNotChanged, MessageEditForbidden, EmptyPayload
@@ -52,11 +52,11 @@ class ViewOrchestrator:
         return self._rendering
 
     @staticmethod
-    def _head(e: Any) -> Optional[Msg]:
+    def _head(e: Any) -> Optional[Message]:
         """
         Возвращает головное сообщение:
-        - Entry -> первый Msg
-        - Msg -> сам объект
+        - Entry -> первый Message
+        - Message -> сам объект
         - Иначе -> None
         """
         if e is None:
@@ -70,7 +70,7 @@ class ViewOrchestrator:
             return e
         return None
 
-    def _album(self, stem: Msg) -> List[int]:
+    def _album(self, stem: Message) -> List[int]:
         return [int(stem.id)] + [int(x) for x in (stem.extras or [])]
 
     def _alter(self, old: MediaItem, new: MediaItem) -> bool:
@@ -84,7 +84,7 @@ class ViewOrchestrator:
         return False
 
     @staticmethod
-    def _refine(meta: dict, stem: Optional[Msg], dec: decision.Decision, payload: Payload) -> dict:
+    def _refine(meta: dict, stem: Optional[Message], dec: decision.Decision, payload: Payload) -> dict:
         """
         Нормализация meta:
         - Для media: восстанавливает medium/file/caption при edit_*, когда Telegram вернул bool.
@@ -134,7 +134,7 @@ class ViewOrchestrator:
             self,
             scope: Scope,
             payload: Payload,
-            last: Optional[Entry | Msg],
+            last: Optional[Entry | Message],
             dec: decision.Decision,
     ) -> Optional[RenderResult]:
         shield(scope, payload)
@@ -143,7 +143,7 @@ class ViewOrchestrator:
         def _head(e):
             return self._head(e)
 
-        def _compose(r: Result, stem: Optional[Msg]) -> RenderResult:
+        def _compose(r: Result, stem: Optional[Message]) -> RenderResult:
             rawmeta = {
                 "kind": getattr(r, "kind", None),
                 "medium": getattr(r, "medium", None),
@@ -156,7 +156,7 @@ class ViewOrchestrator:
             normmeta = self._refine(rawmeta, stem, dec, payload)
             return RenderResult(id=r.id, extra=r.extra, meta=self._verify(normmeta))
 
-        async def _fallback(stem: Optional[Msg]) -> Optional[RenderResult]:
+        async def _fallback(stem: Optional[Message]) -> Optional[RenderResult]:
             rr = await self._gateway.send(scope, payload)
             if stem:
                 targets: List[int] = [int(stem.id)]
@@ -287,7 +287,7 @@ class ViewOrchestrator:
                     first = head.group[0]
                     fresh[0] = head.morph(media=first, group=None)
 
-        def _meta(node: Msg) -> dict:
+        def _meta(node: Message) -> dict:
             if node.group:
                 return {
                     "kind": "group",
@@ -307,7 +307,7 @@ class ViewOrchestrator:
             return {"kind": "text", "text": node.text, "inline": node.inline}
 
         shield(scope, fresh[0] if fresh else Payload())
-        ledger: List[Msg] = list(trail.messages) if trail else []
+        ledger: List[Message] = list(trail.messages) if trail else []
 
         primary: List[int] = []
         bundles: List[List[int]] = []
@@ -387,11 +387,11 @@ class ViewOrchestrator:
                         await self._gateway.recast(scope, target, fresh[0].morph(media=latterunit, group=None))
                         mutated = True
 
-                def _pick(idx):
-                    path = getattr(latter[idx], "path", None)
+                def _pick(index):
+                    path = getattr(latter[index], "path", None)
                     if isinstance(path, str) and not remote(path) and not local(path):
                         return path
-                    return former[idx].path
+                    return former[index].path
 
                 clusters = [
                     {
@@ -418,9 +418,9 @@ class ViewOrchestrator:
         newcount = len(fresh)
         share = min(pastcount, newcount)
 
-        def _adapt(nm: Msg):
+        def _adapt(nm: Message):
             class _V:
-                def __init__(self, m: Msg):
+                def __init__(self, m: Message):
                     self.text = m.text
                     self.media = m.media
                     self.group = m.group
@@ -465,7 +465,7 @@ class ViewOrchestrator:
                         state=None,
                         view=None,
                         messages=[
-                            Msg(
+                            Message(
                                 id=prev.id,
                                 text=prev.text,
                                 media=prev.media,
@@ -539,9 +539,9 @@ class ViewOrchestrator:
 
         if pastcount > newcount:
             targets: List[int] = []
-            for msg in ledger[newcount:]:
-                targets.append(msg.id)
-                targets.extend(list(getattr(msg, "extras", []) or []))
+            for message in ledger[newcount:]:
+                targets.append(message.id)
+                targets.extend(list(getattr(message, "extras", []) or []))
             if targets and not inline:
                 await self._gateway.delete(scope, targets)
                 mutated = True

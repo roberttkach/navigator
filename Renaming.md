@@ -23,6 +23,9 @@
 - Gateway result metadata now settles on single-word keys `medium`/`file`/`clusters`, with the view orchestrator mirroring the terminology through its `rendering` profile accessor.
 - View orchestrator API now exposes `render` with single-word helpers (`head`/`album`/`refine`/`verify`) and accumulators (`primary`/`bundles`/`notes`) to replace the legacy `render_node` flow.
 - Storage adapters drop the `Repo` abbreviation by renaming the persistent stores to `Chronicle`/`Latest`/`Status`/`Buffer` modules and aligning the dependency container with the new single-word classes.
+- Domain history message entity now uses the full word `Message`, with mapper/store helpers replacing `msg`/`msgs` locals by `message`/`messages` and removing short aliases such as `mid`/`idx`/`vk`.
+- Last message storage protocol shortened to `LatestRepository`, with adapters and use-cases updated accordingly.
+- Telegram helpers adopt single-word module names (`screen`, `codec`) while the state tracker moves to `graph`/`recorder` modules for clarity.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.

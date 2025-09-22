@@ -13,7 +13,7 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-class AiogramMarkupCodec(MarkupCodec):
+class AiogramCodec(MarkupCodec):
     _MAP = {
         "InlineKeyboardMarkup": InlineKeyboardMarkup,
         "ReplyKeyboardMarkup": ReplyKeyboardMarkup,
@@ -52,4 +52,4 @@ class AiogramMarkupCodec(MarkupCodec):
         return None
 
 
-__all__ = ["AiogramMarkupCodec"]
+__all__ = ["AiogramCodec"]

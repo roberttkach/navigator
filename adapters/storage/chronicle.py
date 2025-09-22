@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 from aiogram.fsm.context import FSMContext
 
 from .keys import FSM_HISTORY_KEY
-from ...domain.entity.history import Entry, Msg
+from ...domain.entity.history import Entry, Message
 from ...domain.entity.markup import Markup
 from ...domain.entity.media import MediaItem, MediaType
 from ...domain.log.emit import jlog
@@ -176,18 +176,18 @@ class Chronicle:
         }
 
     def _load(self, data: Dict[str, Any]) -> Entry:
-        msgs = data.get("messages")
+        items = data.get("messages")
         rootmark = bool(data.get("root", False))
-        if isinstance(msgs, list) and not msgs:
+        if isinstance(items, list) and not items:
             return Entry(
                 state=data.get("state"),
                 view=data.get("view"),
                 messages=[],
                 root=rootmark,
             )
-        if isinstance(msgs, list):
-            messages: List[Msg] = []
-            for d in msgs:
+        if isinstance(items, list):
+            messages: List[Message] = []
+            for d in items:
                 if not isinstance(d, Dict):
                     continue
 
@@ -215,7 +215,7 @@ class Chronicle:
                     raise ValueError("History message payload missing required 'automated' flag")
 
                 messages.append(
-                    Msg(
+                    Message(
                         id=_integral(d.get("id"), 0),
                         text=d.get("text"),
                         media=MediaCodec.unpack(d.get("media")),
