@@ -22,6 +22,7 @@
 - Gateway error pattern builders collapse to the classmethod `collect`, removing the final `from_phrases` snake-case entry point.
 - Gateway result metadata now settles on single-word keys `medium`/`file`/`clusters`, with the view orchestrator mirroring the terminology through its `rendering` profile accessor.
 - View orchestrator API now exposes `render` with single-word helpers (`head`/`album`/`refine`/`verify`) and accumulators (`primary`/`bundles`/`notes`) to replace the legacy `render_node` flow.
+- Storage adapters drop the `Repo` abbreviation by renaming the persistent stores to `Chronicle`/`Latest`/`Status`/`Buffer` modules and aligning the dependency container with the new single-word classes.
 
 ## Next Steps
 - Migrate remaining domain and application layer helpers (e.g., mapper converters, orchestrator builders) that still rely on snake_case naming to single-word equivalents while keeping semantic clarity.
@@ -80,6 +81,22 @@
 
 - Promote `MessageGateway` verbs such as `edit_text`, `edit_media`, `edit_caption`, and `edit_markup` to single-word alternatives once downstream call sites have adopted the helper renames listed above.
 - Audit downstream consumers for the new `medium`/`file`/`clusters` metadata vocabulary to ensure compatibility across storage and presentation layers.
+
+## Storage Adapter Renaming Plan
+
+| Scope | Legacy Identifier | Replacement |
+|-------|-------------------|-------------|
+| FSM storage modules | `adapters.storage.historyrepo` | `adapters.storage.chronicle` |
+| FSM storage modules | `HistoryRepo` | `Chronicle` |
+| FSM storage modules | `adapters.storage.lastrepo` | `adapters.storage.latest` |
+| FSM storage modules | `LastRepo` | `Latest` |
+| FSM storage modules | `adapters.storage.staterepo` | `adapters.storage.status` |
+| FSM storage modules | `StateRepo` | `Status` |
+| FSM storage modules | `adapters.storage.temprepo` | `adapters.storage.buffer` |
+| FSM storage modules | `TempRepo` | `Buffer` |
+| Last repository API | `mark(id)` parameter name | `mark(marker)` |
+
+Renaming these adapters removes the lingering abbreviation-based names, keeps file names to a single descriptive word, and makes the dependency-injection providers read naturally (`chronicle`, `status`, `latest`, `buffer`).
 
 ## View Restoration Plan
 

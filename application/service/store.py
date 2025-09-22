@@ -30,18 +30,18 @@ async def persist(archive, ledger, policy, limit, history, *, op: str):
     await archive.archive(trimmed)
     jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op=op, history={"len": len(trimmed)})
     if trimmed and trimmed[-1].messages:
-        mid = trimmed[-1].messages[0].id
-        await ledger.mark(mid)
-        jlog(logger, logging.INFO, LogCode.LAST_SET, op=op, message={"id": mid})
+        marker = trimmed[-1].messages[0].id
+        await ledger.mark(marker)
+        jlog(logger, logging.INFO, LogCode.LAST_SET, op=op, message={"id": marker})
 
 
-def reindex(entry: Entry, ids: List[int], extras: Optional[List[List[int]]] = None) -> Entry:
-    limit = min(len(entry.messages), len(ids))
+def reindex(entry: Entry, identifiers: List[int], extras: Optional[List[List[int]]] = None) -> Entry:
+    limit = min(len(entry.messages), len(identifiers))
     messages = []
     for i in range(limit):
         messages.append(
             Msg(
-                id=int(ids[i]),
+                id=int(identifiers[i]),
                 text=entry.messages[i].text,
                 media=entry.messages[i].media,
                 group=entry.messages[i].group,

@@ -1,10 +1,10 @@
 from dependency_injector import containers, providers
 
 from ...adapters.aiogram.types import FSMContext
-from ...adapters.storage.historyrepo import HistoryRepo
-from ...adapters.storage.lastrepo import LastRepo
-from ...adapters.storage.staterepo import StateRepo
-from ...adapters.storage.temprepo import TempRepo
+from ...adapters.storage.chronicle import Chronicle
+from ...adapters.storage.latest import Latest
+from ...adapters.storage.status import Status
+from ...adapters.storage.buffer import Buffer
 from ...adapters.storage.transitionrecorder import TransitionRecorder
 from ...adapters.telegram.gateway import TelegramGateway
 from ...adapters.telegram.markupcodec import AiogramMarkupCodec
@@ -42,12 +42,12 @@ class AppContainer(containers.DeclarativeContainer):
         chunk=chunk,
         truncate=providers.Object(SETTINGS.truncate),
     )
-    chronicle = providers.Factory(HistoryRepo, state=state)
-    status = providers.Factory(StateRepo, state=state)
-    latest = providers.Factory(LastRepo, state=state)
+    chronicle = providers.Factory(Chronicle, state=state)
+    status = providers.Factory(Status, state=state)
+    latest = providers.Factory(Latest, state=state)
     observer = providers.Factory(TransitionRecorder, status=status)
 
-    buffer = providers.Factory(TempRepo, state=state)
+    buffer = providers.Factory(Buffer, state=state)
     mapper = providers.Factory(EntryMapper, ledger=ledger)
     strategy = providers.Factory(
         InlineStrategy,
