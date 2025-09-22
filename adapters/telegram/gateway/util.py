@@ -5,7 +5,7 @@ from aiogram.types import Message
 from ....domain.value.message import Scope
 
 
-def targets(scope: Scope, message: Optional[int] = None) -> Dict[str, Any]:
+def targets(scope: Scope, message: Optional[int] = None, *, include_topic: bool = True) -> Dict[str, Any]:
     if scope.inline:
         data: Dict[str, Any] = {"inline_message_id": scope.inline}
     else:
@@ -14,7 +14,7 @@ def targets(scope: Scope, message: Optional[int] = None) -> Dict[str, Any]:
             data["message_id"] = message
     if scope.business:
         data["business_connection_id"] = scope.business
-    if scope.topic is not None:
+    if include_topic and scope.topic is not None:
         data["direct_messages_topic_id"] = scope.topic
     return data
 
