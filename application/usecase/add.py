@@ -74,5 +74,10 @@ class Appender:
         timeline = [entry] if root else (records + [entry])
         from ..service.store import persist
         await persist(
-            self._archive, self._tail, chronicle, self._limit, timeline, op="add"
+            self._archive,
+            self._tail,
+            chronicle,
+            self._limit,
+            timeline,
+            operation="add",
         )

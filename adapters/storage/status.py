@@ -45,7 +45,11 @@ class Status(StateRepository):
 
     async def payload(self) -> Dict[str, Any]:
         mapping = await self._state.get_data()
-        filtered = {k: v for k, v in mapping.items() if not str(k).startswith("nav")}
+        filtered = {
+            key: value
+            for key, value in mapping.items()
+            if not str(key).startswith("nav")
+        }
         count = len(filtered)
         jlog(logger, logging.DEBUG, LogCode.STATE_DATA_GET, data={"keys": count})
         return filtered

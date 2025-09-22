@@ -17,22 +17,22 @@ def preserve(payload, entry):
     )
 
 
-async def persist(archive, ledger, policy, limit, history, *, op: str):
+async def persist(archive, ledger, policy, limit, history, *, operation: str):
     trimmed = policy.prune(history, limit)
     if len(trimmed) != len(history):
         jlog(
             logger,
             logging.DEBUG,
             LogCode.HISTORY_TRIM,
-            op=op,
+            op=operation,
             history={"before": len(history), "after": len(trimmed)},
         )
     await archive.archive(trimmed)
-    jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op=op, history={"len": len(trimmed)})
+    jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op=operation, history={"len": len(trimmed)})
     if trimmed and trimmed[-1].messages:
         marker = trimmed[-1].messages[0].id
         await ledger.mark(marker)
-        jlog(logger, logging.INFO, LogCode.LAST_SET, op=op, message={"id": marker})
+        jlog(logger, logging.INFO, LogCode.LAST_SET, op=operation, message={"id": marker})
 
 
 def reindex(entry: Entry, identifiers: List[int], extras: Optional[List[List[int]]] = None) -> Entry:

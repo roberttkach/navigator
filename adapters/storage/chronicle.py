@@ -15,9 +15,9 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-def _integral(x, default=0):
+def _integral(value, default=0):
     try:
-        return int(x)
+        return int(value)
     except Exception:
         return default
 
@@ -145,7 +145,7 @@ class Chronicle:
         data = await self._state.get_data()
         raw = data.get(FSM_HISTORY_KEY, [])
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, history={"len": len(raw)})
-        return [self._load(d) for d in raw]
+        return [self._load(record) for record in raw]
 
     async def archive(self, history: List[Entry]) -> None:
         payload = [self._dump(entry) for entry in history]
@@ -159,19 +159,19 @@ class Chronicle:
             "root": bool(getattr(entry, "root", False)),
             "messages": [
                 {
-                    "id": m.id,
-                    "text": m.text,
-                    "media": MediaCodec.pack(m.media),
-                    "group": GroupCodec.pack(m.group),
-                    "markup": ReplyCodec.pack(m.markup),
-                    "preview": PreviewCodec.pack(m.preview),
-                    "extra": m.extra,
-                    "extras": list(m.extras),
-                    "inline": m.inline,
-                    "automated": m.automated,
-                    "ts": TimeCodec.pack(m.ts),
+                    "id": message.id,
+                    "text": message.text,
+                    "media": MediaCodec.pack(message.media),
+                    "group": GroupCodec.pack(message.group),
+                    "markup": ReplyCodec.pack(message.markup),
+                    "preview": PreviewCodec.pack(message.preview),
+                    "extra": message.extra,
+                    "extras": list(message.extras),
+                    "inline": message.inline,
+                    "automated": message.automated,
+                    "ts": TimeCodec.pack(message.ts),
                 }
-                for m in entry.messages
+                for message in entry.messages
             ],
         }
 
@@ -187,11 +187,11 @@ class Chronicle:
             )
         if isinstance(items, list):
             messages: List[Message] = []
-            for d in items:
-                if not isinstance(d, Dict):
+            for record in items:
+                if not isinstance(record, Dict):
                     continue
 
-                legacy = {"aux_ids", "inline_id", "by_bot"}.intersection(d.keys())
+                legacy = {"aux_ids", "inline_id", "by_bot"}.intersection(record.keys())
                 if legacy:
                     jlog(
                         logger,
@@ -205,7 +205,7 @@ class Chronicle:
                         + ", ".join(sorted(legacy))
                     )
 
-                if "automated" not in d:
+                if "automated" not in record:
                     jlog(
                         logger,
                         logging.ERROR,
@@ -216,17 +216,17 @@ class Chronicle:
 
                 messages.append(
                     Message(
-                        id=_integral(d.get("id"), 0),
-                        text=d.get("text"),
-                        media=MediaCodec.unpack(d.get("media")),
-                        group=GroupCodec.unpack(d.get("group")),
-                        markup=ReplyCodec.unpack(d.get("markup")),
-                        preview=PreviewCodec.unpack(d.get("preview")),
-                        extra=d.get("extra"),
-                        extras=[int(x) for x in (d.get("extras") or [])],
-                        inline=d.get("inline"),
-                        automated=bool(d.get("automated")),
-                        ts=TimeCodec.unpack(d.get("ts")),
+                        id=_integral(record.get("id"), 0),
+                        text=record.get("text"),
+                        media=MediaCodec.unpack(record.get("media")),
+                        group=GroupCodec.unpack(record.get("group")),
+                        markup=ReplyCodec.unpack(record.get("markup")),
+                        preview=PreviewCodec.unpack(record.get("preview")),
+                        extra=record.get("extra"),
+                        extras=[int(x) for x in (record.get("extras") or [])],
+                        inline=record.get("inline"),
+                        automated=bool(record.get("automated")),
+                        ts=TimeCodec.unpack(record.get("ts")),
                     )
                 )
             return Entry(
