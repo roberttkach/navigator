@@ -9,7 +9,7 @@
 - Telegram router handlers now expose the callback handler as `retreat` and the text handler as `recall`, with `_tongue` providing locale detection.
 - Telegram scope builder renamed to `outline`, imported through the composition root as `forge`.
 - Navigator tail helper now relies on `_tailer` and uses `identifier`/`status` for clarity when referencing message identifiers and state values.
-- Domain storage contracts now use single-word verbs: history repositories `recall`/`archive`, state repositories `status`/`assign`/`diagram`/`capture`/`payload`, last message repositories `peek`/`mark`, and temporary repositories `collect`/`stash`.
+- Domain storage contracts now use single-word verbs: history repositories `recall`/`archive`, state repositories `status`/`assign`/`payload`, last message repositories `peek`/`mark`, and temporary repositories `collect`/`stash`.
 - Application service decorator `log_io` shortened to `trace`, with `augment` replacing the `extra_fn` callback for additional log context.
 - Telegram serialization helpers now expose `decode`/`preview`/`caption`/`restate`, with `cleanse`/`divide`/`scrub` guarded by extra `audit`/`screen` checks.
 - Telegram media helpers adopt `weblink`/`adapt`/`convert`/`compose`/`assemble`, with inline strategy injection renamed to `probe`/`strictpath` and Settings following suit.
@@ -25,7 +25,7 @@
 - Storage adapters drop the `Repo` abbreviation by renaming the persistent stores to `Chronicle`/`Latest`/`Status`/`Buffer` modules and aligning the dependency container with the new single-word classes.
 - Domain history message entity now uses the full word `Message`, with mapper/store helpers replacing `msg`/`msgs` locals by `message`/`messages` and removing short aliases such as `mid`/`idx`/`vk`.
 - Last message storage protocol shortened to `LatestRepository`, with adapters and use-cases updated accordingly.
-- Telegram helpers adopt single-word module names (`screen`, `codec`) while the state tracker moves to `graph`/`recorder` modules for clarity.
+- Telegram helpers adopt single-word module names (`screen`, `codec`) while the state tracker is consolidated under the `status` module for clarity.
 - FSM state payload helper now maps data through `mapping`, replacing the interim `data_map` alias.
 - Telegram gateway helpers drop the `media_mapper` alias in favour of direct `media.compose`/`assemble`/`convert`/`adapt` usage.
 - Serializer and logging utilities now reference standard helpers through their parent modules (`dataclasses.is_dataclass`, `time.perf_counter`), and protocol decorators rely on `typing.runtime_checkable` to keep local namespaces underscore-free.

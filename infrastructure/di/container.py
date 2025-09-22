@@ -4,7 +4,6 @@ from ...adapters.aiogram.types import FSMContext
 from ...adapters.storage.chronicle import Chronicle
 from ...adapters.storage.latest import Latest
 from ...adapters.storage.status import Status
-from ...adapters.storage.recorder import TransitionRecorder
 from ...adapters.telegram.gateway import TelegramGateway
 from ...adapters.telegram.codec import AiogramCodec
 from ...adapters.telegram.media import weblink
@@ -44,8 +43,6 @@ class AppContainer(containers.DeclarativeContainer):
     chronicle = providers.Factory(Chronicle, state=state)
     status = providers.Factory(Status, state=state)
     latest = providers.Factory(Latest, state=state)
-    observer = providers.Factory(TransitionRecorder, status=status)
-
     mapper = providers.Factory(EntryMapper, ledger=ledger)
     strategy = providers.Factory(
         InlineStrategy,
