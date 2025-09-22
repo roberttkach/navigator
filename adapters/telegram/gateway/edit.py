@@ -35,7 +35,7 @@ async def rewrite(bot, codec: MarkupCodec, scope: Scope, message: int, payload, 
     cleaned = serializer.cleanse(
         extras, captioning=False, target=bot.edit_message_text, length=len(raw)
     )
-    target = _targets(scope, message)
+    target = _targets(scope, message, include_topic=False)
     try:
         result = await invoke(
             bot.edit_message_text,
@@ -79,7 +79,7 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *
             note="inline_upload_forbidden",
         )
         raise
-    target = _targets(scope, message)
+    target = _targets(scope, message, include_topic=False)
     try:
         result = await invoke(
             bot.edit_message_media,
@@ -109,7 +109,7 @@ async def retitle(bot, codec: MarkupCodec, scope: Scope, message: int, payload, 
     cleaned = serializer.cleanse(
         bundle["caption"], captioning=True, target=bot.edit_message_caption, length=length
     )
-    target = _targets(scope, message)
+    target = _targets(scope, message, include_topic=False)
     if caption is not None and len(caption) > CaptionLimit:
         if truncate:
             caption = caption[:CaptionLimit]
@@ -156,7 +156,7 @@ async def retitle(bot, codec: MarkupCodec, scope: Scope, message: int, payload, 
 
 
 async def remap(bot, codec: MarkupCodec, scope: Scope, message: int, payload) -> Result:
-    target = _targets(scope, message)
+    target = _targets(scope, message, include_topic=False)
     try:
         result = await invoke(
             bot.edit_message_reply_markup,
