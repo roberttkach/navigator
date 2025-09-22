@@ -12,26 +12,23 @@ for path in (_ROOT, _PARENT):
 
 import sitecustomize  # noqa: F401
 
-from navigator.adapters.telegram.gateway.util import _digest, extract
+from navigator.adapters.telegram.gateway import util as gateway
 from navigator.domain.value.message import Scope
 
 
-def test_digest_rejects_media_groups():
-    grouped_message = SimpleNamespace(media_group_id="group", text="ignored")
+def digest():
+    grouped = SimpleNamespace(media_group_id="group", text="ignored")
 
     with pytest.raises(ValueError):
-        _digest(grouped_message)
+        gateway._digest(grouped)
 
-
-def test_digest_text_message_passthrough():
     message = SimpleNamespace(media_group_id=None, text="hello")
+    assert gateway._digest(message) == {"kind": "text", "text": "hello", "inline": None}
 
-    assert _digest(message) == {"kind": "text", "text": "hello", "inline": None}
 
-
-def test_extract_rejects_group_payload_without_result_message_id():
+def extract():
     scope = Scope(chat=123)
     payload = SimpleNamespace(group=[object()])
 
     with pytest.raises(AssertionError):
-        extract(SimpleNamespace(), payload, scope)
+        gateway.extract(SimpleNamespace(), payload, scope)
