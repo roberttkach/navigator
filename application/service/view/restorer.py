@@ -38,10 +38,6 @@ class ViewRestorer:
                 return [content]
         return [self._static(m) for m in entry.messages]
 
-    async def restore(self, entry: Entry, context: Dict[str, Any], *, inline: bool = False) -> Payload:
-        res = await self.revive(entry, context, inline=inline)
-        return res[0] if res else Payload()
-
     async def _dynamic(
             self, key: str, context: Dict[str, Any]
     ) -> Optional[Payload | List[Payload]]:
