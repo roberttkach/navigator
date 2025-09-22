@@ -155,7 +155,6 @@ class Tailer:
                 scope=scope,
                 payload=normal,
                 tail=head,
-                inline=True,
                 swap=self._orchestrator.swap,
                 config=self._orchestrator.rendering,
             )
