@@ -456,7 +456,6 @@ class ViewOrchestrator:
                         scope=scope,
                         payload=current,
                         tail=previous,
-                        inline=True,
                         swap=self.swap,
                         config=self._rendering,
                     )
@@ -501,7 +500,6 @@ class ViewOrchestrator:
                         scope=scope,
                         payload=current,
                         tail=previous,
-                        inline=True,
                         swap=self.swap,
                         config=self._rendering,
                     )

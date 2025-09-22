@@ -71,82 +71,77 @@ class InlineStrategy:
             scope,
             payload,
             tail,
-            inline,
             swap,
             config: RenderingConfig,
     ):
-        if inline:
-            entry = preserve(payload, tail)
-            if getattr(entry, "group", None):
-                entry = entry.morph(media=entry.group[0], group=None)
+        entry = preserve(payload, tail)
+        if getattr(entry, "group", None):
+            entry = entry.morph(media=entry.group[0], group=None)
 
-            base = tail
-            media = getattr(entry, "media", None)
+        base = tail
+        media = getattr(entry, "media", None)
 
-            if media:
-                if getattr(media, "type", None) in (
-                        MediaType.VOICE,
-                        MediaType.VIDEO_NOTE,
-                ) or not self._inlineable(entry):
-                    if base and self._replydelta(base, entry):
-                        return await swap(
-                            scope,
-                            entry.morph(media=base.media if base else None, group=None),
-                            tail,
-                            _d.Decision.EDIT_MARKUP,
-                        )
-                    jlog(self._logger, logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
-                    return None
-                anchor = Entry(state=None, view=None, messages=[tail]) if tail else None
-                verdict = _d.decide(anchor, entry, config)
-                if verdict is _d.Decision.DELETE_SEND:
-                    remap = _inline(base, entry, inline=True)
-                    jlog(self._logger, logging.INFO, LogCode.INLINE_REMAP_DELETE_SEND, origin="DELETE_SEND",
-                         target=remap.name)
-                    if remap is _d.Decision.EDIT_MARKUP:
-                        return await swap(
-                            scope,
-                            entry.morph(media=base.media, group=None),
-                            tail,
-                            _d.Decision.EDIT_MARKUP,
-                        )
-                    if remap is _d.Decision.EDIT_TEXT:
-                        return await swap(scope, entry, tail, _d.Decision.EDIT_TEXT)
-                    if remap is _d.Decision.EDIT_MEDIA:
-                        return await swap(scope, entry, tail, _d.Decision.EDIT_MEDIA)
-                    jlog(self._logger, logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
-                    return None
-                if verdict is _d.Decision.EDIT_MEDIA_CAPTION:
-                    return await swap(scope, entry, tail, _d.Decision.EDIT_MEDIA_CAPTION)
-                if verdict is _d.Decision.EDIT_MARKUP:
-                    return await swap(scope, entry, tail, _d.Decision.EDIT_MARKUP)
-                return await swap(scope, entry, tail, _d.Decision.EDIT_MEDIA)
-
-            if base and getattr(base, "media", None):
-                captiondelta = (
-                        entry.text is not None
-                        or ((entry.extra or {}).get("mode") is not None)
-                        or ((entry.extra or {}).get("entities") is not None)
-                        or ((entry.extra or {}).get("show_caption_above_media") is not None)
-                )
-                if captiondelta:
+        if media:
+            if getattr(media, "type", None) in (
+                    MediaType.VOICE,
+                    MediaType.VIDEO_NOTE,
+            ) or not self._inlineable(entry):
+                if base and self._replydelta(base, entry):
                     return await swap(
                         scope,
-                        entry.morph(media=base.media, group=None),
+                        entry.morph(media=base.media if base else None, group=None),
                         tail,
-                        _d.Decision.EDIT_MEDIA_CAPTION,
+                        _d.Decision.EDIT_MARKUP,
                     )
-                if self._replydelta(base, entry):
+                jlog(self._logger, logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
+                return None
+            anchor = Entry(state=None, view=None, messages=[tail]) if tail else None
+            verdict = _d.decide(anchor, entry, config)
+            if verdict is _d.Decision.DELETE_SEND:
+                remap = _inline(base, entry, inline=True)
+                jlog(self._logger, logging.INFO, LogCode.INLINE_REMAP_DELETE_SEND, origin="DELETE_SEND",
+                     target=remap.name)
+                if remap is _d.Decision.EDIT_MARKUP:
                     return await swap(
                         scope,
                         entry.morph(media=base.media, group=None),
                         tail,
                         _d.Decision.EDIT_MARKUP,
                     )
+                if remap is _d.Decision.EDIT_TEXT:
+                    return await swap(scope, entry, tail, _d.Decision.EDIT_TEXT)
+                if remap is _d.Decision.EDIT_MEDIA:
+                    return await swap(scope, entry, tail, _d.Decision.EDIT_MEDIA)
                 jlog(self._logger, logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
                 return None
+            if verdict is _d.Decision.EDIT_MEDIA_CAPTION:
+                return await swap(scope, entry, tail, _d.Decision.EDIT_MEDIA_CAPTION)
+            if verdict is _d.Decision.EDIT_MARKUP:
+                return await swap(scope, entry, tail, _d.Decision.EDIT_MARKUP)
+            return await swap(scope, entry, tail, _d.Decision.EDIT_MEDIA)
 
-            return await swap(scope, entry, tail, _d.Decision.EDIT_TEXT)
+        if base and getattr(base, "media", None):
+            captiondelta = (
+                    entry.text is not None
+                    or ((entry.extra or {}).get("mode") is not None)
+                    or ((entry.extra or {}).get("entities") is not None)
+                    or ((entry.extra or {}).get("show_caption_above_media") is not None)
+            )
+            if captiondelta:
+                return await swap(
+                    scope,
+                    entry.morph(media=base.media, group=None),
+                    tail,
+                    _d.Decision.EDIT_MEDIA_CAPTION,
+                )
+            if self._replydelta(base, entry):
+                return await swap(
+                    scope,
+                    entry.morph(media=base.media, group=None),
+                    tail,
+                    _d.Decision.EDIT_MARKUP,
+                )
+            jlog(self._logger, logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
+            return None
 
-        result = await swap(scope, payload, None, _d.Decision.RESEND)
-        return result
+        return await swap(scope, entry, tail, _d.Decision.EDIT_TEXT)
