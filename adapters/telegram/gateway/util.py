@@ -21,7 +21,7 @@ def targets(scope: Scope, message: Optional[int] = None, *, include_topic: bool 
 
 def _digest(message: Message) -> dict:
     if getattr(message, "media_group_id", None):
-        pass
+        raise ValueError("Grouped messages are not supported in _digest")
     if getattr(message, "text", None) is not None and not getattr(message, "photo", None) \
             and not getattr(message, "document", None) and not getattr(message, "video", None) \
             and not getattr(message, "audio", None) and not getattr(message, "animation", None):
