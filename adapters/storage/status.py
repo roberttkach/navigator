@@ -12,14 +12,14 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-class StateRepo(StateRepository):
+class Status(StateRepository):
     def __init__(self, state: FSMContext):
         self._state = state
 
     async def status(self) -> Optional[str]:
-        s = await self._state.get_state()
-        jlog(logger, logging.DEBUG, LogCode.STATE_GET, state={"current": s})
-        return s
+        current = await self._state.get_state()
+        jlog(logger, logging.DEBUG, LogCode.STATE_GET, state={"current": current})
+        return current
 
     async def assign(self, state: Optional[str]) -> None:
         await self._state.set_state(state)
@@ -44,11 +44,11 @@ class StateRepo(StateRepository):
              graph={"nodes_len": len(graph.nodes), "edges_keys": len(graph.edges)})
 
     async def payload(self) -> Dict[str, Any]:
-        d = await self._state.get_data()
-        filtered = {k: v for k, v in d.items() if not str(k).startswith("nav")}
+        data_map = await self._state.get_data()
+        filtered = {k: v for k, v in data_map.items() if not str(k).startswith("nav")}
         count = len(filtered)
         jlog(logger, logging.DEBUG, LogCode.STATE_DATA_GET, data={"keys": count})
         return filtered
 
 
-__all__ = ["StateRepo"]
+__all__ = ["Status"]

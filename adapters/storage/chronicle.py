@@ -137,7 +137,7 @@ class TimeCodec:
         return datetime.now(timezone.utc)
 
 
-class HistoryRepo:
+class Chronicle:
     def __init__(self, state: FSMContext):
         self._state = state
 
@@ -241,3 +241,6 @@ class HistoryRepo:
             messages=[],
             root=rootmark,
         )
+
+
+__all__ = ["Chronicle"]

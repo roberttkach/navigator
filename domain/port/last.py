@@ -10,8 +10,8 @@ class LastMessageRepository(Protocol):
     async def peek(self) -> Optional[int]:
         """Return last message id or None."""
 
-    async def mark(self, id: Optional[int]) -> None:
-        """Set or clear last message id."""
+    async def mark(self, marker: Optional[int]) -> None:
+        """Set or clear last message identifier."""
 
 
 __all__ = ["LastMessageRepository"]
