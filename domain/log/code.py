@@ -20,7 +20,7 @@ class LogCode(Enum):
     ALBUM_PARTIAL_OK = "album_partial_ok"
     ALBUM_PARTIAL_FALLBACK = "album_partial_fallback"
 
-    # History / Last / State / Graph / Temp
+    # History / Last / State / Temp
     HISTORY_LOAD = "history_load"
     HISTORY_SAVE = "history_save"
     HISTORY_TRIM = "history_trim"
@@ -30,8 +30,6 @@ class LogCode(Enum):
     STATE_GET = "state_get"
     STATE_SET = "state_set"
     STATE_DATA_GET = "state_data_get"
-    GRAPH_GET = "graph_get"
-    GRAPH_SAVE = "graph_save"
     TEMP_LOAD = "temp_load"
     TEMP_SAVE = "temp_save"
 
