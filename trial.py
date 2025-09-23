@@ -2,6 +2,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
+from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway import delete as delete_module
 from navigator.adapters.telegram.gateway.delete import DeleteBatch
@@ -153,3 +154,21 @@ def digest_delete_batch_uses_business_api_only() -> None:
         assert not args
         assert kwargs["business_connection_id"] == scope.business
         assert kwargs["message_ids"]
+
+
+def digest_telegram_errors_dismissible_recognizes_known_fragments() -> None:
+    supported = (
+        "error: message to delete not found in history",
+        "oops, this message can't be deleted for everyone",
+        "cannot delete the requested message right now",
+        "message is too old to be removed",
+        "warning: not enough rights to delete message",
+        "already deleted or gone",
+        "paid post cannot be removed",
+        "item must not be deleted for 24 hours after creation",
+    )
+
+    for sample in supported:
+        assert dismissible(sample)
+
+    assert not dismissible("unexpected failure: try again later")

@@ -1,27 +1,30 @@
 from typing import Iterator
 
+from .gateway.patterns import ErrorPatterns
+
+
+_DISMISSIBLE_ERRORS = ErrorPatterns.collect(
+    "message to delete not found",
+    "message can't be deleted",
+    "message cant be deleted",
+    "cannot be deleted",
+    "cannot delete",
+    "cant delete",
+    "can't be deleted for everyone",
+    "cant be deleted for everyone",
+    "message is too old",
+    "too old",
+    "not enough rights",
+    "not enough rights to delete",
+    "already deleted",
+    "paid post",
+    "is_paid_post",
+    "must not be deleted for 24 hours",
+)
+
 
 def dismissible(message: str) -> bool:
-    return (
-        "message to delete not found" in message
-        or "message can't be deleted" in message
-        or "message cant be deleted" in message
-        or "cannot be deleted" in message
-        or "cannot delete" in message
-        or "cant delete" in message
-        or "can't be deleted for everyone" in message
-        or "cant be deleted for everyone" in message
-        or "message is too old" in message
-        or "too old" in message
-        or "not enough rights" in message
-        or "not enough rights to delete" in message
-        or "already deleted" in message
-        or "уже удалено" in message
-        or "недостаточно прав" in message
-        or "paid post" in message
-        or "is_paid_post" in message
-        or "must not be deleted for 24 hours" in message
-    )
+    return _DISMISSIBLE_ERRORS.matches(message)
 
 
 def _cascade(error: Exception) -> Iterator[Exception]:
