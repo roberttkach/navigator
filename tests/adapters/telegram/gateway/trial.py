@@ -55,12 +55,13 @@ def digest():
     assert entry.messages[0].id == 101
     assert entry.messages[0].extras == [202, 303]
 
-    with pytest.raises(ValueError, match="unsupported 'inline_id'"):
-        chronicle._load(
-            _chronicle_entry_payload(
-                _chronicle_message_payload(inline_id="legacy-inline"),
-            )
+    entry_with_inline_id = chronicle._load(
+        _chronicle_entry_payload(
+            _chronicle_message_payload(inline_id="ignored-inline"),
         )
+    )
+    assert entry_with_inline_id.messages[0].id == 101
+    assert entry_with_inline_id.messages[0].extras == [202, 303]
 
     missing_id = _chronicle_message_payload()
     missing_id.pop("id")
