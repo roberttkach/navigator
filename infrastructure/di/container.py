@@ -80,7 +80,7 @@ class AppContainer(containers.DeclarativeContainer):
     setter = providers.Factory(
         Setter,
         ledger=chronicle, status=status,
-        gateway=gateway, alert=alert,
+        gateway=gateway,
         restorer=restorer,
         orchestrator=orchestrator, latest=latest,
     )

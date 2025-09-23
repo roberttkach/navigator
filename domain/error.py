@@ -8,6 +8,15 @@ class HistoryEmpty(NavigatorError):
     pass
 
 
+class StateNotFound(NavigatorError):
+    """Requested state is missing from history."""
+
+    def __init__(self, state: str | None = None):
+        message = "state_not_found" if state is None else f"state_not_found:{state}"
+        super().__init__(message)
+        self.state = state
+
+
 class EditForbidden(NavigatorError):
     def __init__(self, code: str | None = None):
         super().__init__(code or "edit_forbidden")
@@ -51,4 +60,5 @@ __all__ = [
     "TextOverflow",
     "CaptionOverflow",
     "ExtraForbidden",
+    "StateNotFound",
 ]
