@@ -3,7 +3,6 @@ from enum import Enum, auto
 from typing import Optional, Any
 
 from .helpers import match
-from ...entity.history import Entry
 from ...entity.media import MediaType
 from ...value.content import Payload, caption
 from .config import RenderingConfig
@@ -54,23 +53,21 @@ class _MediaProfile:
     edit: _MediaFlag
 
 
+class _BlankView:
+    text = None
+    media = None
+    group = None
+    reply = None
+    extra = None
+
+
+_BLANK_VIEW = _BlankView()
+
+
 def _view(obj: Any):
     """Normalize to an object with attributes: text, media, group, reply, extra."""
     if obj is None:
-        return type("V", (), dict(text=None, media=None, group=None, reply=None, extra=None))()
-    if isinstance(obj, Entry):
-        message = obj.messages[0] if (getattr(obj, "messages", None) or []) else None
-        return type(
-            "V",
-            (),
-            dict(
-                text=getattr(message, "text", None),
-                media=getattr(message, "media", None),
-                group=getattr(message, "group", None),
-                reply=getattr(message, "markup", None),
-                extra=getattr(message, "extra", None),
-            ),
-        )()
+        return _BLANK_VIEW
     return obj
 
 
@@ -115,23 +112,12 @@ def _text(obj) -> Optional[str]:
 def _reply(obj):
     if obj is None:
         return None
-    if isinstance(obj, Entry):
-        try:
-            return getattr(obj.messages[0], "markup", None)
-        except (IndexError, AttributeError, TypeError):
-            return None
-    return getattr(obj, "reply", None)
+    return getattr(obj, "reply", getattr(obj, "markup", None))
 
 
 def _preview(obj):
     if obj is None:
         return None
-    if isinstance(obj, Entry):
-        try:
-            message = obj.messages[0] if obj.messages else None
-            return getattr(message, "preview", None)
-        except Exception:
-            return None
     return getattr(obj, "preview", None)
 
 
