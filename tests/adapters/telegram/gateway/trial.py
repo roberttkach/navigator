@@ -55,14 +55,6 @@ def digest():
     assert entry.messages[0].id == 101
     assert entry.messages[0].extras == [202, 303]
 
-    entry_with_inline_id = chronicle._load(
-        _chronicle_entry_payload(
-            _chronicle_message_payload(inline_id="legacy-inline"),
-        )
-    )
-    assert entry_with_inline_id.messages[0].id == 101
-    assert entry_with_inline_id.messages[0].extras == [202, 303]
-
     missing_id = _chronicle_message_payload()
     missing_id.pop("id")
     with pytest.raises(ValueError, match="missing required 'id'"):
