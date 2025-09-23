@@ -184,20 +184,6 @@ class Chronicle:
                 if not isinstance(record, Dict):
                     continue
 
-                legacy = {"aux_ids", "inline_id", "by_bot"}.intersection(record.keys())
-                if legacy:
-                    jlog(
-                        logger,
-                        logging.ERROR,
-                        LogCode.HISTORY_LOAD,
-                        note="legacy_history_message",
-                        keys=sorted(legacy),
-                    )
-                    raise ValueError(
-                        "Legacy history payload keys are no longer supported: "
-                        + ", ".join(sorted(legacy))
-                    )
-
                 if "automated" not in record:
                     jlog(
                         logger,
