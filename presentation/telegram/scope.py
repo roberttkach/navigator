@@ -14,6 +14,7 @@ def outline(event) -> Scope:
     category = "group" if kind == "supergroup" else (
         kind if kind in {"private", "group", "channel"} else None)
     business = getattr(message, "business_connection_id", None)
+    thread = getattr(message, "message_thread_id", None)
     topic = getattr(getattr(message, "direct_messages_topic", None), "topic_id", None)
     return Scope(
         chat=chat,
@@ -22,4 +23,5 @@ def outline(event) -> Scope:
         business=business,
         category=category,
         topic=topic,
+        thread=thread,
     )

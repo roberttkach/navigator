@@ -10,6 +10,8 @@ def targets(scope: Scope, message: Optional[int] = None, *, topical: bool = True
         data: Dict[str, Any] = {"inline_message_id": scope.inline}
     else:
         data = {"chat_id": scope.chat}
+        if scope.thread is not None:
+            data["message_thread_id"] = scope.thread
         if message is not None:
             data["message_id"] = message
     if scope.business:
