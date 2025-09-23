@@ -92,6 +92,10 @@ def compose(
     if item.type == MediaType.VIDEO:
         if settings.get("start") is not None:
             mapping["start_timestamp"] = settings.get("start")
+        if settings.get("cover") is not None:
+            mapping["cover"] = adapt(settings.get("cover"), native=native)
+        if settings.get("supports_streaming") is not None:
+            mapping["supports_streaming"] = bool(settings.get("supports_streaming"))
     if item.type in (MediaType.VIDEO, MediaType.ANIMATION, MediaType.AUDIO, MediaType.DOCUMENT):
         if settings.get("thumb") is not None:
             mapping["thumbnail"] = adapt(settings.get("thumb"), native=native)

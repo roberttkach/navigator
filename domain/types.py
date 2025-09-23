@@ -61,7 +61,8 @@ CaptionExtra = TypedDict(
 )
 
 
-# Media extras support spoiler/show_caption_above_media/start/thumb/title/performer/duration/width/height.
+# Media extras support spoiler/show_caption_above_media/start/thumb/title/performer/
+# duration/width/height plus cover/supports_streaming.
 MediaExtra = TypedDict(
     "MediaExtra",
     {
@@ -74,6 +75,8 @@ MediaExtra = TypedDict(
         "duration": NotRequired[int],
         "width": NotRequired[int],
         "height": NotRequired[int],
+        "cover": NotRequired[Any],
+        "supports_streaming": NotRequired[bool],
     },
     total=False,
 )

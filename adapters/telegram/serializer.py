@@ -74,6 +74,8 @@ def divide(extra: dict | None) -> dict[str, dict]:
             "duration",
             "width",
             "height",
+            "cover",
+            "supports_streaming",
         )
         if k in extra
     }

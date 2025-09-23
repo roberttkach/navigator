@@ -106,6 +106,14 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             if kind == "video":
                 if options.get("start") is not None:
                     settings["start_timestamp"] = options.get("start")
+                if options.get("cover") is not None:
+                    settings["cover"] = media.adapt(
+                        options.get("cover"), native=native
+                    )
+                if options.get("supports_streaming") is not None:
+                    settings["supports_streaming"] = bool(
+                        options.get("supports_streaming")
+                    )
             if kind in ("video", "animation", "audio", "document"):
                 if options.get("thumb") is not None:
                     settings["thumbnail"] = media.adapt(
