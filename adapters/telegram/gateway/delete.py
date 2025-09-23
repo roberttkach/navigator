@@ -52,60 +52,30 @@ class DeleteBatch:
             chunks=total,
             chunk=self._chunk,
         )
+        scope_profile = profile(scope)
+        if scope.business:
+            delete_action = self._bot.delete_business_messages
+            delete_kwargs = {"business_connection_id": scope.business}
+        else:
+            delete_action = self._bot.delete_messages
+            delete_kwargs = {"chat_id": scope.chat}
         try:
             for index, group in enumerate(groups, start=1):
                 try:
-                    if scope.business:
-                        try:
-                            await invoke(
-                                self._bot.delete_business_messages,
-                                business_connection_id=scope.business,
-                                message_ids=group,
-                            )
-                            jlog(
-                                logger,
-                                logging.INFO,
-                                LogCode.GATEWAY_DELETE_OK,
-                                scope=profile(scope),
-                                message={"deleted": len(group)},
-                                chunk={"index": index, "total": total},
-                            )
-                            await asyncio.sleep(_DELAY_SEC)
-                        except Exception:
-                            try:
-                                await invoke(
-                                    self._bot.delete_messages,
-                                    chat_id=scope.chat,
-                                    message_ids=group,
-                                )
-                                jlog(
-                                    logger,
-                                    logging.INFO,
-                                    LogCode.GATEWAY_DELETE_OK,
-                                    scope=profile(scope),
-                                    message={"deleted": len(group)},
-                                    chunk={"index": index, "total": total},
-                                )
-                                await asyncio.sleep(_DELAY_SEC)
-                            except Exception as fallback:
-                                if excusable(fallback):
-                                    continue
-                                raise
-                    else:
-                        await invoke(
-                            self._bot.delete_messages,
-                            chat_id=scope.chat,
-                            message_ids=group,
-                        )
-                        jlog(
-                            logger,
-                            logging.INFO,
-                            LogCode.GATEWAY_DELETE_OK,
-                            scope=profile(scope),
-                            message={"deleted": len(group)},
-                            chunk={"index": index, "total": total},
-                        )
-                        await asyncio.sleep(_DELAY_SEC)
+                    await invoke(
+                        delete_action,
+                        message_ids=group,
+                        **delete_kwargs,
+                    )
+                    jlog(
+                        logger,
+                        logging.INFO,
+                        LogCode.GATEWAY_DELETE_OK,
+                        scope=scope_profile,
+                        message={"deleted": len(group)},
+                        chunk={"index": index, "total": total},
+                    )
+                    await asyncio.sleep(_DELAY_SEC)
                 except Exception as error:
                     if excusable(error):
                         continue
@@ -115,7 +85,7 @@ class DeleteBatch:
                 logger,
                 logging.WARNING,
                 LogCode.GATEWAY_DELETE_FAIL,
-                scope=profile(scope),
+                scope=scope_profile,
                 count=len(unique),
                 note=type(error).__name__,
             )
