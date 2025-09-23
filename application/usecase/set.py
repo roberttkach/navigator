@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 
 from ..log.decorators import trace
 from ..log.emit import jlog
@@ -7,7 +7,7 @@ from ..service.view.orchestrator import ViewOrchestrator
 from ..service.view.restorer import ViewRestorer
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LatestRepository
-from ...domain.port.message import MessageGateway
+from ...domain.port.message import AlertPayload, MessageGateway
 from ...domain.port.state import StateRepository
 from ...domain.value.content import normalize
 from ...domain.value.message import Scope
@@ -22,6 +22,7 @@ class Setter:
             ledger: HistoryRepository,
             status: StateRepository,
             gateway: MessageGateway,
+            alert: Callable[[Scope], AlertPayload],
             restorer: ViewRestorer,
             orchestrator: ViewOrchestrator,
             latest: LatestRepository,
@@ -29,6 +30,7 @@ class Setter:
         self._ledger = ledger
         self._status = status
         self._gateway = gateway
+        self._alert = alert
         self._restorer = restorer
         self._orchestrator = orchestrator
         self._latest = latest
@@ -55,7 +57,8 @@ class Setter:
                 cursor = i
                 break
         if cursor is None:
-            await self._gateway.alert(scope)
+            payload = self._alert(scope)
+            await self._gateway.alert(scope, payload)
             jlog(
                 logger,
                 logging.INFO,
