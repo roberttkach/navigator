@@ -21,6 +21,11 @@ class Result:
     inline: Optional[str] = None
 
 
+@dataclass(frozen=True, slots=True)
+class AlertPayload:
+    text: str
+
+
 @typing.runtime_checkable
 class MessageGateway(Protocol):
     async def send(self, scope: Scope, payload: Payload) -> Result:
@@ -41,8 +46,8 @@ class MessageGateway(Protocol):
     async def delete(self, scope: Scope, identifiers: List[int]) -> None:
         ...
 
-    async def alert(self, scope: Scope) -> None:
+    async def alert(self, scope: Scope, payload: AlertPayload) -> None:
         ...
 
 
-__all__ = ["Result", "MessageGateway"]
+__all__ = ["Result", "AlertPayload", "MessageGateway"]

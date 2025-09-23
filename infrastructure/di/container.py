@@ -28,6 +28,7 @@ class AppContainer(containers.DeclarativeContainer):
     event = providers.Dependency()
     state = providers.Dependency(instance_of=FSMContext)
     ledger = providers.Dependency(instance_of=ViewLedger)
+    alert = providers.Dependency()
 
     retention = providers.Object(SETTINGS.retention)
     chunk = providers.Object(SETTINGS.chunk)
@@ -79,7 +80,8 @@ class AppContainer(containers.DeclarativeContainer):
     setter = providers.Factory(
         Setter,
         ledger=chronicle, status=status,
-        gateway=gateway, restorer=restorer,
+        gateway=gateway, alert=alert,
+        restorer=restorer,
         orchestrator=orchestrator, latest=latest,
     )
     trimmer = providers.Factory(Trimmer, ledger=chronicle, latest=latest)
@@ -91,4 +93,5 @@ class AppContainer(containers.DeclarativeContainer):
     alarm = providers.Factory(
         Alarm,
         gateway=gateway,
+        alert=alert,
     )

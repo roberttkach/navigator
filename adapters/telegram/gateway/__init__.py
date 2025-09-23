@@ -12,10 +12,9 @@ from .util import targets
 from ....domain.error import InlineUnsupported
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
-from ....domain.port.message import MessageGateway, Result
+from ....domain.port.message import AlertPayload, MessageGateway, Result
 from ....domain.service.scope import profile
 from ....domain.value.content import Payload
-from ....presentation.telegram.lexicon import lexeme
 from ....domain.value.message import Scope
 from ....domain.log.code import LogCode
 
@@ -50,11 +49,11 @@ class TelegramGateway(MessageGateway):
         runner = DeleteBatch(bot=self._bot, chunk=self._chunk)
         await runner.run(scope, identifiers)
 
-    async def alert(self, scope: Scope) -> None:
+    async def alert(self, scope: Scope, payload: AlertPayload) -> None:
         if not scope.inline:
             kwargs = targets(scope)
             await self._bot.send_message(
-                text=lexeme("prev_not_found", scope.lang or "en"),
+                text=payload.text,
                 **kwargs,
             )
             jlog(
