@@ -29,10 +29,21 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
     try:
         if payload.group:
             extras = serializer.scrub(scope, payload.extra, editing=False)
+            effect = None
+            if extras is not None:
+                effect = extras.pop("message_effect_id", None)
+                if not extras:
+                    extras = None
             bundle = media.assemble(
                 payload.group, extra=extras, native=native, truncate=truncate
             )
             filtered = screen(bot.send_media_group, context)
+            if effect is not None:
+                screened_effect = screen(
+                    bot.send_media_group, {"message_effect_id": effect}
+                )
+                if screened_effect:
+                    filtered = {**filtered, **screened_effect}
             messages = await invoke(bot.send_media_group, media=bundle, **filtered)
             items = []
             for message in messages:
