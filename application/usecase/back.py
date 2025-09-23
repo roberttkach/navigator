@@ -69,23 +69,6 @@ class Rewinder:
                 inline=True,
             )
 
-        from ..internal import policy as _pol
-        if inline and _pol.InlineTailDelete and getattr(scope, "business", None):
-            targets = []
-            for message in origin.messages[1:]:
-                targets.append(message.id)
-                targets.extend(list(getattr(message, "extras", []) or []))
-            if targets:
-                sample = targets[:20]
-                jlog(
-                    logger,
-                    logging.DEBUG,
-                    LogCode.INLINE_TAIL_DELETE_IDS,
-                    ids=sample,
-                    total=len(targets),
-                )
-                await self._gateway.delete(scope, targets)
-
         if not render or not render.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="back")
             await self._status.assign(target.state)

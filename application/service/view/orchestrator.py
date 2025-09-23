@@ -5,7 +5,6 @@ from typing import Optional, List, Any
 
 from ..view.inline import InlineStrategy
 from .policy import adapt
-from ...internal import policy as _pol
 from ...internal.policy import shield
 from ...log.decorators import trace
 from ...log.emit import jlog
@@ -171,7 +170,7 @@ class ViewOrchestrator:
             def _media(message):
                 return bool(getattr(message, "media", None))
 
-            if _pol.ImplicitCaption and (verdict is decision.Decision.DELETE_SEND) and (not scope.inline):
+            if (verdict is decision.Decision.DELETE_SEND) and (not scope.inline):
                 stem2 = _head(last)
                 if stem2 and _media(stem2) and (payload.text is not None) and (
                         not payload.media) and (not payload.group):
@@ -223,25 +222,17 @@ class ViewOrchestrator:
                 return None
         except EmptyPayload:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="empty_payload", skip=True)
-            if _pol.StrictAbort:
-                raise
             return None
         except ExtraForbidden:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="extra_validation_failed", skip=True)
-            if _pol.StrictAbort:
-                raise
             return None
         except (TextOverflow, CaptionOverflow):
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="too_long", skip=True)
-            if _pol.StrictAbort:
-                raise
             return None
         except EditForbidden:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="edit_forbidden")
             if scope.inline:
                 jlog(logger, logging.INFO, LogCode.RERENDER_INLINE_NO_FALLBACK, note="inline_no_fallback", skip=True)
-                return None
-            if not _pol.ResendOnBan:
                 return None
             stem = self._head(last)
             fallback = await _fallback(stem)
@@ -251,11 +242,7 @@ class ViewOrchestrator:
             if scope.inline:
                 jlog(logger, logging.INFO, LogCode.RERENDER_INLINE_NO_FALLBACK, note="inline_no_fallback", skip=True)
                 return None
-            if not _pol.ResendOnIdle:
-                return None
-            stem = self._head(last)
-            fallback = await _fallback(stem)
-            return fallback
+            return None
 
         stem = self._head(last)
         return _compose(result, stem)

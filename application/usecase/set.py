@@ -84,23 +84,6 @@ class Setter:
                 inline=True,
             )
         if render and render.changed:
-            from ..internal import policy as _pol
-            if inline and _pol.InlineTailDelete and getattr(scope, "business", None):
-                targets = []
-                for message in tail.messages[1:]:
-                    targets.append(message.id)
-                    targets.extend(list(getattr(message, "extras", []) or []))
-                if targets:
-                    sample = targets[:20]
-                    jlog(
-                        logger,
-                        logging.DEBUG,
-                        LogCode.INLINE_TAIL_DELETE_IDS,
-                        ids=sample,
-                        total=len(targets),
-                    )
-                    await self._gateway.delete(scope, targets)
-
             current = await self._ledger.recall()
             if current:
                 tail = current[-1]

@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, List
 
-from ..internal.policy import TailPrune, prime
+from ..internal.policy import prime
 from ..internal.rules.inline import remap as _inline
 from ..log.emit import jlog
 from ..service.view.orchestrator import ViewOrchestrator
@@ -40,30 +40,20 @@ class Tailer:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="last.delete", note="no_history")
             return
         if scope.inline and not scope.business:
-            if TailPrune:
-                trimmed = history[:-1]
-                await self._ledger.archive(trimmed)
-                jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.delete", history={"len": len(trimmed)})
-                marker = None
-                if trimmed and trimmed[-1].messages:
-                    marker = int(trimmed[-1].messages[0].id)
-                await self._latest.mark(marker)
-                jlog(
-                    logger,
-                    logging.INFO,
-                    LogCode.LAST_SET if marker is not None else LogCode.LAST_DELETE,
-                    op="last.delete",
-                    message={"id": marker},
-                )
-            else:
-                jlog(
-                    logger,
-                    logging.INFO,
-                    LogCode.RENDER_SKIP,
-                    op="last.delete",
-                    scope={"chat": scope.chat, "inline": True},
-                    note="inline_noop",
-                )
+            trimmed = history[:-1]
+            await self._ledger.archive(trimmed)
+            jlog(logger, logging.DEBUG, LogCode.HISTORY_SAVE, op="last.delete", history={"len": len(trimmed)})
+            marker = None
+            if trimmed and trimmed[-1].messages:
+                marker = int(trimmed[-1].messages[0].id)
+            await self._latest.mark(marker)
+            jlog(
+                logger,
+                logging.INFO,
+                LogCode.LAST_SET if marker is not None else LogCode.LAST_DELETE,
+                op="last.delete",
+                message={"id": marker},
+            )
             return
         tail = history[-1]
         ids: List[int] = []
