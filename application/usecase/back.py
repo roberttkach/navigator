@@ -56,7 +56,6 @@ class Rewinder:
         resolved = [normalize(p) for p in restored]
         if not inline:
             render = await self._orchestrator.render(
-                "back",
                 scope,
                 resolved,
                 origin,
@@ -64,7 +63,6 @@ class Rewinder:
             )
         else:
             render = await self._orchestrator.render(
-                "back",
                 scope,
                 resolved,
                 origin,

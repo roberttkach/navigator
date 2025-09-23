@@ -262,7 +262,6 @@ class ViewOrchestrator:
 
     async def render(
             self,
-            operation: str,
             scope: Scope,
             payloads: List[Payload],
             trail: Optional[Entry],
