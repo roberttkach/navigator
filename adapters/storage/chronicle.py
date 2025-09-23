@@ -225,17 +225,6 @@ class Chronicle:
                     )
                     raise ValueError(f"History message payload has invalid 'id': {raw_id!r}")
 
-                if "inline_id" in record:
-                    inline_id = record.get("inline_id")
-                    jlog(
-                        logger,
-                        logging.ERROR,
-                        LogCode.HISTORY_LOAD,
-                        note="history_message_unsupported_inline_id",
-                        raw=inline_id,
-                    )
-                    raise ValueError("History message payload uses unsupported 'inline_id' field")
-
                 extras_raw = record.get("extras") or []
                 extras: List[int] = []
                 for value in extras_raw:

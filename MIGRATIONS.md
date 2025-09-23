@@ -10,9 +10,9 @@ One approach is to load the stored JSON, replace `message["extras"] = [int(v)
 for v in message["extras"]]`, and save the updated payload back to your FSM
 storage.
 
-## Chronicle inline snapshot migration
+## Chronicle inline snapshot compatibility
 
-Snapshots that still use the legacy `inline_id` field for messages are no longer
-accepted during history loading. Update those snapshots by moving the stored
-value to the supported `inline` field (or dropping it entirely if not needed)
-before deploying this version.
+Snapshots that still use the legacy `inline_id` field for messages remain
+loadable. The chronicle loader ignores unknown fields such as `inline_id`, so
+no migration is required, although you may still drop that key from stored
+snapshots if it is not needed.
