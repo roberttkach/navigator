@@ -6,7 +6,6 @@ from typing import Optional, Dict, Any, List
 from ...log.emit import jlog
 from ....domain.entity.history import Entry
 from ....domain.port.factory import ViewLedger
-from ....domain.port.markup import MarkupCodec
 from ....domain.value.content import Payload
 from ....domain.log.code import LogCode
 
@@ -14,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class ViewRestorer:
-    def __init__(self, codec: MarkupCodec, ledger: ViewLedger):
-        self._codec = codec
+    def __init__(self, ledger: ViewLedger):
         self._ledger = ledger
 
     async def revive(self, entry: Entry, context: Dict[str, Any], *, inline: bool) -> List[Payload]:

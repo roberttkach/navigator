@@ -57,9 +57,7 @@ class AppContainer(containers.DeclarativeContainer):
         inline=strategy,
         rendering=rendering,
     )
-    restorer = providers.Factory(
-        ViewRestorer, codec=codec, ledger=ledger
-    )
+    restorer = providers.Factory(ViewRestorer, ledger=ledger)
 
     appender = providers.Factory(
         Appender,
