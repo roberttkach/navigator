@@ -8,6 +8,7 @@ from ....domain.entity.history import Entry
 from ....domain.port.factory import ViewLedger
 from ....domain.value.content import Payload
 from ....domain.log.code import LogCode
+from ....domain.error import InlineUnsupported
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +24,7 @@ class ViewRestorer:
             if content:
                 if isinstance(content, list):
                     if inline and len(content) > 1:
-                        jlog(
-                            logger,
-                            logging.WARNING,
-                            LogCode.RESTORE_DYNAMIC_FALLBACK,
-                            forge=entry.view,
-                            note="inline_multi_payload_trimmed",
-                            count=len(content),
-                        )
-                        return [content[0]]
+                        raise InlineUnsupported("inline_dynamic_multi_payload")
                     return content
                 return [content]
         return [self._static(m) for m in entry.messages]

@@ -6,9 +6,12 @@ from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway import delete as delete_module
 from navigator.adapters.telegram.gateway.delete import DeleteBatch
+from navigator.application.service.view.restorer import ViewRestorer
 from navigator.application.usecase.alarm import Alarm
 from navigator.application.usecase.set import Setter
-from navigator.domain.error import StateNotFound
+from navigator.domain.entity.history import Entry
+from navigator.domain.error import InlineUnsupported, StateNotFound
+from navigator.domain.value.content import Payload
 from navigator.domain.value.message import Scope
 from navigator.presentation.alerts import prev_not_found
 from navigator.presentation.navigator import Navigator
@@ -73,6 +76,85 @@ def digest_setter_raises_when_history_missing() -> None:
     gateway.alert.assert_not_awaited()
     ledger.archive.assert_not_awaited()
     orchestrator.render.assert_not_awaited()
+
+
+def digest_view_restorer_inline_dynamic_factory_rejects_multi_payload() -> None:
+    async def forge():
+        return [Payload(text="one"), Payload(text="two")]
+
+    class Ledger:
+        def __init__(self):
+            self._mapping = {"dynamic": forge}
+
+        def get(self, key: str):
+            if key not in self._mapping:
+                raise KeyError(key)
+            return self._mapping[key]
+
+    entry = Entry(state="alpha", view="dynamic", messages=[])
+    restorer = ViewRestorer(ledger=Ledger())
+
+    try:
+        asyncio.run(restorer.revive(entry, {}, inline=True))
+    except InlineUnsupported as error:
+        assert str(error) == "inline_dynamic_multi_payload"
+    else:
+        raise AssertionError("InlineUnsupported was not raised")
+
+
+def digest_view_restorer_dynamic_factory_allows_multi_payload_outside_inline() -> None:
+    async def forge():
+        return [Payload(text="one"), Payload(text="two")]
+
+    class Ledger:
+        def __init__(self):
+            self._mapping = {"dynamic": forge}
+
+        def get(self, key: str):
+            if key not in self._mapping:
+                raise KeyError(key)
+            return self._mapping[key]
+
+    entry = Entry(state="alpha", view="dynamic", messages=[])
+    restorer = ViewRestorer(ledger=Ledger())
+
+    restored = asyncio.run(restorer.revive(entry, {}, inline=False))
+
+    assert [payload.text for payload in restored] == ["one", "two"]
+
+
+def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
+    scope = Scope(chat=5, lang="ru", inline="token")
+    target = Entry(state="target", view="dynamic", messages=[])
+    tail = Entry(state="tail", view=None, messages=[])
+    ledger = SimpleNamespace(recall=AsyncMock(return_value=[target, tail]), archive=AsyncMock())
+    status = SimpleNamespace(assign=AsyncMock(), payload=AsyncMock(return_value={}))
+    gateway = Mock()
+    gateway.alert = AsyncMock()
+    restorer = SimpleNamespace(
+        revive=AsyncMock(side_effect=InlineUnsupported("inline_dynamic_multi_payload"))
+    )
+    orchestrator = SimpleNamespace(render=AsyncMock())
+    latest = SimpleNamespace(mark=AsyncMock())
+
+    setter = Setter(
+        ledger=ledger,
+        status=status,
+        gateway=gateway,
+        restorer=restorer,
+        orchestrator=orchestrator,
+        latest=latest,
+    )
+
+    try:
+        asyncio.run(setter.execute(scope, goal="target", context={}))
+    except InlineUnsupported as error:
+        assert str(error) == "inline_dynamic_multi_payload"
+    else:
+        raise AssertionError("InlineUnsupported was not raised")
+
+    orchestrator.render.assert_not_awaited()
+    latest.mark.assert_not_awaited()
 
 
 def digest_navigator_set_triggers_alarm_on_missing_state() -> None:
