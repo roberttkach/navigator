@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, Final
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery
 
 from ..navigator import Navigator
 from ...application.log.emit import jlog
@@ -46,21 +46,3 @@ async def retreat(cb: CallbackQuery, navigator: Navigator, **data: Dict[str, Any
         await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
 
 
-BACK_TEXTS: Final = {lexeme("back", "ru"), lexeme("back", "en")}
-
-
-@router.message(F.func(lambda m: getattr(m, "text", None) in BACK_TEXTS))
-async def recall(message: Message, navigator: Navigator, **data: Dict[str, Any]) -> None:
-    try:
-        jlog(logger, logging.INFO, LogCode.ROUTER_BACK_ENTER, kind="text",
-             scope={"chat": message.chat.id, "inline": False})
-        context = {**data, "event": message}
-        await navigator.back(context=context)
-        jlog(logger, logging.INFO, LogCode.ROUTER_BACK_DONE, kind="text",
-             scope={"chat": message.chat.id, "inline": False})
-    except HistoryEmpty:
-        jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="text", note="history_empty")
-        await navigator.alert()
-    except Exception:
-        jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="text", note="generic")
-        await navigator.alert()

@@ -6,7 +6,7 @@
 - Prefer short, precise terms that preserve intent.
 
 ## Completed Adjustments
-- Telegram router handlers now expose the callback handler as `retreat` and the text handler as `recall`, with `_tongue` providing locale detection.
+- Telegram router now handles back navigation exclusively through the `retreat` callback button, with `_tongue` providing locale detection for the responses.
 - Telegram scope builder renamed to `outline`, imported through the composition root as `forge`.
 - Navigator tail helper now relies on `_tailer` and uses `identifier`/`status` for clarity when referencing message identifiers and state values.
 - Domain storage contracts now use single-word verbs: history repositories `recall`/`archive`, state repositories `status`/`assign`/`payload`, last message repositories `peek`/`mark`, and temporary repositories `collect`/`stash`.
