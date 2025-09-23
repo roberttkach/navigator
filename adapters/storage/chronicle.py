@@ -184,19 +184,6 @@ class Chronicle:
                 if not isinstance(record, Dict):
                     continue
 
-                if "inline_id" in record:
-                    jlog(
-                        logger,
-                        logging.ERROR,
-                        LogCode.HISTORY_LOAD,
-                        note="history_message_legacy_inline_id",
-                        raw=record.get("inline_id"),
-                    )
-                    raise ValueError(
-                        "History message payload uses legacy 'inline_id'. "
-                        "Please migrate stored snapshots to the 'inline' field."
-                    )
-
                 if "automated" not in record:
                     jlog(
                         logger,
