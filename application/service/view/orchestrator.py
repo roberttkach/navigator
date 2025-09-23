@@ -260,6 +260,23 @@ class ViewOrchestrator:
         stem = self._head(last)
         return _compose(result, stem)
 
+    async def swap_inline(
+            self,
+            scope: Scope,
+            payload: Payload,
+            tail: Optional[Entry | Message],
+    ) -> Optional[RenderResult]:
+        head = self._head(tail)
+        if head is None:
+            return None
+        return await self._inline.handle(
+            scope=scope,
+            payload=payload,
+            tail=head,
+            swap=self.swap,
+            config=self._rendering,
+        )
+
     async def render(
             self,
             scope: Scope,
@@ -451,13 +468,7 @@ class ViewOrchestrator:
                     decision.Decision.EDIT_MARKUP,
             ):
                 if inline:
-                    result = await self._inline.handle(
-                        scope=scope,
-                        payload=current,
-                        tail=previous,
-                        swap=self.swap,
-                        config=self._rendering,
-                    )
+                    result = await self.swap_inline(scope, current, previous)
                     primary.append(result.id if result else previous.id)
                     bundles.append(list(result.extra if result else getattr(previous, "extras", []) or []))
                     record = dict(result.meta) if result else _meta(previous)
@@ -495,13 +506,7 @@ class ViewOrchestrator:
                 continue
             if verdict == decision.Decision.DELETE_SEND:
                 if inline:
-                    result = await self._inline.handle(
-                        scope=scope,
-                        payload=current,
-                        tail=previous,
-                        swap=self.swap,
-                        config=self._rendering,
-                    )
+                    result = await self.swap_inline(scope, current, previous)
                     primary.append(result.id if result else previous.id)
                     bundles.append(list(result.extra if result else getattr(previous, "extras", []) or []))
                     record = dict(result.meta) if result else _meta(previous)

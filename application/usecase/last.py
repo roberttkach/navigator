@@ -151,13 +151,7 @@ class Tailer:
                 decision.Decision.EDIT_MARKUP,
         ):
             head = base.messages[0] if base and base.messages else None
-            result = await self._orchestrator._inline.handle(
-                scope=scope,
-                payload=normal,
-                tail=head,
-                swap=self._orchestrator.swap,
-                config=self._orchestrator.rendering,
-            )
+            result = await self._orchestrator.swap_inline(scope, normal, head)
         else:
             result = await self._orchestrator.swap(scope, normal, base, choice)
 
