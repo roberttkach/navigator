@@ -5,7 +5,7 @@ from typing import Optional, List, Any
 
 from ..view.inline import InlineStrategy
 from .policy import adapt
-from ...internal.policy import shield
+from ...internal.policy import shield, validate_inline
 from ...log.decorators import trace
 from ...log.emit import jlog
 from ....domain.entity.history import Entry, Message
@@ -16,7 +16,7 @@ from ....domain.port.message import MessageGateway, Result
 from ....domain.service.rendering import decision
 from ....domain.service.rendering.config import RenderingConfig
 from ....domain.service.rendering.album import aligned
-from ....domain.service.rendering.helpers import classify, match
+from ....domain.service.rendering.helpers import match
 from ....domain.util.path import remote, local
 from ....domain.value.content import Payload
 from ....domain.value.message import Scope
@@ -271,24 +271,9 @@ class ViewOrchestrator:
             trail: Optional[Entry],
             inline: bool,
     ) -> Optional[RenderNode]:
-        fresh = [adapt(scope, p) for p in payloads]
         if inline:
-            limit = len(fresh)
-            if limit > 1:
-                dropped = [classify(p) for p in fresh[1:]]
-                jlog(
-                    logger,
-                    logging.INFO,
-                    LogCode.INLINE_DROP_EXTRA,
-                    count_dropped=limit - 1,
-                    dropped=dropped,
-                )
-            fresh = fresh[:1]
-            if fresh:
-                head = fresh[0]
-                if getattr(head, "group", None):
-                    first = head.group[0]
-                    fresh[0] = head.morph(media=first, group=None)
+            validate_inline(scope, payloads, inline=True)
+        fresh = [adapt(scope, p) for p in payloads]
 
         def _meta(node: Message) -> dict:
             if node.group:

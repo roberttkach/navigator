@@ -6,11 +6,15 @@ from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway import delete as delete_module
 from navigator.adapters.telegram.gateway.delete import DeleteBatch
+from navigator.application.service.view.orchestrator import ViewOrchestrator
 from navigator.application.service.view.restorer import ViewRestorer
 from navigator.application.usecase.alarm import Alarm
+from navigator.application.usecase.last import Tailer
 from navigator.application.usecase.set import Setter
 from navigator.domain.entity.history import Entry
+from navigator.domain.entity.media import MediaItem, MediaType
 from navigator.domain.error import InlineUnsupported, StateNotFound
+from navigator.domain.service.rendering.config import RenderingConfig
 from navigator.domain.value.content import Payload
 from navigator.domain.value.message import Scope
 from navigator.presentation.alerts import prev_not_found
@@ -155,6 +159,100 @@ def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
 
     orchestrator.render.assert_not_awaited()
     latest.mark.assert_not_awaited()
+
+
+def digest_view_orchestrator_inline_rejects_multi_payload() -> None:
+    scope = Scope(chat=7, lang="en", inline="token")
+    gateway = SimpleNamespace(
+        send=AsyncMock(),
+        rewrite=AsyncMock(),
+        recast=AsyncMock(),
+        retitle=AsyncMock(),
+        remap=AsyncMock(),
+        delete=AsyncMock(),
+    )
+    orchestrator = ViewOrchestrator(
+        gateway=gateway,
+        inline=SimpleNamespace(handle=AsyncMock()),
+        rendering=RenderingConfig(),
+    )
+
+    try:
+        asyncio.run(
+            orchestrator.render(
+                scope,
+                [Payload(text="one"), Payload(text="two")],
+                trail=None,
+                inline=True,
+            )
+        )
+    except InlineUnsupported as error:
+        assert str(error) == "Inline message does not support multi-message nodes"
+    else:
+        raise AssertionError("InlineUnsupported was not raised")
+
+
+def digest_view_orchestrator_inline_rejects_media_group() -> None:
+    scope = Scope(chat=8, lang="en", inline="token")
+    gateway = SimpleNamespace(
+        send=AsyncMock(),
+        rewrite=AsyncMock(),
+        recast=AsyncMock(),
+        retitle=AsyncMock(),
+        remap=AsyncMock(),
+        delete=AsyncMock(),
+    )
+    orchestrator = ViewOrchestrator(
+        gateway=gateway,
+        inline=SimpleNamespace(handle=AsyncMock()),
+        rendering=RenderingConfig(),
+    )
+    album = [
+        MediaItem(type=MediaType.PHOTO, path="file-a", caption="a"),
+        MediaItem(type=MediaType.PHOTO, path="file-b", caption="b"),
+    ]
+
+    try:
+        asyncio.run(
+            orchestrator.render(
+                scope,
+                [Payload(group=album)],
+                trail=None,
+                inline=True,
+            )
+        )
+    except InlineUnsupported as error:
+        assert str(error) == "Inline message does not support media groups"
+    else:
+        raise AssertionError("InlineUnsupported was not raised")
+
+
+def digest_tailer_inline_edit_rejects_media_group() -> None:
+    scope = Scope(chat=9, lang="en", inline="token")
+    latest = SimpleNamespace(peek=AsyncMock(return_value=100), mark=AsyncMock())
+    ledger = SimpleNamespace(recall=AsyncMock(), archive=AsyncMock())
+    gateway = SimpleNamespace(delete=AsyncMock())
+    orchestrator = SimpleNamespace(
+        rendering=RenderingConfig(),
+        inline=AsyncMock(),
+        swap=AsyncMock(),
+    )
+    tailer = Tailer(latest=latest, ledger=ledger, gateway=gateway, orchestrator=orchestrator)
+    payload = Payload(
+        group=[
+            MediaItem(type=MediaType.PHOTO, path="file-x"),
+            MediaItem(type=MediaType.PHOTO, path="file-y"),
+        ]
+    )
+
+    try:
+        asyncio.run(tailer.edit(scope, payload))
+    except InlineUnsupported as error:
+        assert str(error) == "Inline message does not support media groups"
+    else:
+        raise AssertionError("InlineUnsupported was not raised")
+
+    ledger.recall.assert_not_awaited()
 
 
 def digest_navigator_set_triggers_alarm_on_missing_state() -> None:
