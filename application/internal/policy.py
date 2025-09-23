@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import Literal
 
 from ...domain.entity.history import Entry, Message
 from ...domain.entity.media import MediaItem
@@ -51,7 +50,7 @@ def shield(scope, payload):
 
 TailPrune: bool = True
 
-TailMode: Literal["keep", "delete", "collapse"] = "keep"
+InlineTailDelete: bool = False
 
 ResendOnBan: bool = True
 

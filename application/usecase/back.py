@@ -70,7 +70,7 @@ class Rewinder:
             )
 
         from ..internal import policy as _pol
-        if inline and _pol.TailMode in ("delete", "collapse") and getattr(scope, "business", None):
+        if inline and _pol.InlineTailDelete and getattr(scope, "business", None):
             targets = []
             for message in origin.messages[1:]:
                 targets.append(message.id)
