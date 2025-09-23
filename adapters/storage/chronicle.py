@@ -231,9 +231,7 @@ class Chronicle:
                 extras_raw = record.get("extras") or []
                 extras: List[int] = []
                 for value in extras_raw:
-                    try:
-                        extras.append(int(value))
-                    except (TypeError, ValueError):
+                    if not isinstance(value, int):
                         jlog(
                             logger,
                             logging.ERROR,
@@ -242,8 +240,10 @@ class Chronicle:
                             raw=value,
                         )
                         raise ValueError(
-                            f"History message payload has invalid 'extras' entry: {value!r}"
+                            "History message payload has non-integer 'extras' entry: "
+                            f"{value!r} (type {type(value).__name__})"
                         )
+                    extras.append(value)
 
                 messages.append(
                     Message(

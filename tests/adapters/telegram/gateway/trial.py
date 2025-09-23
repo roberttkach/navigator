@@ -23,7 +23,7 @@ def _chronicle_message_payload(**overrides):
         "markup": None,
         "preview": None,
         "extra": None,
-        "extras": [202, "303"],
+        "extras": [202, 303],
         "inline": None,
         "automated": True,
         "ts": datetime.now(timezone.utc).isoformat(),
@@ -80,7 +80,7 @@ def extract():
 
     chronicle = Chronicle(state=None)
 
-    with pytest.raises(ValueError, match="invalid 'extras' entry"):
+    with pytest.raises(ValueError, match="non-integer 'extras' entry"):
         chronicle._load(
             _chronicle_entry_payload(_chronicle_message_payload(extras=[1, "oops"]))
         )
