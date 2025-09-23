@@ -41,7 +41,10 @@ class Swapper:
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, op="replace", history={"len": len(records)})
         trail = records[-1] if records else None
         render = await self._orchestrator.render(
-            "replace", scope, adjusted, trail, inline=bool(scope.inline)
+            scope,
+            adjusted,
+            trail,
+            inline=bool(scope.inline),
         )
         if not render or not render.ids or not render.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="replace")

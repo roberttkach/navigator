@@ -78,7 +78,6 @@ class Setter:
         resolved = [normalize(p) for p in restored]
         if not inline:
             render = await self._orchestrator.render(
-                "set",
                 scope,
                 resolved,
                 tail,
@@ -86,7 +85,6 @@ class Setter:
             )
         else:
             render = await self._orchestrator.render(
-                "set",
                 scope,
                 resolved,
                 tail,

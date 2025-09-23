@@ -54,7 +54,12 @@ class Appender:
             scope=profile(scope),
         )
         trail = records[-1] if records else None
-        render = await self._orchestrator.render("add", scope, adjusted, trail, inline=bool(scope.inline))
+        render = await self._orchestrator.render(
+            scope,
+            adjusted,
+            trail,
+            inline=bool(scope.inline),
+        )
         if not render or not render.ids or not render.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="add")
             return
