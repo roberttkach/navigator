@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, List
 
-from ..internal.policy import prime
+from ..internal.policy import prime, validate_inline
 from ..internal.rules.inline import remap as _inline
 from ..log.emit import jlog
 from ..service.view.orchestrator import ViewOrchestrator
@@ -80,9 +80,7 @@ class Tailer:
             return None
 
         normal = normalize(payload)
-        if scope.inline and getattr(normal, "group", None):
-            first = normal.group[0]
-            normal = normal.morph(media=first, group=None)
+        validate_inline(scope, [normal])
 
         history = await self._ledger.recall()
         anchor = None

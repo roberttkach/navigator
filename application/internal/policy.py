@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Iterable
 
 from ...domain.entity.history import Entry, Message
 from ...domain.entity.media import MediaItem
@@ -6,6 +7,7 @@ from ...domain.service.history.extra import cleanse
 from ...domain.value.content import Payload, caption
 
 SHIELD_MESSAGE = "Inline message does not support media groups"
+SHIELD_NODE_MESSAGE = "Inline message does not support multi-message nodes"
 
 
 def prime(id: int, payload: Payload) -> Entry:
@@ -42,7 +44,36 @@ def prime(id: int, payload: Payload) -> Entry:
     )
 
 
-def shield(scope, payload):
-    if getattr(scope, "inline", None) and getattr(payload, "group", None):
+def _materialize(payloads: Payload | Iterable[Payload] | None) -> list[Payload]:
+    if payloads is None:
+        return []
+    if isinstance(payloads, Payload):
+        return [payloads]
+    if isinstance(payloads, Iterable):
+        return [item for item in payloads if item is not None]
+    raise TypeError("payloads must be Payload or iterable of Payload")
+
+
+def validate_inline(
+        scope,
+        payloads: Payload | Iterable[Payload] | None,
+        *,
+        inline: bool | None = None,
+) -> None:
+    active = inline if inline is not None else bool(getattr(scope, "inline", None))
+    if not active:
+        return
+
+    samples = _materialize(payloads)
+    if len(samples) > 1:
         from ...domain.error import InlineUnsupported
-        raise InlineUnsupported(SHIELD_MESSAGE)
+        raise InlineUnsupported(SHIELD_NODE_MESSAGE)
+
+    for sample in samples:
+        if getattr(sample, "group", None):
+            from ...domain.error import InlineUnsupported
+            raise InlineUnsupported(SHIELD_MESSAGE)
+
+
+def shield(scope, payload):
+    validate_inline(scope, payload)
