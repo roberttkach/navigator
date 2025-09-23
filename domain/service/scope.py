@@ -5,6 +5,8 @@ from ..value.message import Scope
 
 def profile(s: Scope) -> Dict[str, Any]:
     data: Dict[str, Any] = {"chat": s.chat, "inline": bool(s.inline), "category": s.category}
+    if s.thread is not None:
+        data["thread"] = s.thread
     if s.topic is not None:
         data["topic"] = s.topic
     return data
