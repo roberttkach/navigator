@@ -1,6 +1,6 @@
 from dependency_injector import containers, providers
 
-from ...adapters.aiogram.types import FSMContext
+from aiogram.fsm.context import FSMContext
 from ...adapters.storage.chronicle import Chronicle
 from ...adapters.storage.latest import Latest
 from ...adapters.storage.status import Status
