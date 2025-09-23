@@ -5,7 +5,7 @@ from ...entity.media import MediaItem, MediaType
 from ...error import NavigatorError
 
 
-class MediaGroupInvalid(NavigatorError):
+class AlbumInvalid(NavigatorError):
     def __init__(
             self,
             *,
@@ -43,7 +43,7 @@ def _audit(items: Optional[List[MediaItem]]) -> List[str]:
 def validate(items: List[MediaItem]) -> None:
     issues = _audit(items)
     if issues:
-        raise MediaGroupInvalid(
+        raise AlbumInvalid(
             empty="empty" in issues,
             limit="limit" in issues,
             forbidden="forbidden" in issues,

@@ -10,7 +10,7 @@ from .. import media
 from .. import serializer
 from ..screen import screen
 from ....domain.constants import CaptionLimit, TextLimit
-from ....domain.error import EmptyPayload, MessageEditForbidden, TextTooLong, CaptionTooLong
+from ....domain.error import EmptyPayload, EditForbidden, TextOverflow, CaptionOverflow
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
 from ....domain.port.message import Result
@@ -39,11 +39,11 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
             )
             filtered = screen(bot.send_media_group, context)
             if effect is not None:
-                screened_effect = screen(
+                addition = screen(
                     bot.send_media_group, {"message_effect_id": effect}
                 )
-                if screened_effect:
-                    filtered = {**filtered, **screened_effect}
+                if addition:
+                    filtered = {**filtered, **addition}
             messages = await invoke(bot.send_media_group, media=bundle, **filtered)
             items = []
             for message in messages:
@@ -74,7 +74,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
         if payload.media:
             try:
                 medium = media.convert(payload.media, native=native)
-            except MessageEditForbidden:
+            except EditForbidden:
                 jlog(
                     logger,
                     logging.WARNING,
@@ -91,7 +91,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                     caption = caption[:CaptionLimit]
                     jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.caption")
                 else:
-                    raise CaptionTooLong()
+                    raise CaptionOverflow()
             extras = serializer.scrub(scope, payload.extra, editing=False)
             bundle = serializer.divide(extras)
             length = len(caption) if caption is not None else 0
@@ -172,7 +172,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
                     text = text[:TextLimit]
                     jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.text")
                 else:
-                    raise TextTooLong()
+                    raise TextOverflow()
             extras = serializer.scrub(scope, payload.extra, editing=False)
             message = await invoke(
                 bot.send_message,
@@ -197,7 +197,7 @@ async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: 
         )
         meta = extract(message, payload, scope)
         return Result(id=message.message_id, extra=[], **meta)
-    except MessageEditForbidden:
+    except EditForbidden:
         raise
     except Exception as e:
         note = getattr(e, "message", None) or str(e)
