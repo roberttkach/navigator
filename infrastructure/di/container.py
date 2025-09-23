@@ -46,7 +46,6 @@ class AppContainer(containers.DeclarativeContainer):
     mapper = providers.Factory(EntryMapper, ledger=ledger)
     strategy = providers.Factory(
         InlineStrategy,
-        gateway=gateway,
         probe=weblink,
         strictpath=providers.Object(SETTINGS.strictpath),
     )

@@ -20,8 +20,7 @@ def _canon(d):
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-=]{20,}$")
 
 class InlineStrategy:
-    def __init__(self, gateway, probe, strictpath):
-        self._gateway = gateway
+    def __init__(self, probe, strictpath):
         self._probe = probe
         self._logger = logging.getLogger(__name__)
         self._strictpath = strictpath
