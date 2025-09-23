@@ -5,13 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-_ROOT = Path(__file__).resolve().parents[4]
-_PARENT = _ROOT.parent
-for path in (_ROOT, _PARENT):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
-
-import sitecustomize  # noqa: F401
+_PROJECT_ROOT = Path(__file__).resolve().parents[4].parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from navigator.adapters.storage.chronicle import Chronicle
 from navigator.adapters.telegram.gateway import util as gateway
