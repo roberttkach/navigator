@@ -70,6 +70,16 @@ def digest():
     with pytest.raises(ValueError, match="invalid 'id'"):
         chronicle._load(_chronicle_entry_payload(_chronicle_message_payload(id="oops")))
 
+    with pytest.raises(ValueError, match="invalid 'ts'"):
+        chronicle._load(
+            _chronicle_entry_payload(_chronicle_message_payload(ts="bad timestamp"))
+        )
+
+    with pytest.raises(ValueError, match="invalid 'ts'"):
+        chronicle._load(
+            _chronicle_entry_payload(_chronicle_message_payload(ts=None))
+        )
+
 
 def extract():
     scope = Scope(chat=123)

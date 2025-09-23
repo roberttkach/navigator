@@ -118,16 +118,26 @@ class TimeCodec:
                 if getattr(dt, "tzinfo", None):
                     return dt.astimezone(timezone.utc)
                 return dt.replace(tzinfo=timezone.utc)
-            except Exception:
-                pass
+            except Exception as exc:
+                jlog(
+                    logger,
+                    logging.ERROR,
+                    LogCode.HISTORY_LOAD,
+                    note="history_message_invalid_ts",
+                    raw=raw[:64],
+                )
+                raise ValueError(f"History message payload has invalid 'ts': {raw!r}") from exc
         jlog(
             logger,
-            logging.WARNING,
+            logging.ERROR,
             LogCode.HISTORY_LOAD,
-            note="ts_parse_failed_fallback_now",
+            note="history_message_invalid_ts",
             raw=(str(raw)[:64] if raw is not None else None),
         )
-        return datetime.now(timezone.utc)
+        raise ValueError(
+            "History message payload has invalid 'ts': "
+            f"{raw!r} (type {type(raw).__name__})"
+        )
 
 
 class Chronicle:
