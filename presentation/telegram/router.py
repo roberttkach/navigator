@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery
 
 from ..navigator import Navigator
 from ...application.log.emit import jlog
-from ...domain.error import HistoryEmpty, InlineUnsupported
+from ...domain.error import HistoryEmpty, InlineUnsupported, StateNotFound
 from .lexicon import lexeme
 from ...domain.log.code import LogCode
 
@@ -37,6 +37,9 @@ async def retreat(cb: CallbackQuery, navigator: Navigator, **data: Dict[str, Any
         await cb.answer()
     except HistoryEmpty:
         jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="history_empty")
+        await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
+    except StateNotFound:
+        jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="state_not_found")
         await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
     except InlineUnsupported:
         jlog(logger, logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="inline_unsupported")

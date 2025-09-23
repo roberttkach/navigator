@@ -12,7 +12,7 @@ from .util import targets
 from ....domain.error import InlineUnsupported
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
-from ....domain.port.message import AlertPayload, MessageGateway, Result
+from ....domain.port.message import MessageGateway, Result
 from ....domain.service.scope import profile
 from ....domain.value.content import Payload
 from ....domain.value.message import Scope
@@ -49,19 +49,20 @@ class TelegramGateway(MessageGateway):
         runner = DeleteBatch(bot=self._bot, chunk=self._chunk)
         await runner.run(scope, identifiers)
 
-    async def alert(self, scope: Scope, payload: AlertPayload) -> None:
-        if not scope.inline:
-            kwargs = targets(scope)
-            await self._bot.send_message(
-                text=payload.text,
-                **kwargs,
-            )
-            jlog(
-                logger,
-                logging.INFO,
-                LogCode.GATEWAY_NOTIFY_EMPTY,
-                scope=profile(scope),
-            )
+    async def alert(self, scope: Scope, text: str) -> None:
+        if scope.inline or not text:
+            return
+        kwargs = targets(scope)
+        await self._bot.send_message(
+            text=text,
+            **kwargs,
+        )
+        jlog(
+            logger,
+            logging.INFO,
+            LogCode.GATEWAY_NOTIFY_EMPTY,
+            scope=profile(scope),
+        )
 
 
 __all__ = ["TelegramGateway"]

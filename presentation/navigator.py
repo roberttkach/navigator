@@ -59,9 +59,11 @@ from ..application.usecase.pop import Trimmer
 from ..application.usecase.rebase import Shifter
 from ..application.usecase.replace import Swapper
 from ..application.usecase.set import Setter
+from ..domain.error import StateNotFound
 from ..domain.service.scope import profile
 from ..domain.value.message import Scope
 from ..domain.log.code import LogCode
+from .alerts import prev_not_found
 from .types import StateLike
 
 logger = logging.getLogger(__name__)
@@ -187,7 +189,10 @@ class Navigator:
         status = getattr(state, "state", state)
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=status)
         async with locks.guard(self._scope):
-            await self._setter.execute(self._scope, status, context or {})
+            try:
+                await self._setter.execute(self._scope, status, context or {})
+            except StateNotFound:
+                await self._alarm.execute(self._scope, text=prev_not_found(self._scope))
 
     async def pop(self, count: int = 1) -> None:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=profile(self._scope), count=count)
