@@ -8,7 +8,7 @@ from typing import ParamSpec, TypeVar
 
 from aiogram.exceptions import TelegramRetryAfter
 
-from ....domain.error import MessageEditForbidden, MessageNotChanged
+from ....domain.error import EditForbidden, MessageUnchanged
 from ....domain.log.code import LogCode
 from ....domain.log.emit import jlog
 from .patterns import EDIT_FORBIDDEN, NOT_MODIFIED
@@ -63,9 +63,9 @@ async def invoke(
             raw = getattr(error, "message", error)
             message = str(raw)
             if NOT_MODIFIED.matches(message):
-                raise MessageNotChanged() from error
+                raise MessageUnchanged() from error
             if EDIT_FORBIDDEN.matches(message):
-                raise MessageEditForbidden("gateway_edit_forbidden") from error
+                raise EditForbidden("gateway_edit_forbidden") from error
             if "aiogram" in type(error).__module__:
                 jlog(
                     logger,

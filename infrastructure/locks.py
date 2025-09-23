@@ -20,7 +20,7 @@ from ..application.locks import Latch, Locksmith, appoint
 logger = logging.getLogger(__name__)
 
 
-class _RedisLockAdapter:
+class _RedisLatch:
     """Adapter that exposes redis lock through the application lock protocol."""
 
     def __init__(
@@ -72,7 +72,7 @@ class RedisLocksmith(Locksmith):
 
     def latch(self, key: tuple[object, object | None]) -> Latch:
         name = f"nav:lock:{key[0]}:{key[1]}"
-        adapter = _RedisLockAdapter(self._redis, name, self._ttl, self._blocking)
+        adapter = _RedisLatch(self._redis, name, self._ttl, self._blocking)
         return Latch(lock=adapter)
 
 

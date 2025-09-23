@@ -12,7 +12,7 @@ Navigator API — ключевые контракты:
    - Визуальное удаление «хвоста» контролируется флагом InlineTailDelete (по умолчанию False).
 
 3) Inline-редакции без фоллбека:
-   - При MessageEditForbidden/NotChanged в inline не выполняется send+delete.
+   - При EditForbidden/MessageUnchanged в inline не выполняется send+delete.
    - Лог-маркер: RERENDER_INLINE_NO_FALLBACK.
 
 4) Inline: запрет смены типа контента:

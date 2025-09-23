@@ -19,9 +19,9 @@ from .screen import screen
 from .serializer import cleanse, divide
 from ...domain.constants import CaptionLimit
 from ...domain.entity.media import MediaItem, MediaType
-from ...domain.error import MessageEditForbidden, NavigatorError, CaptionTooLong
+from ...domain.error import EditForbidden, NavigatorError, CaptionOverflow
 from ...domain.log.emit import jlog
-from ...domain.service.rendering.album import MediaGroupInvalid, validate
+from ...domain.service.rendering.album import AlbumInvalid, validate
 from ...domain.util.path import local, remote
 from ...domain.log.code import LogCode
 
@@ -44,7 +44,7 @@ def adapt(x: object, *, native: bool) -> InputFile:
         return URLInputFile(s)
     if isinstance(s, str) and local(s):
         if not native:
-            raise MessageEditForbidden("inline_local_path_forbidden")
+            raise EditForbidden("inline_local_path_forbidden")
         return FSInputFile(s)
     return s
 
@@ -76,7 +76,7 @@ def compose(
     if not handler:
         jlog(logger, logging.WARNING, LogCode.MEDIA_UNSUPPORTED, kind=str(getattr(item.type, "value", None)))
         if item.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
-            raise MessageEditForbidden("edit_media_type_forbidden")
+            raise EditForbidden("edit_media_type_forbidden")
         raise ValueError(f"Unsupported media type for InputMedia: {item.type}")
     bundle = divide(extra)
     _screen(bundle["media"])
@@ -118,7 +118,7 @@ def compose(
         if truncate:
             caption = str(caption)[:CaptionLimit]
         else:
-            raise CaptionTooLong()
+            raise CaptionOverflow()
 
     mapping = screen(handler, mapping)
     arguments = {"media": convert(item, native=native), **mapping}
@@ -133,7 +133,7 @@ def assemble(items: List[MediaItem], extra: Dict[str, Any] | None = None, *, nat
     try:
         validate(items)
     except NavigatorError as e:
-        if isinstance(e, MediaGroupInvalid):
+        if isinstance(e, AlbumInvalid):
             jlog(
                 logger,
                 logging.WARNING,

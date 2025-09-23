@@ -8,7 +8,7 @@ from .. import media
 from .. import serializer
 from ..screen import screen
 from ....domain.constants import CaptionLimit, TextLimit
-from ....domain.error import MessageEditForbidden, EmptyPayload, TextTooLong, CaptionTooLong
+from ....domain.error import EditForbidden, EmptyPayload, TextOverflow, CaptionOverflow
 from ....domain.log.emit import jlog
 from ....domain.port.markup import MarkupCodec
 from ....domain.port.message import Result
@@ -30,12 +30,12 @@ async def rewrite(bot, codec: MarkupCodec, scope: Scope, message: int, payload, 
             raw = raw[:TextLimit]
             jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="rewrite")
         else:
-            raise TextTooLong()
+            raise TextOverflow()
     extras = serializer.scrub(scope, payload.extra, editing=True)
     cleaned = serializer.cleanse(
         extras, captioning=False, target=bot.edit_message_text, length=len(raw)
     )
-    target = _targets(scope, message, include_topic=False)
+    target = _targets(scope, message, topical=False)
     try:
         result = await invoke(
             bot.edit_message_text,
@@ -69,7 +69,7 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *
         medium = media.compose(
             payload.media, caption, extra=extras, native=native, truncate=truncate
         )
-    except MessageEditForbidden:
+    except EditForbidden:
         jlog(
             logger,
             logging.WARNING,
@@ -79,7 +79,7 @@ async def recast(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *
             note="inline_upload_forbidden",
         )
         raise
-    target = _targets(scope, message, include_topic=False)
+    target = _targets(scope, message, topical=False)
     try:
         result = await invoke(
             bot.edit_message_media,
@@ -109,13 +109,13 @@ async def retitle(bot, codec: MarkupCodec, scope: Scope, message: int, payload, 
     cleaned = serializer.cleanse(
         bundle["caption"], captioning=True, target=bot.edit_message_caption, length=length
     )
-    target = _targets(scope, message, include_topic=False)
+    target = _targets(scope, message, topical=False)
     if caption is not None and len(caption) > CaptionLimit:
         if truncate:
             caption = caption[:CaptionLimit]
             jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="retitle")
         else:
-            raise CaptionTooLong()
+            raise CaptionOverflow()
     try:
         arguments: Dict[str, Any] = {
             "reply_markup": markup(codec, payload.reply, edit=True),
@@ -156,7 +156,7 @@ async def retitle(bot, codec: MarkupCodec, scope: Scope, message: int, payload, 
 
 
 async def remap(bot, codec: MarkupCodec, scope: Scope, message: int, payload) -> Result:
-    target = _targets(scope, message, include_topic=False)
+    target = _targets(scope, message, topical=False)
     try:
         result = await invoke(
             bot.edit_message_reply_markup,

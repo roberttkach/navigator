@@ -212,22 +212,22 @@ class Chronicle:
                     )
                     raise ValueError("History message payload missing required 'id'")
 
-                raw_id = record.get("id")
+                raw = record.get("id")
                 try:
-                    message_id = int(raw_id)
+                    ident = int(raw)
                 except (TypeError, ValueError):
                     jlog(
                         logger,
                         logging.ERROR,
                         LogCode.HISTORY_LOAD,
                         note="history_message_invalid_id",
-                        raw=raw_id,
+                        raw=raw,
                     )
-                    raise ValueError(f"History message payload has invalid 'id': {raw_id!r}")
+                    raise ValueError(f"History message payload has invalid 'id': {raw!r}")
 
-                extras_raw = record.get("extras") or []
+                source = record.get("extras") or []
                 extras: List[int] = []
-                for value in extras_raw:
+                for value in source:
                     if not isinstance(value, int):
                         jlog(
                             logger,
@@ -244,7 +244,7 @@ class Chronicle:
 
                 messages.append(
                     Message(
-                        id=message_id,
+                        id=ident,
                         text=record.get("text"),
                         media=MediaCodec.unpack(record.get("media")),
                         group=GroupCodec.unpack(record.get("group")),

@@ -11,8 +11,8 @@ from ...log.decorators import trace
 from ...log.emit import jlog
 from ....domain.entity.history import Entry, Message
 from ....domain.entity.media import MediaItem
-from ....domain.error import ExtraKeyForbidden, TextTooLong, CaptionTooLong
-from ....domain.error import MessageNotChanged, MessageEditForbidden, EmptyPayload
+from ....domain.error import ExtraForbidden, TextOverflow, CaptionOverflow
+from ....domain.error import MessageUnchanged, EditForbidden, EmptyPayload
 from ....domain.port.message import MessageGateway, Result
 from ....domain.service.rendering import decision
 from ....domain.service.rendering.config import RenderingConfig
@@ -34,7 +34,7 @@ class RenderResult:
 
 
 @dataclass(frozen=True, slots=True)
-class RenderResultNode:
+class RenderNode:
     ids: List[int]
     extras: List[List[int]]
     metas: List[dict]
@@ -226,17 +226,17 @@ class ViewOrchestrator:
             if _pol.StrictAbort:
                 raise
             return None
-        except ExtraKeyForbidden:
+        except ExtraForbidden:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="extra_validation_failed", skip=True)
             if _pol.StrictAbort:
                 raise
             return None
-        except (TextTooLong, CaptionTooLong):
+        except (TextOverflow, CaptionOverflow):
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="too_long", skip=True)
             if _pol.StrictAbort:
                 raise
             return None
-        except MessageEditForbidden:
+        except EditForbidden:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="edit_forbidden")
             if scope.inline:
                 jlog(logger, logging.INFO, LogCode.RERENDER_INLINE_NO_FALLBACK, note="inline_no_fallback", skip=True)
@@ -246,7 +246,7 @@ class ViewOrchestrator:
             stem = self._head(last)
             fallback = await _fallback(stem)
             return fallback
-        except MessageNotChanged:
+        except MessageUnchanged:
             jlog(logger, logging.INFO, LogCode.RERENDER_START, note="not_modified")
             if scope.inline:
                 jlog(logger, logging.INFO, LogCode.RERENDER_INLINE_NO_FALLBACK, note="inline_no_fallback", skip=True)
@@ -260,7 +260,7 @@ class ViewOrchestrator:
         stem = self._head(last)
         return _compose(result, stem)
 
-    async def swap_inline(
+    async def inline(
             self,
             scope: Scope,
             payload: Payload,
@@ -283,7 +283,7 @@ class ViewOrchestrator:
             payloads: List[Payload],
             trail: Optional[Entry],
             inline: bool,
-    ) -> Optional[RenderResultNode]:
+    ) -> Optional[RenderNode]:
         fresh = [adapt(scope, p) for p in payloads]
         if inline:
             limit = len(fresh)
@@ -468,7 +468,7 @@ class ViewOrchestrator:
                     decision.Decision.EDIT_MARKUP,
             ):
                 if inline:
-                    result = await self.swap_inline(scope, current, previous)
+                    result = await self.inline(scope, current, previous)
                     primary.append(result.id if result else previous.id)
                     bundles.append(list(result.extra if result else getattr(previous, "extras", []) or []))
                     record = dict(result.meta) if result else _meta(previous)
@@ -506,7 +506,7 @@ class ViewOrchestrator:
                 continue
             if verdict == decision.Decision.DELETE_SEND:
                 if inline:
-                    result = await self.swap_inline(scope, current, previous)
+                    result = await self.inline(scope, current, previous)
                     primary.append(result.id if result else previous.id)
                     bundles.append(list(result.extra if result else getattr(previous, "extras", []) or []))
                     record = dict(result.meta) if result else _meta(previous)
@@ -573,4 +573,4 @@ class ViewOrchestrator:
                     mutated = True
         if not primary:
             return None
-        return RenderResultNode(ids=primary, extras=bundles, metas=notes, changed=mutated)
+        return RenderNode(ids=primary, extras=bundles, metas=notes, changed=mutated)

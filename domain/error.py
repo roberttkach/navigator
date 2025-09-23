@@ -8,13 +8,13 @@ class HistoryEmpty(NavigatorError):
     pass
 
 
-class MessageEditForbidden(NavigatorError):
+class EditForbidden(NavigatorError):
     def __init__(self, code: str | None = None):
         super().__init__(code or "edit_forbidden")
         self.code = code or "edit_forbidden"
 
 
-class MessageNotChanged(NavigatorError):
+class MessageUnchanged(NavigatorError):
     """Edit operation produced no changes."""
     pass
 
@@ -29,26 +29,26 @@ class EmptyPayload(NavigatorError):
     pass
 
 
-class TextTooLong(NavigatorError):
+class TextOverflow(NavigatorError):
     pass
 
 
-class CaptionTooLong(NavigatorError):
+class CaptionOverflow(NavigatorError):
     pass
 
 
-class ExtraKeyForbidden(NavigatorError):
+class ExtraForbidden(NavigatorError):
     pass
 
 
 __all__ = [
     "NavigatorError",
     "HistoryEmpty",
-    "MessageEditForbidden",
-    "MessageNotChanged",
+    "EditForbidden",
+    "MessageUnchanged",
     "InlineUnsupported",
     "EmptyPayload",
-    "TextTooLong",
-    "CaptionTooLong",
-    "ExtraKeyForbidden",
+    "TextOverflow",
+    "CaptionOverflow",
+    "ExtraForbidden",
 ]
