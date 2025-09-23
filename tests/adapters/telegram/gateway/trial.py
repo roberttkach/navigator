@@ -47,9 +47,14 @@ def digest():
 
     chronicle = Chronicle(state=None)
 
-    entry = chronicle._load(_chronicle_entry_payload(_chronicle_message_payload()))
+    entry = chronicle._load(
+        _chronicle_entry_payload(
+            _chronicle_message_payload(inline_id="legacy-inline"),
+        )
+    )
     assert entry.messages[0].id == 101
     assert entry.messages[0].extras == [202, 303]
+    assert not hasattr(entry.messages[0], "inline_id")
 
     missing_id = _chronicle_message_payload()
     missing_id.pop("id")
