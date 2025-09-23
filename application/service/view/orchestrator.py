@@ -345,7 +345,7 @@ class ViewOrchestrator:
                 formerinfo = ledger[0].extra or {}
                 latterinfo = fresh[0].extra or {}
 
-                def _capslice(data):
+                def _excerpt(data):
                     data = data or {}
                     view = {}
                     if "mode" in data:
@@ -354,41 +354,37 @@ class ViewOrchestrator:
                         view["entities"] = data["entities"]
                     return view
 
-                def _canon(value):
+                def _encode(value):
                     return json.dumps(value, sort_keys=True, separators=(",", ":")) if isinstance(value, dict) else None
 
-                capshift = (
+                retitled = (
                     (former[0].caption or "") != (latter[0].caption or "")
-                    or _canon(_capslice(formerinfo)) != _canon(_capslice(latterinfo))
+                    or _encode(_excerpt(formerinfo)) != _encode(_excerpt(latterinfo))
                     or bool(formerinfo.get("show_caption_above_media")) != bool(
                         latterinfo.get("show_caption_above_media"))
                 )
 
-                def _intval(value):
+                def _integer(value):
                     try:
                         return int(value) if value is not None else None
                     except Exception:
                         return value
 
-                def _mediaflip() -> bool:
-                    return (
-                        bool(formerinfo.get("spoiler")) != bool(latterinfo.get("spoiler"))
-                        or _intval(formerinfo.get("start")) != _intval(latterinfo.get("start"))
-                    )
-
-                mediaflip = _mediaflip()
+                reshaped = (
+                    bool(formerinfo.get("spoiler")) != bool(latterinfo.get("spoiler"))
+                    or _integer(formerinfo.get("start")) != _integer(latterinfo.get("start"))
+                )
 
                 if self._rendering.thumbguard:
                     if bool(formerinfo.get("has_thumb")) != bool(latterinfo.get("thumb") is not None):
-                        mediaflip = True
+                        reshaped = True
 
-                replyshift = not match(ledger[0].markup, fresh[0].reply)
-                if capshift:
+                if retitled:
                     cap = (latter[0].caption or "")
                     caption = fresh[0].morph(media=latter[0], group=None, text=("" if cap == "" else None))
                     await self._gateway.retitle(scope, album[0], caption)
                     mutated = True
-                if replyshift:
+                if not match(ledger[0].markup, fresh[0].reply):
                     await self._gateway.remap(scope, album[0], fresh[0])
                     mutated = True
 
@@ -404,9 +400,8 @@ class ViewOrchestrator:
                     past = pair[0]
                     latest = pair[1]
                     target = album[0] if index == 0 else album[index]
-                    mediaswitch = self._alter(past, latest)
-                    extraswitch = (not mediaswitch) and mediaflip and _same(past, latest)
-                    if mediaswitch or extraswitch:
+                    altered = self._alter(past, latest)
+                    if altered or ((not altered) and reshaped and _same(past, latest)):
                         await self._gateway.recast(scope, target, fresh[0].morph(media=latest, group=None))
                         mutated = True
 

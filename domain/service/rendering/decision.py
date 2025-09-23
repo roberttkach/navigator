@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Any
 
-from .helpers import match as _match_markups
+from .helpers import match
 from ...entity.history import Entry
 from ...entity.media import MediaType
 from ...value.content import Payload, caption
@@ -88,7 +88,7 @@ def _extras(obj) -> dict:
     return out
 
 
-def _mediaplan(entry, config: RenderingConfig) -> _MediaProfile:
+def _sketch(entry, config: RenderingConfig) -> _MediaProfile:
     payload = getattr(_view(entry), "extra", {}) or {}
     caption = _CaptionFlag(above=bool(payload.get("show_caption_above_media")))
     start = payload.get("start")
@@ -123,10 +123,6 @@ def _reply(obj):
     return getattr(obj, "reply", None)
 
 
-def _replymatch(a, b) -> bool:
-    return _match_markups(_reply(a), _reply(b))
-
-
 def _preview(obj):
     if obj is None:
         return None
@@ -139,23 +135,7 @@ def _preview(obj):
     return getattr(obj, "preview", None)
 
 
-def _previewmatch(a, b) -> bool:
-    pa = _preview(a)
-    pb = _preview(b)
-    if pa is None and pb is None:
-        return True
-    if (pa is None) != (pb is None):
-        return False
-    return (
-        getattr(pa, "url", None) == getattr(pb, "url", None)
-        and bool(getattr(pa, "small", False)) == bool(getattr(pb, "small", False))
-        and bool(getattr(pa, "large", False)) == bool(getattr(pb, "large", False))
-        and bool(getattr(pa, "above", False)) == bool(getattr(pb, "above", False))
-        and getattr(pa, "disabled", None) == getattr(pb, "disabled", None)
-    )
-
-
-def _samefile(old, new) -> bool:
+def _identical(old, new) -> bool:
     """
     Сравнение по Telegram file_id:
     - в истории o.media.path — это file_id (str),
@@ -201,17 +181,31 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
     # Текст↔текст
     if not _mediated(prior) and not _mediated(fresh):
         if (_text(prior) or "") == (_text(fresh) or ""):
-            if (_extras(prior) != _extras(fresh)) or (not _previewmatch(prior, fresh)):
+            former = _preview(prior)
+            latter = _preview(fresh)
+            coherent = False
+            if former is None and latter is None:
+                coherent = True
+            elif (former is not None) and (latter is not None):
+                coherent = (
+                    getattr(former, "url", None) == getattr(latter, "url", None)
+                    and bool(getattr(former, "small", False)) == bool(getattr(latter, "small", False))
+                    and bool(getattr(former, "large", False)) == bool(getattr(latter, "large", False))
+                    and bool(getattr(former, "above", False)) == bool(getattr(latter, "above", False))
+                    and getattr(former, "disabled", None) == getattr(latter, "disabled", None)
+                )
+            if (_extras(prior) != _extras(fresh)) or (not coherent):
                 return Decision.EDIT_TEXT
-            return Decision.NO_CHANGE if _replymatch(prior, fresh) else Decision.EDIT_MARKUP
+            aligned = match(_reply(prior), _reply(fresh))
+            return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
         return Decision.EDIT_TEXT
 
     # Медиа↔медиа
     if _mediated(prior) and _mediated(fresh):
         # Сравниваем только по file_id и типу
-        if _samefile(prior, fresh):
-            before = _mediaplan(prior, config)
-            after = _mediaplan(fresh, config)
+        if _identical(prior, fresh):
+            before = _sketch(prior, config)
+            after = _sketch(fresh, config)
 
             # Любое изменение медиа-уровня (spoiler/start/thumb*) требует EDIT_MEDIA.
             if before.edit != after.edit:
@@ -222,7 +216,8 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
                 and _extras(prior) == _extras(fresh)
                 and before.caption == after.caption
             ):
-                return Decision.NO_CHANGE if _replymatch(prior, fresh) else Decision.EDIT_MARKUP
+                aligned = match(_reply(prior), _reply(fresh))
+                return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
             return Decision.EDIT_MEDIA_CAPTION
         return Decision.EDIT_MEDIA
 
