@@ -9,8 +9,17 @@ from ...domain.error import ExtraKeyForbidden
 ALLOWED_TEXT = {"mode", "entities", "message_effect_id"}
 ALLOWED_CAPTION_TEXT = {"mode", "entities", "message_effect_id"}
 ALLOWED_MEDIA_EXTRA = {
-    "spoiler", "show_caption_above_media", "start", "thumb",
-    "title", "performer", "duration", "width", "height",
+    "spoiler",
+    "show_caption_above_media",
+    "start",
+    "thumb",
+    "title",
+    "performer",
+    "duration",
+    "width",
+    "height",
+    "cover",
+    "supports_streaming",
 }
 
 
@@ -48,5 +57,11 @@ def audit(extra: Dict[str, Any] | None, allowed: Set[str]) -> None:
         cv = extra["thumb"]
         if not isinstance(cv, (FSInputFile, BufferedInputFile, URLInputFile, str)):
             raise ExtraKeyForbidden()
+    if "cover" in extra:
+        cv = extra["cover"]
+        if not isinstance(cv, (FSInputFile, BufferedInputFile, URLInputFile, str)):
+            raise ExtraKeyForbidden()
+    if "supports_streaming" in extra and not isinstance(extra["supports_streaming"], bool):
+        raise ExtraKeyForbidden()
     if "message_effect_id" in extra and not isinstance(extra["message_effect_id"], str):
         raise ExtraKeyForbidden()
