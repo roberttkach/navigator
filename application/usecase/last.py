@@ -86,13 +86,15 @@ class Tailer:
 
         history = await self._ledger.recall()
         anchor = None
+        anchor_message = None
         for entry in reversed(history):
             if entry.messages and entry.messages[0].id == marker:
                 anchor = entry
+                anchor_message = entry.messages[0]
                 break
 
-        if anchor is not None:
-            choice = decision.decide(anchor, normal, self._orchestrator.rendering)
+        if anchor_message is not None:
+            choice = decision.decide(anchor_message, normal, self._orchestrator.rendering)
         else:
             if normal.media:
                 choice = decision.Decision.EDIT_MEDIA

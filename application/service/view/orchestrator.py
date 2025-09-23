@@ -423,21 +423,10 @@ class ViewOrchestrator:
         incoming = len(fresh)
         limit = min(stored, incoming)
 
-        def _adapt(message: Message):
-            class _V:
-                def __init__(self, message: Message):
-                    self.text = message.text
-                    self.media = message.media
-                    self.group = message.group
-                    self.reply = message.markup
-                    self.extra = message.extra
-
-            return _V(message)
-
         for index in range(origin, limit):
             previous = ledger[index]
             current = fresh[index]
-            verdict = decision.decide(_adapt(previous), current, self._rendering)
+            verdict = decision.decide(previous, current, self._rendering)
             if verdict is decision.Decision.NO_CHANGE:
                 primary.append(previous.id)
                 bundles.append(list(getattr(previous, "extras", []) or []))
@@ -459,26 +448,7 @@ class ViewOrchestrator:
                     if result:
                         mutated = True
                 else:
-                    anchor = Entry(
-                        state=None,
-                        view=None,
-                        messages=[
-                            Message(
-                                id=previous.id,
-                                text=previous.text,
-                                media=previous.media,
-                                group=previous.group,
-                                markup=previous.markup,
-                                preview=previous.preview,
-                                extra=previous.extra,
-                                extras=getattr(previous, "extras", []),
-                                inline=previous.inline,
-                                automated=previous.automated,
-                                ts=previous.ts,
-                            )
-                        ],
-                    )
-                    result = await self.swap(scope, current, anchor, verdict)
+                    result = await self.swap(scope, current, previous, verdict)
                     primary.append(result.id if result else previous.id)
                     bundles.append(list(result.extra if result else getattr(previous, "extras", []) or []))
                     note = dict(result.meta) if result else _meta(previous)
