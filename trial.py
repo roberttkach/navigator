@@ -3,6 +3,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 from navigator.adapters.telegram.gateway import TelegramGateway
+from navigator.adapters.telegram.gateway import delete as delete_module
+from navigator.adapters.telegram.gateway.delete import DeleteBatch
 from navigator.application.usecase.alarm import Alarm
 from navigator.application.usecase.set import Setter
 from navigator.domain.error import StateNotFound
@@ -118,3 +120,36 @@ def extract_prev_not_found_localizes_scope_language() -> None:
     payload = prev_not_found(scope)
 
     assert "Предыдущий экран" in payload
+
+
+def digest_delete_batch_uses_business_api_only() -> None:
+    scope = Scope(chat=11, lang="en", business="biz")
+    bot = SimpleNamespace(
+        delete_business_messages=AsyncMock(
+            side_effect=[Exception("message to delete not found"), None]
+        ),
+        delete_messages=AsyncMock(),
+    )
+    runner = DeleteBatch(bot=bot, chunk=2)
+
+    captured = []
+
+    async def capture(action, *args, **kwargs):
+        captured.append((action, args, kwargs))
+        return await action(*args, **kwargs)
+
+    original_invoke = delete_module.invoke
+    delete_module.invoke = capture
+    try:
+        asyncio.run(runner.run(scope, [9, 1, 2]))
+    finally:
+        delete_module.invoke = original_invoke
+
+    assert bot.delete_messages.await_count == 0
+    assert bot.delete_business_messages.await_count == 2
+    assert len(captured) == 2
+    for action, args, kwargs in captured:
+        assert action is bot.delete_business_messages
+        assert not args
+        assert kwargs["business_connection_id"] == scope.business
+        assert kwargs["message_ids"]
