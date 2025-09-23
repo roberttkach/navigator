@@ -46,16 +46,3 @@ def shield(scope, payload):
     if getattr(scope, "inline", None) and getattr(payload, "group", None):
         from ...domain.error import InlineUnsupported
         raise InlineUnsupported(SHIELD_MESSAGE)
-
-
-TailPrune: bool = True
-
-InlineTailDelete: bool = False
-
-ResendOnBan: bool = True
-
-ResendOnIdle: bool = False
-
-ImplicitCaption: bool = True
-
-StrictAbort: bool = False
