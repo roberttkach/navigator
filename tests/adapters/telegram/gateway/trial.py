@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,8 +13,31 @@ for path in (_ROOT, _PARENT):
 
 import sitecustomize  # noqa: F401
 
+from navigator.adapters.storage.chronicle import Chronicle
 from navigator.adapters.telegram.gateway import util as gateway
 from navigator.domain.value.message import Scope
+
+
+def _chronicle_message_payload(**overrides):
+    payload = {
+        "id": 101,
+        "text": "hello",
+        "media": None,
+        "group": None,
+        "markup": None,
+        "preview": None,
+        "extra": None,
+        "extras": [202, "303"],
+        "inline": None,
+        "automated": True,
+        "ts": datetime.now(timezone.utc).isoformat(),
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _chronicle_entry_payload(message):
+    return {"state": "state", "view": "view", "messages": [message]}
 
 
 def digest():
@@ -25,6 +49,20 @@ def digest():
     message = SimpleNamespace(media_group_id=None, text="hello")
     assert gateway._digest(message) == {"kind": "text", "text": "hello", "inline": None}
 
+    chronicle = Chronicle(state=None)
+
+    entry = chronicle._load(_chronicle_entry_payload(_chronicle_message_payload()))
+    assert entry.messages[0].id == 101
+    assert entry.messages[0].extras == [202, 303]
+
+    missing_id = _chronicle_message_payload()
+    missing_id.pop("id")
+    with pytest.raises(ValueError, match="missing required 'id'"):
+        chronicle._load(_chronicle_entry_payload(missing_id))
+
+    with pytest.raises(ValueError, match="invalid 'id'"):
+        chronicle._load(_chronicle_entry_payload(_chronicle_message_payload(id="oops")))
+
 
 def extract():
     scope = Scope(chat=123)
@@ -32,3 +70,10 @@ def extract():
 
     with pytest.raises(AssertionError):
         gateway.extract(SimpleNamespace(), payload, scope)
+
+    chronicle = Chronicle(state=None)
+
+    with pytest.raises(ValueError, match="invalid 'extras' entry"):
+        chronicle._load(
+            _chronicle_entry_payload(_chronicle_message_payload(extras=[1, "oops"]))
+        )

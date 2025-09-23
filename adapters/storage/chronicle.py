@@ -15,13 +15,6 @@ from ...domain.log.code import LogCode
 logger = logging.getLogger(__name__)
 
 
-def _integral(value, default=0):
-    try:
-        return int(value)
-    except Exception:
-        return default
-
-
 class MediaCodec:
     @staticmethod
     def pack(item: Optional[MediaItem]) -> Optional[Dict[str, Any]]:
@@ -214,16 +207,55 @@ class Chronicle:
                     )
                     raise ValueError("History message payload missing required 'automated' flag")
 
+                if "id" not in record:
+                    jlog(
+                        logger,
+                        logging.ERROR,
+                        LogCode.HISTORY_LOAD,
+                        note="history_message_missing_id",
+                    )
+                    raise ValueError("History message payload missing required 'id'")
+
+                raw_id = record.get("id")
+                try:
+                    message_id = int(raw_id)
+                except (TypeError, ValueError):
+                    jlog(
+                        logger,
+                        logging.ERROR,
+                        LogCode.HISTORY_LOAD,
+                        note="history_message_invalid_id",
+                        raw=raw_id,
+                    )
+                    raise ValueError(f"History message payload has invalid 'id': {raw_id!r}")
+
+                extras_raw = record.get("extras") or []
+                extras: List[int] = []
+                for value in extras_raw:
+                    try:
+                        extras.append(int(value))
+                    except (TypeError, ValueError):
+                        jlog(
+                            logger,
+                            logging.ERROR,
+                            LogCode.HISTORY_LOAD,
+                            note="history_message_invalid_extra",
+                            raw=value,
+                        )
+                        raise ValueError(
+                            f"History message payload has invalid 'extras' entry: {value!r}"
+                        )
+
                 messages.append(
                     Message(
-                        id=_integral(record.get("id"), 0),
+                        id=message_id,
                         text=record.get("text"),
                         media=MediaCodec.unpack(record.get("media")),
                         group=GroupCodec.unpack(record.get("group")),
                         markup=ReplyCodec.unpack(record.get("markup")),
                         preview=PreviewCodec.unpack(record.get("preview")),
                         extra=record.get("extra"),
-                        extras=[int(x) for x in (record.get("extras") or [])],
+                        extras=extras,
                         inline=record.get("inline"),
                         automated=bool(record.get("automated")),
                         ts=TimeCodec.unpack(record.get("ts")),
