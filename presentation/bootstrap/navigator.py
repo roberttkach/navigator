@@ -3,16 +3,16 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from ...application.locks.guard import GuardFactory
-from ...application.usecase.add import Appender
-from ...application.usecase.alarm import Alarm
-from ...application.usecase.back import Rewinder
-from ...application.usecase.last import Tailer
-from ...application.usecase.pop import Trimmer
-from ...application.usecase.rebase import Shifter
-from ...application.usecase.replace import Swapper
-from ...application.usecase.set import Setter
-from ...domain.value.message import Scope
+from ...app.locks.guard import GuardFactory
+from ...app.usecase.add import Appender
+from ...app.usecase.alarm import Alarm
+from ...app.usecase.back import Rewinder
+from ...app.usecase.last import Tailer
+from ...app.usecase.pop import Trimmer
+from ...app.usecase.rebase import Shifter
+from ...app.usecase.replace import Swapper
+from ...app.usecase.set import Setter
+from ...core.value.message import Scope
 from ..navigator import Navigator
 
 

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Dict, Optional
 
 from aiogram.types import Message
 
-from navigator.domain.port.message import Result
-from navigator.domain.value.content import Payload
-from navigator.domain.value.message import Scope
+from navigator.core.port.message import Result
+from navigator.core.typing.result import MediaMeta, Meta, TextMeta
+from navigator.core.value.content import Payload
+from navigator.core.value.message import Scope
 
 
 def targets(scope: Scope, message: Optional[int] = None, *, topical: bool = True) -> Dict[str, Any]:
@@ -23,98 +25,47 @@ def targets(scope: Scope, message: Optional[int] = None, *, topical: bool = True
     return data
 
 
-def _digest(message: Message) -> dict:
+def _digest(message: Message) -> Meta:
     if getattr(message, "media_group_id", None):
         raise ValueError("grouped messages must be handled separately")
     if message.text is not None and not any(
         [message.photo, message.document, message.video, message.audio, message.animation]
     ):
-        return {"kind": "text", "text": message.text, "inline": None}
+        return TextMeta(text=message.text)
     if message.photo:
-        return {
-            "kind": "media",
-            "medium": "photo",
-            "file": message.photo[-1].file_id,
-            "caption": message.caption,
-            "inline": None,
-        }
+        return MediaMeta(medium="photo", file=message.photo[-1].file_id, caption=message.caption)
     if message.video:
-        return {
-            "kind": "media",
-            "medium": "video",
-            "file": message.video.file_id,
-            "caption": message.caption,
-            "inline": None,
-        }
+        return MediaMeta(medium="video", file=message.video.file_id, caption=message.caption)
     if message.animation:
-        return {
-            "kind": "media",
-            "medium": "animation",
-            "file": message.animation.file_id,
-            "caption": message.caption,
-            "inline": None,
-        }
+        return MediaMeta(medium="animation", file=message.animation.file_id, caption=message.caption)
     if message.document:
-        return {
-            "kind": "media",
-            "medium": "document",
-            "file": message.document.file_id,
-            "caption": message.caption,
-            "inline": None,
-        }
+        return MediaMeta(medium="document", file=message.document.file_id, caption=message.caption)
     if message.audio:
-        return {
-            "kind": "media",
-            "medium": "audio",
-            "file": message.audio.file_id,
-            "caption": message.caption,
-            "inline": None,
-        }
+        return MediaMeta(medium="audio", file=message.audio.file_id, caption=message.caption)
     if message.voice:
-        return {
-            "kind": "media",
-            "medium": "voice",
-            "file": message.voice.file_id,
-            "caption": message.caption,
-            "inline": None,
-        }
+        return MediaMeta(medium="voice", file=message.voice.file_id, caption=message.caption)
     if message.video_note:
-        return {
-            "kind": "media",
-            "medium": "video_note",
-            "file": message.video_note.file_id,
-            "caption": None,
-            "inline": None,
-        }
-    return {"kind": "text", "text": message.text, "inline": None}
+        return MediaMeta(medium="video_note", file=message.video_note.file_id, caption=None)
+    return TextMeta(text=message.text)
 
 
-def extract(outcome: Any, payload: Payload, scope: Scope) -> dict:
+def extract(outcome: Any, payload: Payload, scope: Scope) -> Meta:
     token = getattr(scope, "inline", None)
     if isinstance(outcome, Message):
-        body = _digest(outcome)
-        body["inline"] = token
-        return body
+        meta = _digest(outcome)
+        return replace(meta, inline=token)
     if getattr(payload, "group", None):
         raise AssertionError("grouped payloads handled separately")
     if getattr(payload, "media", None):
         media = getattr(payload.media.type, "value", None)
-        return {
-            "kind": "media",
-            "medium": media,
-            "file": None,
-            "caption": None,
-            "text": None,
-            "clusters": None,
-            "inline": token,
-        }
-    return {"kind": "text", "text": getattr(payload, "text", None), "inline": token}
+        return MediaMeta(medium=media, file=None, caption=None, inline=token)
+    return TextMeta(text=getattr(payload, "text", None), inline=token)
 
 
 def result_from_message(message: Message, payload: Payload, scope: Scope) -> Result:
-    body = extract(message, payload, scope)
+    meta = extract(message, payload, scope)
     identifier = message.message_id
-    return Result(id=identifier, extra=[], **body)
+    return Result(id=identifier, extra=[], meta=meta)
 
 
 __all__ = ["targets", "extract", "result_from_message"]

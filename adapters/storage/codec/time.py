@@ -4,9 +4,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from navigator.log import LogCode, jlog
+from navigator.core.telemetry import LogCode, telemetry
 
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 
 class TimeCodec:
@@ -23,16 +23,14 @@ class TimeCodec:
                     return dt.astimezone(timezone.utc)
                 return dt.replace(tzinfo=timezone.utc)
             except Exception as exc:  # pragma: no cover - defensive
-                jlog(
-                    logger,
+                channel.emit(
                     logging.ERROR,
                     LogCode.HISTORY_LOAD,
                     note="history_message_invalid_ts",
                     raw=raw[:64],
                 )
                 raise ValueError(f"History message payload has invalid 'ts': {raw!r}") from exc
-        jlog(
-            logger,
+        channel.emit(
             logging.ERROR,
             LogCode.HISTORY_LOAD,
             note="history_message_invalid_ts",

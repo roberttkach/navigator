@@ -8,17 +8,18 @@ from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway import delete as delete_module
 from navigator.adapters.telegram.gateway.delete import DeleteBatch
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
-from navigator.application.service.view.planner import ViewPlanner
-from navigator.application.service.view.restorer import ViewRestorer
-from navigator.application.usecase.alarm import Alarm
-from navigator.application.usecase.last import Tailer
-from navigator.application.usecase.set import Setter
-from navigator.domain.entity.history import Entry
-from navigator.domain.entity.media import MediaItem, MediaType
-from navigator.domain.error import InlineUnsupported, StateNotFound
-from navigator.domain.service.rendering.config import RenderingConfig
-from navigator.domain.value.content import Payload
-from navigator.domain.value.message import Scope
+from navigator.app.service.view.planner import ViewPlanner
+from navigator.app.service.view.restorer import ViewRestorer
+from navigator.app.usecase.alarm import Alarm
+from navigator.app.usecase.last import Tailer
+from navigator.app.usecase.set import Setter
+from navigator.core.entity.history import Entry
+from navigator.core.entity.media import MediaItem, MediaType
+from navigator.core.error import InlineUnsupported, StateNotFound
+from navigator.core.service.rendering.config import RenderingConfig
+from navigator.core.typing.result import TextMeta
+from navigator.core.value.content import Payload
+from navigator.core.value.message import Scope
 from navigator.presentation.alerts import prev_not_found
 from navigator.presentation.navigator import Navigator
 
@@ -228,7 +229,7 @@ def digest_tailer_inline_edit_rejects_media_group() -> None:
     executor = SimpleNamespace(
         delete=AsyncMock(),
         execute=AsyncMock(),
-        refine_meta=Mock(return_value={"kind": "text", "text": "noop", "inline": True}),
+        refine_meta=Mock(return_value=TextMeta(text="noop", inline=True)),
     )
     inline = SimpleNamespace(handle=AsyncMock())
     tailer = Tailer(

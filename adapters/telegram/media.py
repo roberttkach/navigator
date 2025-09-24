@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
+import logging
+import re
 from typing import Dict, List, Union
 
 from aiogram.types import (
@@ -15,13 +17,13 @@ from aiogram.types import (
     URLInputFile,
 )
 
-from navigator.domain.entity.media import MediaItem, MediaType
-from navigator.domain.error import CaptionOverflow, EditForbidden, NavigatorError
-from navigator.log import LogCode, jlog
-from navigator.domain.port.limits import Limits
-from navigator.domain.port.pathpolicy import MediaPathPolicy
-from navigator.domain.service.rendering.album import validate
-from navigator.domain.util.path import local, remote
+from navigator.core.entity.media import MediaItem, MediaType
+from navigator.core.error import CaptionOverflow, EditForbidden, NavigatorError
+from navigator.core.port.limits import Limits
+from navigator.core.port.pathpolicy import MediaPathPolicy
+from navigator.core.service.rendering.album import validate
+from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.util.path import local, remote
 
 from .serializer.screen import SignatureScreen
 
@@ -34,7 +36,7 @@ InputMedia = Union[
     InputMediaAnimation,
 ]
 
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-=]{20,}$")
 
@@ -166,8 +168,7 @@ def assemble(
     try:
         validate(items, limits=limits)
     except NavigatorError as exc:
-        jlog(
-            logger,
+        channel.emit(
             logging.WARNING,
             LogCode.MEDIA_UNSUPPORTED,
             kind="group_invalid",

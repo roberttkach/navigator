@@ -5,11 +5,11 @@ from aiogram.types import (
     InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
 )
 
-from navigator.domain.entity.markup import Markup
-from navigator.domain.port.markup import MarkupCodec
-from navigator.log import LogCode, jlog
+from navigator.core.entity.markup import Markup
+from navigator.core.port.markup import MarkupCodec
+from navigator.core.telemetry import LogCode, telemetry
 
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 
 class AiogramCodec(MarkupCodec):
@@ -22,16 +22,16 @@ class AiogramCodec(MarkupCodec):
 
     def encode(self, markup: Any) -> Optional[Markup]:
         if not markup:
-            jlog(logger, logging.DEBUG, LogCode.MARKUP_ENCODE, recognized=False)
+            channel.emit(logging.DEBUG, LogCode.MARKUP_ENCODE, recognized=False)
             return None
         kind = markup.__class__.__name__
         if kind in self._MAP:
-            jlog(logger, logging.DEBUG, LogCode.MARKUP_ENCODE, recognized=True, kind=kind)
+            channel.emit(logging.DEBUG, LogCode.MARKUP_ENCODE, recognized=True, kind=kind)
             return Markup(
                 kind=kind,
                 data=markup.model_dump(exclude_none=True, by_alias=True)
             )
-        jlog(logger, logging.DEBUG, LogCode.MARKUP_ENCODE, recognized=False, kind=kind)
+        channel.emit(logging.DEBUG, LogCode.MARKUP_ENCODE, recognized=False, kind=kind)
         return None
 
     def decode(self, stored: Optional[Markup]) -> Any:
@@ -41,13 +41,18 @@ class AiogramCodec(MarkupCodec):
         if target:
             try:
                 obj = target(**stored.data)
-                jlog(logger, logging.DEBUG, LogCode.MARKUP_DECODE, recognized=True, kind=stored.kind)
+                channel.emit(logging.DEBUG, LogCode.MARKUP_DECODE, recognized=True, kind=stored.kind)
                 return obj
             except TypeError:
-                jlog(logger, logging.WARNING, LogCode.MARKUP_DECODE, recognized=False, kind=stored.kind,
-                     note="type_error")
+                channel.emit(
+                    logging.WARNING,
+                    LogCode.MARKUP_DECODE,
+                    recognized=False,
+                    kind=stored.kind,
+                    note="type_error",
+                )
                 return None
-        jlog(logger, logging.DEBUG, LogCode.MARKUP_DECODE, recognized=False, kind=stored.kind)
+        channel.emit(logging.DEBUG, LogCode.MARKUP_DECODE, recognized=False, kind=stored.kind)
         return None
 
 

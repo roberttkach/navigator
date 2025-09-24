@@ -47,25 +47,25 @@ from __future__ import annotations
 import logging
 from typing import Optional, Dict, Any, Union, SupportsInt
 
-from ..application.dto.content import Content, Node
-from ..application.map.payload import collect, convert
-from ..application.usecase.add import Appender
-from ..application.usecase.back import Rewinder
-from ..application.usecase.last import Tailer
-from ..application.usecase.alarm import Alarm
-from ..application.usecase.pop import Trimmer
-from ..application.usecase.rebase import Shifter
-from ..application.usecase.replace import Swapper
-from ..application.usecase.set import Setter
-from ..application.locks.guard import GuardFactory
-from ..domain.error import StateNotFound
-from ..domain.service.scope import profile
-from ..domain.value.message import Scope
-from navigator.log import LogCode, jlog
+from ..app.dto.content import Content, Node
+from ..app.map.payload import collect, convert
+from ..app.usecase.add import Appender
+from ..app.usecase.alarm import Alarm
+from ..app.usecase.back import Rewinder
+from ..app.usecase.last import Tailer
+from ..app.usecase.pop import Trimmer
+from ..app.usecase.rebase import Shifter
+from ..app.usecase.replace import Swapper
+from ..app.usecase.set import Setter
+from ..app.locks.guard import GuardFactory
+from ..core.error import StateNotFound
+from ..core.service.scope import profile
+from ..core.telemetry import LogCode, telemetry
+from ..core.value.message import Scope
 from .alerts import prev_not_found
 from .types import StateLike
 
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 
 class _Tail:
@@ -75,7 +75,7 @@ class _Tail:
         self._guard = guard
 
     async def get(self) -> Optional[Dict[str, Any]]:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.get", scope=profile(self._scope))
+        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="last.get", scope=profile(self._scope))
         async with self._guard(self._scope):
             identifier = await self._tailer.peek()
         if identifier is None:
@@ -87,13 +87,12 @@ class _Tail:
         }
 
     async def delete(self) -> None:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.delete", scope=profile(self._scope))
+        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="last.delete", scope=profile(self._scope))
         async with self._guard(self._scope):
             await self._tailer.delete(self._scope)
 
     async def edit(self, content: Content) -> Optional[int]:
-        jlog(
-            logger,
+        channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="last.edit",
@@ -135,8 +134,7 @@ class Navigator:
     async def add(self, content: Union[Content, Node], *, key: Optional[str] = None, root: bool = False) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
         payloads = collect(node)
-        jlog(
-            logger,
+        channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="add",
@@ -151,8 +149,7 @@ class Navigator:
     async def replace(self, content: Union[Content, Node]) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
         payloads = collect(node)
-        jlog(
-            logger,
+        channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="replace",
@@ -164,8 +161,7 @@ class Navigator:
 
     async def rebase(self, message: int | SupportsInt) -> None:
         identifier = getattr(message, "id", message)
-        jlog(
-            logger,
+        channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="rebase",
@@ -176,8 +172,7 @@ class Navigator:
             await self._shifter.execute(int(identifier))
 
     async def back(self, context: Dict[str, Any]) -> None:
-        jlog(
-            logger,
+        channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="back",
@@ -189,7 +184,7 @@ class Navigator:
 
     async def set(self, state: Union[str, StateLike], context: Dict[str, Any] | None = None) -> None:
         status = getattr(state, "state", state)
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=status)
+        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=status)
         async with self._guard(self._scope):
             try:
                 await self._setter.execute(self._scope, status, context or {})
@@ -197,12 +192,12 @@ class Navigator:
                 await self._alarm.execute(self._scope, text=prev_not_found(self._scope))
 
     async def pop(self, count: int = 1) -> None:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=profile(self._scope), count=count)
+        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=profile(self._scope), count=count)
         async with self._guard(self._scope):
             await self._trimmer.execute(count)
 
     async def alert(self) -> None:
-        jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="alert", scope=profile(self._scope))
+        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="alert", scope=profile(self._scope))
         async with self._guard(self._scope):
             await self._alarm.execute(self._scope)
 

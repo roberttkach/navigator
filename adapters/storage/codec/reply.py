@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from navigator.domain.entity.markup import Markup
+from navigator.core.entity.markup import Markup
 
 
 class ReplyCodec:

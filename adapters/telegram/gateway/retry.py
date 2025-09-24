@@ -9,13 +9,13 @@ from typing import ParamSpec, TypeVar
 
 from aiogram.exceptions import TelegramRetryAfter
 
-from ....domain.error import EditForbidden, MessageUnchanged
-from navigator.log import LogCode, jlog
+from ....core.error import EditForbidden, MessageUnchanged
+from ....core.telemetry import LogCode, telemetry
 from .patterns import EDIT_FORBIDDEN, NOT_MODIFIED
 
 P = ParamSpec("P")
 T = TypeVar("T")
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 
 def _delay(error: TelegramRetryAfter) -> int | None:
@@ -46,10 +46,10 @@ async def invoke(
         except TelegramRetryAfter as error:
             delay = _delay(error)
             if delay is not None:
-                jlog(logger, logging.WARNING, LogCode.TELEGRAM_RETRY, retry=delay)
+                channel.emit(logging.WARNING, LogCode.TELEGRAM_RETRY, retry=delay)
                 pause = float(delay)
             else:
-                jlog(logger, logging.WARNING, LogCode.TELEGRAM_RETRY)
+                channel.emit(logging.WARNING, LogCode.TELEGRAM_RETRY)
                 pause = min(cap, base ** tries) + random.uniform(0.0, 0.5)
             if waited + pause > timeout:
                 raise
@@ -67,8 +67,7 @@ async def invoke(
             if EDIT_FORBIDDEN.matches(message):
                 raise EditForbidden("gateway_edit_forbidden") from error
             if "aiogram" in type(error).__module__:
-                jlog(
-                    logger,
+                channel.emit(
                     logging.WARNING,
                     LogCode.TELEGRAM_UNHANDLED_ERROR,
                     description=message,

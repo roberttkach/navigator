@@ -6,25 +6,26 @@ from typing import Dict
 from aiogram import Bot
 from aiogram.types import Message
 
-from navigator.domain.error import CaptionOverflow, EmptyPayload, InlineUnsupported, TextOverflow
-from navigator.log import LogCode, jlog
-from navigator.domain.port.extraschema import ExtraSchema
-from navigator.domain.port.limits import Limits
-from navigator.domain.port.markup import MarkupCodec
-from navigator.domain.port.pathpolicy import MediaPathPolicy
-from navigator.domain.service.rendering.helpers import classify
-from navigator.domain.service.scope import profile
-from navigator.domain.value.content import Payload
-from navigator.domain.value.message import Scope
+from navigator.core.error import CaptionOverflow, EmptyPayload, InlineUnsupported, TextOverflow
+from navigator.core.port.extraschema import ExtraSchema
+from navigator.core.port.limits import Limits
+from navigator.core.port.markup import MarkupCodec
+from navigator.core.port.pathpolicy import MediaPathPolicy
+from navigator.core.port.preview import LinkPreviewCodec
+from navigator.core.service.rendering.helpers import classify
+from navigator.core.service.scope import profile
+from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.typing.result import Cluster, GroupMeta, Meta
+from navigator.core.value.content import Payload
+from navigator.core.value.message import Scope
 
 from ..media import assemble
-from navigator.domain.port.preview import LinkPreviewCodec
 from ..serializer import caption as caption_tools
 from ..serializer import text as text_tools
 from ..serializer.screen import SignatureScreen
 from . import util
 
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 
 async def send(
@@ -39,7 +40,7 @@ async def send(
     scope: Scope,
     payload: Payload,
     truncate: bool,
-) -> tuple[Message, list[int], dict]:
+) -> tuple[Message, list[int], Meta]:
     if scope.inline:
         raise InlineUnsupported("inline_send_not_supported")
 
@@ -71,7 +72,7 @@ async def send(
             **addition,
         )
         head = messages[0]
-        clusters = []
+        clusters: list[Cluster] = []
         for index, message in enumerate(messages):
             payload_item = None
             if payload.group and index < len(payload.group):
@@ -106,15 +107,14 @@ async def send(
                 if isinstance(path, str):
                     file_id = path
             clusters.append(
-                {
-                    "medium": medium,
-                    "file": file_id,
-                    "caption": message.caption if index == 0 else "",
-                }
+                Cluster(
+                    medium=medium,
+                    file=file_id,
+                    caption=message.caption if index == 0 else "",
+                )
             )
-        meta = {"kind": "group", "clusters": clusters, "inline": scope.inline}
-        jlog(
-            logger,
+        meta = GroupMeta(clusters=clusters, inline=scope.inline)
+        channel.emit(
             logging.INFO,
             LogCode.GATEWAY_SEND_OK,
             scope=profile(scope),
@@ -129,7 +129,12 @@ async def send(
         if caption_text is not None and len(caption_text) > limits.caption_max():
             if truncate:
                 caption_text = caption_text[: limits.caption_max()]
-                jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.caption")
+                channel.emit(
+                    logging.INFO,
+                    LogCode.TOO_LONG_TRUNCATED,
+                    scope=profile(scope),
+                    stage="send.caption",
+                )
             else:
                 raise CaptionOverflow()
         extras = schema.for_send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
@@ -144,8 +149,7 @@ async def send(
         arguments.update(screen.filter(sender, extras.get("caption", {})))
         arguments.update(screen.filter(sender, extras.get("media", {})))
         message = await sender(**arguments)
-        jlog(
-            logger,
+        channel.emit(
             logging.INFO,
             LogCode.GATEWAY_SEND_OK,
             scope=profile(scope),
@@ -161,7 +165,12 @@ async def send(
     if len(text) > limits.text_max():
         if truncate:
             text = text[: limits.text_max()]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.text")
+            channel.emit(
+                logging.INFO,
+                LogCode.TOO_LONG_TRUNCATED,
+                scope=profile(scope),
+                stage="send.text",
+            )
         else:
             raise TextOverflow()
     extras = schema.for_send(scope, payload.extra, caption_len=len(text), media=False)
@@ -172,8 +181,7 @@ async def send(
         link_preview_options=options,
         **screen.filter(bot.send_message, extras.get("text", {})),
     )
-    jlog(
-        logger,
+    channel.emit(
         logging.INFO,
         LogCode.GATEWAY_SEND_OK,
         scope=profile(scope),
