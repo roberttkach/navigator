@@ -4,7 +4,7 @@ import logging
 
 from navigator.domain.entity.history import Entry, Message
 from navigator.domain.entity.media import MediaType
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from navigator.domain.port.pathpolicy import MediaPathPolicy
 from navigator.domain.service.rendering import decision as _d
 from navigator.domain.service.rendering.config import RenderingConfig

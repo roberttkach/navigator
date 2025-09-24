@@ -3,7 +3,7 @@ import logging
 from html import escape
 from typing import Optional, Dict, Any, List
 
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from ....domain.entity.history import Entry
 from ....domain.port.factory import ViewLedger
 from ....domain.value.content import Payload

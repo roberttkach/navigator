@@ -5,7 +5,7 @@ from typing import List
 
 from aiogram import Bot
 
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from navigator.domain.port.extraschema import ExtraSchema
 from navigator.domain.port.limits import Limits
 from navigator.domain.port.markup import MarkupCodec
@@ -18,7 +18,6 @@ from navigator.domain.value.message import Scope
 
 from ..serializer.screen import SignatureScreen
 from . import util
-from .delete import DeleteBatch
 from .edit import recast, remap, retitle, rewrite
 from .send import send
 
@@ -48,6 +47,8 @@ class TelegramGateway(MessageGateway):
         self._screen = screen
         self._preview = preview
         self._truncate = truncate
+        from .delete import DeleteBatch
+
         self._delete = DeleteBatch(bot, chunk=chunk, delay=delete_delay)
 
     async def send(self, scope: Scope, payload: Payload) -> Result:

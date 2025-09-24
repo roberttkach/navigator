@@ -6,7 +6,7 @@ from aiogram import Bot
 from aiogram.types import InputMedia
 
 from navigator.domain.error import CaptionOverflow, TextOverflow
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from navigator.domain.port.extraschema import ExtraSchema
 from navigator.domain.port.limits import Limits
 from navigator.domain.port.markup import MarkupCodec

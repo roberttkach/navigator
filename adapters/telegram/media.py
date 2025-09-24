@@ -17,7 +17,7 @@ from aiogram.types import (
 
 from navigator.domain.entity.media import MediaItem, MediaType
 from navigator.domain.error import CaptionOverflow, EditForbidden, NavigatorError
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from navigator.domain.port.limits import Limits
 from navigator.domain.port.pathpolicy import MediaPathPolicy
 from navigator.domain.service.rendering.album import validate

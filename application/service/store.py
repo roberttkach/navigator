@@ -4,7 +4,7 @@ import logging
 from dataclasses import replace
 from typing import List, Optional
 
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from ...domain.entity.history import Entry, Message
 
 logger = logging.getLogger(__name__)

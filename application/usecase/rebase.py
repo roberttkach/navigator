@@ -4,7 +4,7 @@ import logging
 from typing import List
 
 from ..log.decorators import trace
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from ...domain.entity.history import Entry, Message
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LatestRepository

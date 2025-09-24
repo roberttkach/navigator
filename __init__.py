@@ -1,6 +1,6 @@
-"""Navigator public API."""
+"""Navigator public API (framework-agnostic)."""
 
-from .infrastructure.bootstrap.assemble import assemble
+from .presentation.bootstrap.navigator import build_navigator
 from .presentation.navigator import Navigator
 
-__all__ = ["Navigator", "assemble"]
+__all__ = ["Navigator", "build_navigator"]

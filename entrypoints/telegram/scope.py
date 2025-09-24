@@ -1,4 +1,4 @@
-from ...domain.value.message import Scope
+from navigator.domain.value.message import Scope
 
 
 def outline(event) -> Scope:

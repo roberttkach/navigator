@@ -5,6 +5,12 @@ from typing import List, Optional
 
 from ...domain.entity.history import Entry, Message
 from ...domain.entity.media import MediaItem, MediaType
+from ...domain.error import (
+    MetadataGroupMediumMissing,
+    MetadataKindMissing,
+    MetadataKindUnsupported,
+    MetadataMediumMissing,
+)
 from ...domain.port.factory import ViewLedger
 from ...domain.service.history.extra import cleanse
 from ...domain.value.content import Payload
@@ -34,9 +40,9 @@ class EntryMapper:
             meta = outcome.metas[index] if index < len(outcome.metas) else {}
             k = meta.get("kind")
             if not isinstance(k, str):
-                raise ValueError("meta_missing_kind")
+                raise MetadataKindMissing()
             if k not in ("text", "media", "group"):
-                raise ValueError(f"meta_unsupported_kind:{k}")
+                raise MetadataKindUnsupported(k)
             inline = meta.get("inline")
 
             previous = None
@@ -55,7 +61,7 @@ class EntryMapper:
                 elif isinstance(variant, str):
                     mtype = MediaType(variant)
                 else:
-                    raise ValueError("meta_missing_medium")
+                    raise MetadataMediumMissing()
                 item = MediaItem(type=mtype, path=meta.get("file"), caption=meta.get("caption"))
                 text, media, group = None, item, None
             elif k == "group":
@@ -63,7 +69,7 @@ class EntryMapper:
                 for it in (meta.get("clusters") or []):
                     variant = it.get("medium")
                     if not isinstance(variant, str):
-                        raise ValueError("meta_missing_group_medium")
+                        raise MetadataGroupMediumMissing()
                     items.append(
                         MediaItem(type=MediaType(variant), path=it.get("file"), caption=it.get("caption"))
                     )

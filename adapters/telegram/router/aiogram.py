@@ -1,15 +1,20 @@
 from __future__ import annotations
 
-import logging
-from typing import Any, Dict, Final
+"""Aiogram router bindings for the Navigator facade."""
 
-from aiogram import Router, F
+import logging
+from typing import Any, Dict, Final, Protocol
+
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
-from ..navigator import Navigator
-from ...domain.error import HistoryEmpty, InlineUnsupported, StateNotFound
+from navigator.domain.error import HistoryEmpty, InlineUnsupported, StateNotFound
+from navigator.log import LogCode, jlog
 from .lexicon import lexeme
-from navigator.logging import LogCode, jlog
+
+
+class NavigatorLike(Protocol):
+    async def back(self, context: Dict[str, Any]) -> None: ...
 
 router = Router(name="navigator_handlers")
 
@@ -25,7 +30,7 @@ def _tongue(obj) -> str:
 
 
 @router.callback_query(F.data == BACK_CALLBACK_DATA)
-async def retreat(cb: CallbackQuery, navigator: Navigator, **data: Dict[str, Any]) -> None:
+async def retreat(cb: CallbackQuery, navigator: NavigatorLike, **data: Dict[str, Any]) -> None:
     try:
         jlog(logger, logging.INFO, LogCode.ROUTER_BACK_ENTER, kind="callback",
              scope={"chat": cb.message.chat.id if cb.message else 0, "inline": bool(cb.inline_message_id)})

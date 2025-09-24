@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List
 
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 
 _ALLOWED_ENTITY_TYPES = {
     "mention",

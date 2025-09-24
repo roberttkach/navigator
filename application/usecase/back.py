@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict
 
 from ..log.decorators import trace
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from ..service.view.planner import ViewPlanner
 from ..service.view.restorer import ViewRestorer
 from ...domain.error import HistoryEmpty

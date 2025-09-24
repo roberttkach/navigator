@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import logging
 from typing import Optional
 
 from aiogram.fsm.context import FSMContext
 
-from .keys import FSM_LAST_ID_KEY
-from navigator.logging import LogCode, jlog
 from navigator.domain.port.last import LatestRepository
+from navigator.log import LogCode, jlog
+
+from .keys import FSM_LAST_ID_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -24,5 +27,6 @@ class Latest(LatestRepository):
         await self._state.update_data({FSM_LAST_ID_KEY: marker})
         code = LogCode.LAST_DELETE if marker is None else LogCode.LAST_SET
         jlog(logger, logging.DEBUG, code, message={"id": marker})
+
 
 __all__ = ["Latest"]
