@@ -1,23 +1,19 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from navigator.domain.port.factory import ViewLedger
-from navigator.infrastructure.di.container import AppContainer
-from navigator.log import calibrate
-from navigator.presentation.alerts import prev_not_found
-from navigator.presentation.bootstrap.navigator import build_navigator
-from navigator.presentation.navigator import Navigator
+from navigator.api import build_navigator
+from navigator.core.port.factory import ViewLedger
 
 from .scope import outline
 
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from navigator.presentation.navigator import Navigator
 
-async def assemble(event: Any, state: Any, ledger: ViewLedger) -> Navigator:
-    container = AppContainer(event=event, state=state, ledger=ledger, alert=prev_not_found)
-    settings = container.core().settings()
-    calibrate(getattr(settings, "redaction", ""))
+
+async def assemble(event: Any, state: Any, ledger: ViewLedger) -> "Navigator":
     scope = outline(event)
-    return build_navigator(container, scope)
+    return await build_navigator(event=event, state=state, ledger=ledger, scope=scope)
 
 
 __all__ = ["assemble"]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from navigator.domain.entity.media import MediaItem, MediaType
+from navigator.core.entity.media import MediaItem, MediaType
 
 
 class MediaCodec:

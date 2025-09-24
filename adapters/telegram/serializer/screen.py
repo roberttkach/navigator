@@ -4,13 +4,13 @@ import inspect
 import logging
 from typing import Any, Dict, FrozenSet
 
-from navigator.log import LogCode, jlog
+from navigator.core.telemetry import LogCode, telemetry
 
 
 class SignatureScreen:
     def __init__(self) -> None:
         self._seen: set[tuple[str, FrozenSet[str]]] = set()
-        self._logger = logging.getLogger(__name__)
+        self._channel = telemetry.channel(__name__)
 
     def _signature(self, target: Any) -> set[str] | None:
         obj = target.__init__ if inspect.isclass(target) else target
@@ -30,8 +30,7 @@ class SignatureScreen:
             mark = (getattr(target, "__name__", str(target)), frozenset(extra.keys()))
             if mark not in self._seen:
                 self._seen.add(mark)
-                jlog(
-                    self._logger,
+                self._channel.emit(
                     logging.DEBUG,
                     LogCode.EXTRA_FILTERED_OUT,
                     stage="any.warn",
@@ -41,11 +40,11 @@ class SignatureScreen:
             return dict(extra)
         filtered = {k: v for k, v in extra.items() if k in allowed}
         if set(filtered.keys()) != set(extra.keys()):
-            jlog(
-                self._logger,
+            self._channel.emit(
                 logging.DEBUG,
                 LogCode.EXTRA_FILTERED_OUT,
-                stage="signature", target=getattr(target, "__name__", str(target)),
+                stage="signature",
+                target=getattr(target, "__name__", str(target)),
                 before=sorted(extra.keys()),
                 after=sorted(filtered.keys()),
                 filtered_keys=sorted(set(extra) - set(filtered)),

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from navigator.domain.port.extraschema import ExtraSchema
-from navigator.domain.service.history.extra import cleanse as history_cleanse
-from navigator.domain.util.entities import sanitize
-from navigator.domain.value.message import Scope
+from navigator.core.port.extraschema import ExtraSchema
+from navigator.core.service.history.extra import cleanse as history_cleanse
+from navigator.core.util.entities import sanitize
+from navigator.core.value.message import Scope
 
 
 class TelegramExtraSchema(ExtraSchema):

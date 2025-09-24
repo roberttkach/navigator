@@ -5,15 +5,15 @@ import asyncio
 import logging
 from typing import List
 
-from navigator.log import LogCode, jlog
-from navigator.domain.service.scope import profile
-from navigator.domain.value.ids import order as _order
-from navigator.domain.value.message import Scope
+from navigator.core.service.scope import profile
+from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.value.ids import order as _order
+from navigator.core.value.message import Scope
 
 from ..errors import excusable
 from .retry import invoke
 
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 
 class DeleteBatch:
@@ -24,8 +24,7 @@ class DeleteBatch:
 
     async def run(self, scope: Scope, identifiers: List[int]) -> None:
         if scope.inline and not scope.business:
-            jlog(
-                logger,
+            channel.emit(
                 logging.INFO,
                 LogCode.RENDER_SKIP,
                 scope=profile(scope),
@@ -43,8 +42,7 @@ class DeleteBatch:
             for start in range(0, len(unique), self._chunk)
         ]
         total = len(groups)
-        jlog(
-            logger,
+        channel.emit(
             logging.DEBUG,
             LogCode.RERENDER_START,
             note="delete_chunking",
@@ -67,8 +65,7 @@ class DeleteBatch:
                         message_ids=group,
                         **delete_kwargs,
                     )
-                    jlog(
-                        logger,
+                    channel.emit(
                         logging.INFO,
                         LogCode.GATEWAY_DELETE_OK,
                         scope=scope_profile,
@@ -82,8 +79,7 @@ class DeleteBatch:
                         continue
                     raise
         except Exception as error:
-            jlog(
-                logger,
+            channel.emit(
                 logging.WARNING,
                 LogCode.GATEWAY_DELETE_FAIL,
                 scope=scope_profile,

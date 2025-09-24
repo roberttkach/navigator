@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..domain.value.message import Scope
+from ..core.value.message import Scope
 
 _LEXICON = {
     "prev_not_found": {

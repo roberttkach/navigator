@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from navigator.domain.value.content import Preview
+from navigator.core.value.content import Preview
 
 
 class PreviewCodec:

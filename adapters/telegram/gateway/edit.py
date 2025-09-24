@@ -2,20 +2,22 @@ from __future__ import annotations
 
 import logging
 
+import logging
+
 from aiogram import Bot
 from aiogram.types import InputMedia
 
-from navigator.domain.error import CaptionOverflow, TextOverflow
-from navigator.log import LogCode, jlog
-from navigator.domain.port.extraschema import ExtraSchema
-from navigator.domain.port.limits import Limits
-from navigator.domain.port.markup import MarkupCodec
-from navigator.domain.port.pathpolicy import MediaPathPolicy
-from navigator.domain.port.preview import LinkPreviewCodec
-from navigator.domain.service.rendering.helpers import classify
-from navigator.domain.service.scope import profile
-from navigator.domain.value.content import Payload
-from navigator.domain.value.message import Scope
+from navigator.core.error import CaptionOverflow, TextOverflow
+from navigator.core.port.extraschema import ExtraSchema
+from navigator.core.port.limits import Limits
+from navigator.core.port.markup import MarkupCodec
+from navigator.core.port.pathpolicy import MediaPathPolicy
+from navigator.core.port.preview import LinkPreviewCodec
+from navigator.core.service.rendering.helpers import classify
+from navigator.core.service.scope import profile
+from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.value.content import Payload
+from navigator.core.value.message import Scope
 
 from ..media import compose
 from ..serializer import caption as caption_tools
@@ -23,7 +25,7 @@ from ..serializer import text as text_tools
 from ..serializer.screen import SignatureScreen
 from . import util
 
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 
 async def rewrite(
@@ -43,7 +45,12 @@ async def rewrite(
     if len(text) > limits.text_max():
         if truncate:
             text = text[: limits.text_max()]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.text")
+            channel.emit(
+                logging.INFO,
+                LogCode.TOO_LONG_TRUNCATED,
+                scope=profile(scope),
+                stage="edit.text",
+            )
         else:
             raise TextOverflow()
     extras = schema.for_edit(scope, payload.extra, caption_len=len(text), media=False)
@@ -58,8 +65,7 @@ async def rewrite(
         link_preview_options=options,
         **screen.filter(bot.edit_message_text, extras.get("text", {})),
     )
-    jlog(
-        logger,
+    channel.emit(
         logging.INFO,
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),
@@ -86,7 +92,12 @@ async def recast(
     if caption_text is not None and len(caption_text) > limits.caption_max():
         if truncate:
             caption_text = caption_text[: limits.caption_max()]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.caption")
+            channel.emit(
+                logging.INFO,
+                LogCode.TOO_LONG_TRUNCATED,
+                scope=profile(scope),
+                stage="edit.caption",
+            )
         else:
             raise CaptionOverflow()
     extras = schema.for_edit(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
@@ -106,8 +117,7 @@ async def recast(
         reply_markup=markup,
         **util.targets(scope, message_id),
     )
-    jlog(
-        logger,
+    channel.emit(
         logging.INFO,
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),
@@ -133,7 +143,12 @@ async def retitle(
     if caption_text is not None and len(caption_text) > limits.caption_max():
         if truncate:
             caption_text = caption_text[: limits.caption_max()]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.caption")
+            channel.emit(
+                logging.INFO,
+                LogCode.TOO_LONG_TRUNCATED,
+                scope=profile(scope),
+                stage="edit.caption",
+            )
         else:
             raise CaptionOverflow()
     extras = schema.for_edit(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
@@ -144,8 +159,7 @@ async def retitle(
         reply_markup=markup,
         **screen.filter(bot.edit_message_caption, extras.get("caption", {})),
     )
-    jlog(
-        logger,
+    channel.emit(
         logging.INFO,
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),
@@ -168,8 +182,7 @@ async def remap(
         **util.targets(scope, message_id),
         reply_markup=markup,
     )
-    jlog(
-        logger,
+    channel.emit(
         logging.INFO,
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),

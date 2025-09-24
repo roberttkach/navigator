@@ -4,8 +4,8 @@ from typing import Any, Optional
 
 from aiogram.types import LinkPreviewOptions
 
-from navigator.domain.port.preview import LinkPreviewCodec
-from navigator.domain.value.content import Preview
+from navigator.core.port.preview import LinkPreviewCodec
+from navigator.core.value.content import Preview
 
 
 class TelegramLinkPreviewCodec(LinkPreviewCodec):

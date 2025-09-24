@@ -5,23 +5,23 @@ from typing import List
 
 from aiogram import Bot
 
-from navigator.log import LogCode, jlog
-from navigator.domain.port.extraschema import ExtraSchema
-from navigator.domain.port.limits import Limits
-from navigator.domain.port.markup import MarkupCodec
-from navigator.domain.port.message import MessageGateway, Result
-from navigator.domain.port.pathpolicy import MediaPathPolicy
-from navigator.domain.port.preview import LinkPreviewCodec
-from navigator.domain.service.scope import profile
-from navigator.domain.value.content import Payload
-from navigator.domain.value.message import Scope
+from navigator.core.port.extraschema import ExtraSchema
+from navigator.core.port.limits import Limits
+from navigator.core.port.markup import MarkupCodec
+from navigator.core.port.message import MessageGateway, Result
+from navigator.core.port.pathpolicy import MediaPathPolicy
+from navigator.core.port.preview import LinkPreviewCodec
+from navigator.core.service.scope import profile
+from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.value.content import Payload
+from navigator.core.value.message import Scope
 
 from ..serializer.screen import SignatureScreen
 from . import util
 from .edit import recast, remap, retitle, rewrite
 from .send import send
 
-logger = logging.getLogger(__name__)
+channel = telemetry.channel(__name__)
 
 
 class TelegramGateway(MessageGateway):
@@ -64,7 +64,7 @@ class TelegramGateway(MessageGateway):
             payload=payload,
             truncate=self._truncate,
         )
-        return Result(id=message.message_id, extra=extras, **meta)
+        return Result(id=message.message_id, extra=extras, meta=meta)
 
     async def rewrite(self, scope: Scope, message: int, payload: Payload) -> Result:
         outcome = await rewrite(
@@ -81,7 +81,7 @@ class TelegramGateway(MessageGateway):
         )
         meta = util.extract(outcome, payload, scope)
         identifier = getattr(outcome, "message_id", message)
-        return Result(id=identifier, extra=[], **meta)
+        return Result(id=identifier, extra=[], meta=meta)
 
     async def recast(self, scope: Scope, message: int, payload: Payload) -> Result:
         outcome = await recast(
@@ -98,7 +98,7 @@ class TelegramGateway(MessageGateway):
         )
         meta = util.extract(outcome, payload, scope)
         identifier = getattr(outcome, "message_id", message)
-        return Result(id=identifier, extra=[], **meta)
+        return Result(id=identifier, extra=[], meta=meta)
 
     async def retitle(self, scope: Scope, message: int, payload: Payload) -> Result:
         outcome = await retitle(
@@ -114,7 +114,7 @@ class TelegramGateway(MessageGateway):
         )
         meta = util.extract(outcome, payload, scope)
         identifier = getattr(outcome, "message_id", message)
-        return Result(id=identifier, extra=[], **meta)
+        return Result(id=identifier, extra=[], meta=meta)
 
     async def remap(self, scope: Scope, message: int, payload: Payload) -> Result:
         outcome = await remap(
@@ -126,7 +126,7 @@ class TelegramGateway(MessageGateway):
         )
         meta = util.extract(outcome, payload, scope)
         identifier = getattr(outcome, "message_id", message)
-        return Result(id=identifier, extra=[], **meta)
+        return Result(id=identifier, extra=[], meta=meta)
 
     async def delete(self, scope: Scope, identifiers: List[int]) -> None:
         await self._delete.run(scope, identifiers)
@@ -136,8 +136,7 @@ class TelegramGateway(MessageGateway):
             return
         kwargs = util.targets(scope)
         await self._bot.send_message(text=text, **kwargs)
-        jlog(
-            logger,
+        channel.emit(
             logging.INFO,
             LogCode.GATEWAY_NOTIFY_OK,
             scope=profile(scope),
