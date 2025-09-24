@@ -73,7 +73,3 @@ def validate_inline(
         if getattr(sample, "group", None):
             from ...core.error import InlineUnsupported
             raise InlineUnsupported(SHIELD_MESSAGE)
-
-
-def shield(scope, payload):
-    validate_inline(scope, payload)
