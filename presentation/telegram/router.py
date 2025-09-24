@@ -7,10 +7,9 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from ..navigator import Navigator
-from ...application.log.emit import jlog
 from ...domain.error import HistoryEmpty, InlineUnsupported, StateNotFound
 from .lexicon import lexeme
-from ...domain.log.code import LogCode
+from navigator.logging import LogCode, jlog
 
 router = Router(name="navigator_handlers")
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from domain.value.content import Payload, caption as resolve_caption
+from navigator.domain.value.content import Payload, caption as resolve_caption
 
 
 def caption(payload: Payload) -> Optional[str]:

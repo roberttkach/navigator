@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from ..log.decorators import trace
-from ..log.emit import jlog
+from navigator.logging import LogCode, jlog
 from ..service.view.planner import ViewPlanner
 from ..service.view.restorer import ViewRestorer
 from ...domain.port.history import HistoryRepository
@@ -13,7 +13,6 @@ from ...domain.port.message import MessageGateway
 from ...domain.port.state import StateRepository
 from ...domain.value.content import normalize
 from ...domain.value.message import Scope
-from ...domain.log.code import LogCode
 from ...domain.error import StateNotFound
 
 logger = logging.getLogger(__name__)

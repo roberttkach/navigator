@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Any, Dict, List, Optional
 
 from ...domain.entity.markup import Markup
-from ...domain.types import Extra
 from ...domain.value.content import Preview
+
+Extra = Dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)

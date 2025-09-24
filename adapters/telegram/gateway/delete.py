@@ -1,16 +1,14 @@
 from __future__ import annotations
 from __future__ import annotations
-from __future__ import annotations
 
 import asyncio
 import logging
 from typing import List
 
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.service.scope import profile
-from domain.value.ids import order as _order
-from domain.value.message import Scope
+from navigator.logging import LogCode, jlog
+from navigator.domain.service.scope import profile
+from navigator.domain.value.ids import order as _order
+from navigator.domain.value.message import Scope
 
 from ..errors import excusable
 from .retry import invoke

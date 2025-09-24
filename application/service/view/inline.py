@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import logging
 
-from domain.entity.history import Entry, Message
-from domain.entity.media import MediaType
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.port.pathpolicy import MediaPathPolicy
-from domain.service.rendering import decision as _d
-from domain.service.rendering.config import RenderingConfig
-from domain.service.rendering.helpers import match
-from domain.value.content import Payload
-from domain.value.message import Scope
+from navigator.domain.entity.history import Entry, Message
+from navigator.domain.entity.media import MediaType
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.pathpolicy import MediaPathPolicy
+from navigator.domain.service.rendering import decision as _d
+from navigator.domain.service.rendering.config import RenderingConfig
+from navigator.domain.service.rendering.helpers import match
+from navigator.domain.value.content import Payload
+from navigator.domain.value.message import Scope
 
 from ...internal.rules.inline import remap as remap_decision
 from ..store import preserve

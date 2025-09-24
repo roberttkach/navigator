@@ -1,8 +1,8 @@
 from typing import List, Literal, Optional, Set
 
-from ...constants import AlbumBlend, AlbumCeiling, AlbumFloor
 from ...entity.media import MediaItem, MediaType
 from ...error import NavigatorError
+from ...port.limits import Limits
 
 
 class AlbumInvalid(NavigatorError):
@@ -23,12 +23,12 @@ class AlbumInvalid(NavigatorError):
         super().__init__("group_invalid")
 
 
-def _audit(items: Optional[List[MediaItem]]) -> List[str]:
+def _audit(items: Optional[List[MediaItem]], *, limits: Limits) -> List[str]:
     issues: List[str] = []
     if not items:
         issues.append("empty")
         return issues
-    if len(items) < AlbumFloor or len(items) > AlbumCeiling:
+    if len(items) < limits.album_floor() or len(items) > limits.album_ceiling():
         issues.append("limit")
     kinds: Set[MediaType] = {item.type for item in items}
     if kinds & {MediaType.ANIMATION, MediaType.VOICE, MediaType.VIDEO_NOTE}:
@@ -40,8 +40,8 @@ def _audit(items: Optional[List[MediaItem]]) -> List[str]:
     return issues
 
 
-def validate(items: List[MediaItem]) -> None:
-    issues = _audit(items)
+def validate(items: List[MediaItem], *, limits: Limits) -> None:
+    issues = _audit(items, limits=limits)
     if issues:
         raise AlbumInvalid(
             empty="empty" in issues,
@@ -61,7 +61,7 @@ def nature(items: List[MediaItem]) -> Literal["audio", "document", "mixed"]:
     return "mixed"
 
 
-def aligned(old: List[MediaItem], new: List[MediaItem]) -> bool:
+def aligned(old: List[MediaItem], new: List[MediaItem], *, limits: Limits) -> bool:
     if len(old) != len(new):
         return False
     mood = nature(old)
@@ -69,4 +69,5 @@ def aligned(old: List[MediaItem], new: List[MediaItem]) -> bool:
         return all(item.type == MediaType.AUDIO for item in new)
     if mood == "document":
         return all(item.type == MediaType.DOCUMENT for item in new)
-    return all(item.type.value in AlbumBlend for item in new)
+    allowed = limits.album_blend()
+    return all(item.type.value in allowed for item in new)

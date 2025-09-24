@@ -9,7 +9,11 @@ from ...adapters.storage.status import Status
 from ...adapters.telegram.gateway import TelegramGateway
 from ...adapters.telegram.codec import AiogramCodec
 from ...adapters.telegram.media import TelegramMediaPolicy
-from ...adapters.telegram.serializer import SignatureScreen, TelegramExtraSchema
+from ...adapters.telegram.serializer import (
+    SignatureScreen,
+    TelegramExtraSchema,
+    TelegramLinkPreviewCodec,
+)
 from ...application.locks.guard import GuardFactory
 from ...application.map.entry import EntryMapper
 from ...application.service.view.album import AlbumService
@@ -53,6 +57,7 @@ class AppContainer(containers.DeclarativeContainer):
     )
     screen = providers.Factory(SignatureScreen)
     schema = providers.Factory(TelegramExtraSchema)
+    preview = providers.Factory(TelegramLinkPreviewCodec)
     policy = providers.Factory(TelegramMediaPolicy, strict=settings.provided.strictpath)
     lock_provider = providers.Singleton(MemoryLockProvider)
     guard = providers.Factory(GuardFactory, provider=lock_provider)
@@ -71,6 +76,7 @@ class AppContainer(containers.DeclarativeContainer):
         schema=schema,
         policy=policy,
         screen=screen,
+        preview=preview,
         chunk=settings.provided.chunk,
         truncate=settings.provided.truncate,
         delete_delay=settings.provided.delete_delay,
@@ -78,7 +84,12 @@ class AppContainer(containers.DeclarativeContainer):
 
     inline = providers.Factory(InlineStrategy, policy=policy)
     executor = providers.Factory(EditExecutor, gateway=gateway)
-    album = providers.Factory(AlbumService, executor=executor, thumbguard=settings.provided.thumbguard)
+    album = providers.Factory(
+        AlbumService,
+        executor=executor,
+        limits=limits,
+        thumbguard=settings.provided.thumbguard,
+    )
     planner = providers.Factory(
         ViewPlanner,
         executor=executor,

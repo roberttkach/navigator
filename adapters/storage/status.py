@@ -3,9 +3,8 @@ from typing import Optional, Dict, Any
 
 from aiogram.fsm.context import FSMContext
 
-from ...domain.log.emit import jlog
-from ...domain.port.state import StateRepository
-from ...domain.log.code import LogCode
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.state import StateRepository
 
 logger = logging.getLogger(__name__)
 

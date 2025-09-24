@@ -1,10 +1,9 @@
 import logging
 from typing import Callable
 
-from ..log.emit import jlog
+from navigator.logging import LogCode, jlog
 from ...domain.port.message import MessageGateway
 from ...domain.value.message import Scope
-from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

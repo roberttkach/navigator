@@ -4,8 +4,7 @@ import inspect
 import logging
 from typing import Any, Dict, FrozenSet
 
-from domain.log.code import LogCode
-from domain.log.emit import jlog
+from navigator.logging import LogCode, jlog
 
 
 class SignatureScreen:

@@ -4,9 +4,8 @@ from typing import Optional
 from aiogram.fsm.context import FSMContext
 
 from .keys import FSM_LAST_ID_KEY
-from ...domain.log.emit import jlog
-from ...domain.port.last import LatestRepository
-from ...domain.log.code import LogCode
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.last import LatestRepository
 
 logger = logging.getLogger(__name__)
 

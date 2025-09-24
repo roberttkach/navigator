@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing
 from typing import Protocol
 
-from domain.value.message import Scope
+from ..value.message import Scope
 
 
 @typing.runtime_checkable

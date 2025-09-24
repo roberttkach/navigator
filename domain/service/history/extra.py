@@ -5,9 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.util.entities import sanitize
+from navigator.logging import LogCode, jlog
+from ...util.entities import sanitize
 
 logger = logging.getLogger(__name__)
 

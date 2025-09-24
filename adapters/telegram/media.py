@@ -15,14 +15,13 @@ from aiogram.types import (
     URLInputFile,
 )
 
-from domain.entity.media import MediaItem, MediaType
-from domain.error import CaptionOverflow, EditForbidden, NavigatorError
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.port.limits import Limits
-from domain.port.pathpolicy import MediaPathPolicy
-from domain.service.rendering.album import validate
-from domain.util.path import local, remote
+from navigator.domain.entity.media import MediaItem, MediaType
+from navigator.domain.error import CaptionOverflow, EditForbidden, NavigatorError
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.limits import Limits
+from navigator.domain.port.pathpolicy import MediaPathPolicy
+from navigator.domain.service.rendering.album import validate
+from navigator.domain.util.path import local, remote
 
 from .serializer.screen import SignatureScreen
 
@@ -165,7 +164,7 @@ def assemble(
 ) -> List[InputMedia]:
     kinds = [getattr(i.type, "value", None) for i in (items or [])]
     try:
-        validate(items)
+        validate(items, limits=limits)
     except NavigatorError as exc:
         jlog(
             logger,

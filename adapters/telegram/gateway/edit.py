@@ -5,17 +5,17 @@ import logging
 from aiogram import Bot
 from aiogram.types import InputMedia
 
-from domain.error import CaptionOverflow, TextOverflow
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.port.extraschema import ExtraSchema
-from domain.port.limits import Limits
-from domain.port.markup import MarkupCodec
-from domain.port.pathpolicy import MediaPathPolicy
-from domain.service.rendering.helpers import classify
-from domain.service.scope import profile
-from domain.value.content import Payload
-from domain.value.message import Scope
+from navigator.domain.error import CaptionOverflow, TextOverflow
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.extraschema import ExtraSchema
+from navigator.domain.port.limits import Limits
+from navigator.domain.port.markup import MarkupCodec
+from navigator.domain.port.pathpolicy import MediaPathPolicy
+from navigator.domain.port.preview import LinkPreviewCodec
+from navigator.domain.service.rendering.helpers import classify
+from navigator.domain.service.scope import profile
+from navigator.domain.value.content import Payload
+from navigator.domain.value.message import Scope
 
 from ..media import compose
 from ..serializer import caption as caption_tools
@@ -33,6 +33,7 @@ async def rewrite(
     schema: ExtraSchema,
     screen: SignatureScreen,
     limits: Limits,
+    preview: LinkPreviewCodec | None,
     scope: Scope,
     message_id: int,
     payload: Payload,
@@ -47,10 +48,14 @@ async def rewrite(
             raise TextOverflow()
     extras = schema.for_edit(scope, payload.extra, caption_len=len(text), media=False)
     markup = text_tools.decode(codec, payload.reply)
+    options = None
+    if preview is not None and payload.preview is not None:
+        options = preview.encode(payload.preview)
     message = await bot.edit_message_text(
         **util.targets(scope, message_id),
         text=text,
         reply_markup=markup,
+        link_preview_options=options,
         **screen.filter(bot.edit_message_text, extras.get("text", {})),
     )
     jlog(
