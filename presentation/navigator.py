@@ -26,20 +26,16 @@ Navigator API — ключевые контракты:
 6) last.edit resend-fallback:
    - После resend история патчится и только затем обновляется last_id.
 
-7) effect_stripped:
-   - При нормализации extra эффект сообщения удаляется при edit и/или вне приватных чатов.
-   - В логах помечается note="effect_stripped".
-
-8) Inline: ремап DELETE_SEND:
+7) Inline: ремап DELETE_SEND:
    - В inline DELETE_SEND ремапится в EDIT_MEDIA; в EDIT_TEXT — только когда база и новый — текст.
    - Если медиа не редактируется, но меняется только клавиатура — допускается EDIT_MARKUP.
-    - Точки ремапа: InlineHandler.handle и Tailer.edit.
+   - Точки ремапа: InlineHandler.handle и Tailer.edit.
    - Лог-маркер: INLINE_REMAP_DELETE_SEND.
 
-9) Inline: last.delete без business — удаляет только из истории при TailPrune=True.
+8) Inline: last.delete без business — удаляет только из истории при TailPrune=True.
    Удаления в Telegram не выполняются.
 
-10) Inline: при edit_media, когда Telegram возвращает True, история фиксирует актуальную подпись и новый file_id
+9) Inline: при edit_media, когда Telegram возвращает True, история фиксирует актуальную подпись и новый file_id
     (если в payload.media.path передан строковый file_id). Это исключает устаревание caption/file_id в restore/back/set.
 """
 from __future__ import annotations

@@ -13,10 +13,6 @@ def _stamp(forger: ViewForge) -> str:
     return f"{module}:{qualname}"
 
 
-def key(forger: ViewForge) -> str:
-    return _stamp(forger)
-
-
 class ViewLedger(ViewLedgerProtocol):
     def __init__(self, telemetry: Telemetry | None = None) -> None:
         self._ledger: Dict[str, ViewForge] = {}
@@ -55,5 +51,5 @@ class ViewLedger(ViewLedgerProtocol):
         return exists
 
 
-__all__ = ["ViewLedger", "key"]
+__all__ = ["ViewLedger"]
 

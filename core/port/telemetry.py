@@ -50,7 +50,6 @@ class LogCode(Enum):
     GATEWAY_EDIT_FAIL = "gateway_edit_fail"
     GATEWAY_DELETE_OK = "gateway_delete_ok"
     GATEWAY_DELETE_FAIL = "gateway_delete_fail"
-    GATEWAY_NOTIFY_EMPTY = "gateway_notify_empty"
     GATEWAY_NOTIFY_OK = "gateway_notify_ok"
     TELEGRAM_RETRY = "telegram_retry"
     TELEGRAM_UNHANDLED_ERROR = "telegram_unhandled_error"
@@ -58,7 +57,6 @@ class LogCode(Enum):
     # Extras / Serializer
     EXTRA_FILTERED_OUT = "extra_filtered_out"
     EXTRA_UNKNOWN_DROPPED = "extra_unknown_dropped"
-    EXTRA_EFFECT_STRIPPED = "extra_effect_stripped"
     MARKUP_ENCODE = "markup_encode"
     MARKUP_DECODE = "markup_decode"
 
