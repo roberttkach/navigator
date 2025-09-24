@@ -63,6 +63,14 @@ convention.
 | Album service | `_album_ids`, `_alter`, `_clone`, `_clusters` | `_lineup`, `_changed`, `_copy`, `_collect` | Private helpers now use one-word suffixes. |
 | Inline handler | `_handle_media`, `_handle_text`, `_fallback_markup` | `_mediate`, `_scribe`, `_fallback` | Inline helpers follow the single-word suffix rule. |
 | Tests | `trial.refine_meta` stub, `partial_update` stubs | `trial.refine` stub, `refresh` stubs | Synchronises test doubles with the runtime names. |
+| Bootstrap | `bootstrap.navigator._convert_scope` | `_scope` | Collapses the bootstrap scope adapter to a single noun. |
+| App setter | `Setter._load_history`, `_revive_payloads`, `_apply_render`, `_patch_entry` | `_recall`, `_revive`, `_apply`, `_patch` | Setter workflow verbs now use one-word helpers. |
+| App tailer | `Tailer._render_result`, `_apply_inline` | `_result`, `_mediate` | Inline editing helpers adopt single verbs. |
+| View planner | `ViewPlanner._apply_album_head`, `_sync_slots`, `_apply_inline`, `_record_inline`, `_apply_regular`, `_trim_tail`, `_append_missing` | `_head`, `_sync`, `_mediate`, `_record`, `_regular`, `_trim`, `_append` | Private planner steps now follow the single-word convention. |
+| Inline guard | `inline.guard._primary_media` | `_first` | Chooses the lead media payload with a single-word helper. |
+| Telegram media | `telegram.media._media_handler` | `_select` | Picks the media constructor using one-word naming. |
+| Preview codec | `serializer.preview._optional_flag` | `_maybe` | Streamlines the optional flag helper. |
+| Settings | `infra.config.settings._environment_overrides` | `_overrides` | Reduces the configuration shim to a single noun. |
 
 ## Scheduled Renames
 

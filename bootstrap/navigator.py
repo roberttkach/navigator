@@ -28,7 +28,7 @@ class _LedgerAdapter(ViewLedger):
         return bool(self._ledger.has(key))
 
 
-def _convert_scope(dto: ScopeDTO) -> Scope:
+def _scope(dto: ScopeDTO) -> Scope:
     return Scope(
         chat=getattr(dto, "chat", None),
         lang=getattr(dto, "lang", None),
@@ -46,8 +46,8 @@ async def assemble(
     ledger: ViewLedgerDTO,
     scope: ScopeDTO,
 ) -> Navigator:
-    telemetry_port = PythonLoggingTelemetry()
-    telemetry = Telemetry(telemetry_port)
+    port = PythonLoggingTelemetry()
+    telemetry = Telemetry(port)
     container = AppContainer(
         event=event,
         state=state,
@@ -59,7 +59,7 @@ async def assemble(
     mode = getattr(settings, "redaction", "")
     telemetry.calibrate(mode)
     instrument(telemetry)
-    return compose(container, _convert_scope(scope))
+    return compose(container, _scope(scope))
 
 
 __all__ = ["assemble"]

@@ -17,7 +17,7 @@ class TelegramLinkPreviewCodec(LinkPreviewCodec):
         return bool(value)
 
     @staticmethod
-    def _optional_flag(value: Any) -> Optional[bool]:
+    def _maybe(value: Any) -> Optional[bool]:
         if isinstance(value, Default) or value is None:
             return None
         return bool(value)
@@ -44,7 +44,7 @@ class TelegramLinkPreviewCodec(LinkPreviewCodec):
                 small=self._flag(getattr(data, "prefer_small_media", False)),
                 large=self._flag(getattr(data, "prefer_large_media", False)),
                 above=self._flag(getattr(data, "show_above_text", False)),
-                disabled=self._optional_flag(getattr(data, "is_disabled", None)),
+                disabled=self._maybe(getattr(data, "is_disabled", None)),
             )
         if isinstance(data, dict):
             return Preview(
@@ -52,7 +52,7 @@ class TelegramLinkPreviewCodec(LinkPreviewCodec):
                 small=self._flag(data.get("prefer_small_media", data.get("small", False))),
                 large=self._flag(data.get("prefer_large_media", data.get("large", False))),
                 above=self._flag(data.get("show_above_text", data.get("above", False))),
-                disabled=self._optional_flag(data.get("is_disabled", data.get("disabled"))),
+                disabled=self._maybe(data.get("is_disabled", data.get("disabled"))),
             )
         return None
 

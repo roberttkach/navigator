@@ -88,7 +88,7 @@ class Tailer:
             message={"id": ids[0] if ids else None},
         )
 
-    def _render_result(self, execution, verdict, payload) -> RenderResult:
+    def _result(self, execution, verdict, payload) -> RenderResult:
         meta = self._executor.refine(execution, verdict, payload)
         return RenderResult(
             id=execution.result.id,
@@ -106,9 +106,9 @@ class Tailer:
         execution = await self._executor.execute(scope, verdict, payload, base)
         if not execution:
             return None
-        return self._render_result(execution, verdict, payload)
+        return self._result(execution, verdict, payload)
 
-    async def _apply_inline(
+    async def _mediate(
         self,
         scope: Scope,
         payload: Payload,
@@ -123,7 +123,7 @@ class Tailer:
         )
         if not outcome:
             return None
-        return self._render_result(outcome.execution, outcome.decision, outcome.payload)
+        return self._result(outcome.execution, outcome.decision, outcome.payload)
 
     async def edit(self, scope: Scope, payload: Payload) -> Optional[int]:
         marker = await self._latest.peek()
@@ -138,15 +138,13 @@ class Tailer:
 
         history = await self._ledger.recall()
         anchor = None
-        anchor_message = None
         for entry in reversed(history):
             if entry.messages and entry.messages[0].id == marker:
                 anchor = entry
-                anchor_message = entry.messages[0]
                 break
 
-        if anchor_message is not None:
-            choice = decision.decide(anchor_message, normal, self._rendering)
+        if anchor is not None and anchor.messages:
+            choice = decision.decide(anchor.messages[0], normal, self._rendering)
         else:
             if normal.media:
                 choice = decision.Decision.EDIT_MEDIA
@@ -161,7 +159,7 @@ class Tailer:
 
         if scope.inline:
             head = base.messages[0] if base and base.messages else None
-            result = await self._apply_inline(scope, normal, head)
+            result = await self._mediate(scope, normal, head)
         else:
             result = await self._apply(scope, choice, normal, base)
 
