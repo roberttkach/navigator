@@ -18,11 +18,11 @@ from navigator.core.value.message import Scope
 from .executor import EditExecutor, Execution
 
 
-def _album_ids(message: Message) -> list[int]:
+def _lineup(message: Message) -> list[int]:
     return [int(message.id)] + [int(x) for x in (message.extras or [])]
 
 
-def _alter(old: MediaItem, new: MediaItem) -> bool:
+def _changed(old: MediaItem, new: MediaItem) -> bool:
     if old.type != new.type:
         return True
     prior = getattr(old, "path", None)
@@ -30,7 +30,7 @@ def _alter(old: MediaItem, new: MediaItem) -> bool:
     return not (isinstance(prior, str) and isinstance(fresh, str) and prior == fresh)
 
 
-def _clone(message: Message, identifier: int, media: MediaItem) -> Message:
+def _copy(message: Message, identifier: int, media: MediaItem) -> Message:
     return Message(
         id=identifier,
         text=None,
@@ -46,7 +46,7 @@ def _clone(message: Message, identifier: int, media: MediaItem) -> Message:
     )
 
 
-def _clusters(latter: list[MediaItem], album: list[int]) -> list[Cluster]:
+def _collect(latter: list[MediaItem], album: list[int]) -> list[Cluster]:
     result: list[Cluster] = []
     for index, item in enumerate(latter):
         result.append(
@@ -73,7 +73,7 @@ class AlbumService:
         self._thumbguard = thumbguard
         self._channel: TelemetryChannel = telemetry.channel(__name__)
 
-    async def partial_update(
+    async def refresh(
         self, scope: Scope, former: Message, latter: Payload
     ) -> Optional[tuple[int, list[int], GroupMeta, bool]]:
         former_group = former.group or []
@@ -86,7 +86,7 @@ class AlbumService:
         ):
             return None
 
-        album = _album_ids(former)
+        album = _lineup(former)
         mutated = False
 
         formerinfo = former.extra or {}
@@ -156,14 +156,14 @@ class AlbumService:
             past = pair[0]
             latest = pair[1]
             target_id = album[0] if index == 0 else album[index]
-            altered = _alter(past, latest)
+            altered = _changed(past, latest)
             same_path = (
                 isinstance(getattr(past, "path", None), str)
                 and isinstance(getattr(latest, "path", None), str)
                 and getattr(past, "path") == getattr(latest, "path")
             )
             if altered or ((not altered) and reshaped and same_path):
-                head = former if index == 0 else _clone(former, target_id, past)
+                head = former if index == 0 else _copy(former, target_id, past)
                 payload = latter.morph(media=latest, group=None)
                 execution = await self._executor.execute(
                     scope,
@@ -173,7 +173,7 @@ class AlbumService:
                 )
                 mutated = mutated or bool(execution)
 
-        clusters = _clusters(latter_group, album)
+        clusters = _collect(latter_group, album)
 
         self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_OK, count=len(album))
 

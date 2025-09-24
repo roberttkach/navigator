@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import List, Optional
 
-from ..internal.policy import prime, validate_inline
+from ..internal.policy import prime, shield
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..service.view.executor import EditExecutor
 from ..service.view.inline import InlineHandler
@@ -89,7 +89,7 @@ class Tailer:
         )
 
     def _render_result(self, execution, verdict, payload) -> RenderResult:
-        meta = self._executor.refine_meta(execution, verdict, payload)
+        meta = self._executor.refine(execution, verdict, payload)
         return RenderResult(
             id=execution.result.id,
             extra=list(execution.result.extra),
@@ -134,7 +134,7 @@ class Tailer:
             return None
 
         normal = normalize(payload)
-        validate_inline(scope, [normal])
+        shield(scope, [normal])
 
         history = await self._ledger.recall()
         anchor = None

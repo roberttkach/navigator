@@ -56,27 +56,21 @@ convention.
 | Gateway util | `result_from_message` | `derive` | Shortens the helper that builds message results. |
 | Presentation | `presentation.markup.sanitize_caption` | `presentation.markup.purify` | Keeps the markup helper compliant even though it is currently unused. |
 | View planner | `_RenderState.add_existing`, `_RenderState.add_execution` | `retain`, `collect` | Reduces the remaining snake_case verbs inside the planner flow. |
+| Settings | `infra.config.settings.history_limit` | `historylimit` | Settings field and dependency overrides now share the one-word form. |
+| Inline policy | `app.internal.policy.validate_inline` | `app.internal.policy.shield` | Collapses the inline payload guard into a single verb. |
+| View executor | `app.service.view.executor.refine_meta` | `app.service.view.executor.refine` | Shortens the metadata adjustment hook and updates planner call sites. |
+| Album service | `AlbumService.partial_update` | `AlbumService.refresh` | Adopts a concise verb for partial album rewrites. |
+| Album service | `_album_ids`, `_alter`, `_clone`, `_clusters` | `_lineup`, `_changed`, `_copy`, `_collect` | Private helpers now use one-word suffixes. |
+| Inline handler | `_handle_media`, `_handle_text`, `_fallback_markup` | `_mediate`, `_scribe`, `_fallback` | Inline helpers follow the single-word suffix rule. |
+| Tests | `trial.refine_meta` stub, `partial_update` stubs | `trial.refine` stub, `refresh` stubs | Synchronises test doubles with the runtime names. |
 
 ## Scheduled Renames
 
 The remaining snake_case identifiers are grouped by module so that each block can
 be addressed incrementally. Proposed target names are provided for future work:
 
-* `infra.config.settings.history_limit`: adopt a single-word synonym (for
-  example `historylimit`) and propagate the change through ledger factories and
-  environment overrides.
-* `app.internal.policy.validate_inline`: collapse the helper into a single verb
-  such as `validate` or `inlinecheck` and update the inline planner guards.
-* `app.service.view.executor.refine_meta`: rename the executor hook to a single
-  verb (e.g. `refine`) together with its call sites in the planner.
-* `app.service.view.album.AlbumService.partial_update`: choose a concise name
-  (for instance `partial` or `refresh`) and rename the associated helper
-  functions (`_album_ids`, `_alter`, `_clone`, `_clusters`) so their suffixes no
-  longer use snake_case.
-* `app.service.view.inline.InlineHandler`: when the inline workflow stabilises,
-  shorten the internal helpers (`_handle_media`, `_handle_text`,
-  `_fallback_markup`) so that the trailing segments also follow the single-word
-  guidance.
+* Identify any remaining compound identifiers in the inline workflow once new
+  features land and continue migrating them to the single-word style.
 
 Each future step should follow the same approach as this update: choose the
 shortest precise word, refactor call sites, and update exports (`__all__`,

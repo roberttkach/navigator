@@ -44,14 +44,14 @@ class InlineHandler:
 
         if media:
             if not self.guard.admissible(entry):
-                return await self._fallback_markup(scope, entry, base, executor)
+                return await self._fallback(scope, entry, base, executor)
             anchor = Entry(state=None, view=None, messages=[tail]) if tail else None
             verdict = D.decide(anchor, entry, config)
-            return await self._handle_media(scope, verdict, entry, base, executor)
+            return await self._mediate(scope, verdict, entry, base, executor)
 
-        return await self._handle_text(scope, entry, base, executor)
+        return await self._scribe(scope, entry, base, executor)
 
-    async def _handle_media(
+    async def _mediate(
         self,
         scope: Scope,
         verdict: D.Decision,
@@ -85,7 +85,7 @@ class InlineHandler:
 
         return await self.editor.apply(scope, D.Decision.EDIT_MEDIA, entry, base, executor=executor)
 
-    async def _handle_text(
+    async def _scribe(
         self,
         scope: Scope,
         entry: Payload,
@@ -121,7 +121,7 @@ class InlineHandler:
 
         return await self.editor.apply(scope, D.Decision.EDIT_TEXT, entry, base, executor=executor)
 
-    async def _fallback_markup(
+    async def _fallback(
         self,
         scope: Scope,
         entry: Payload,

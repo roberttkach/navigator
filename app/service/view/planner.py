@@ -12,7 +12,7 @@ from navigator.core.typing.result import Cluster, GroupMeta, MediaMeta, Meta, Te
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from ...internal.policy import validate_inline
+from ...internal.policy import shield
 from .album import AlbumService
 from .executor import EditExecutor, Execution
 from .inline import InlineHandler, InlineOutcome
@@ -97,7 +97,7 @@ class ViewPlanner:
         inline: bool,
     ) -> Optional[RenderNode]:
         if inline:
-            validate_inline(scope, payloads, inline=True)
+            shield(scope, payloads, inline=True)
 
         fresh = [adapt(scope, p) for p in payloads]
         ledger = list(trail.messages) if trail else []
@@ -145,7 +145,7 @@ class ViewPlanner:
         ):
             return 0, False
 
-        album = await self._album.partial_update(scope, ledger[0], fresh[0])
+        album = await self._album.refresh(scope, ledger[0], fresh[0])
         if not album:
             self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_FALLBACK)
             return 0, False
@@ -210,7 +210,7 @@ class ViewPlanner:
         return self._record_inline(outcome, state)
 
     def _record_inline(self, outcome: InlineOutcome, state: _RenderState) -> bool:
-        meta = self._executor.refine_meta(outcome.execution, outcome.decision, outcome.payload)
+        meta = self._executor.refine(outcome.execution, outcome.decision, outcome.payload)
         state.collect(outcome.execution, meta)
         return True
 
@@ -225,7 +225,7 @@ class ViewPlanner:
         execution = await self._executor.execute(scope, verdict, payload, previous)
         if execution is None:
             return False
-        meta = self._executor.refine_meta(execution, verdict, payload)
+        meta = self._executor.refine(execution, verdict, payload)
         state.collect(execution, meta)
         return True
 
@@ -260,7 +260,7 @@ class ViewPlanner:
             )
             if not execution:
                 continue
-            meta = self._executor.refine_meta(execution, decision.Decision.RESEND, payload)
+            meta = self._executor.refine(execution, decision.Decision.RESEND, payload)
             state.collect(execution, meta)
             mutated = True
         return mutated

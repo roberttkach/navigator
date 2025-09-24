@@ -54,7 +54,7 @@ def _materialize(payloads: Payload | Iterable[Payload] | None) -> list[Payload]:
     raise TypeError("payloads must be Payload or iterable of Payload")
 
 
-def validate_inline(
+def shield(
         scope,
         payloads: Payload | Iterable[Payload] | None,
         *,
