@@ -6,7 +6,7 @@ from typing import List, Optional
 from ..internal.policy import prime, validate_inline
 from ...core.telemetry import LogCode, telemetry
 from ..service.view.executor import EditExecutor
-from ..service.view.inline import InlineStrategy
+from ..service.view.inline import InlineHandler
 from ..service.view.planner import RenderResult, ViewPlanner
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
@@ -25,7 +25,7 @@ class Tailer:
         ledger: HistoryRepository,
         planner: ViewPlanner,
         executor: EditExecutor,
-        inline: InlineStrategy,
+        inline: InlineHandler,
         rendering: RenderingConfig,
     ) -> None:
         self._latest = latest

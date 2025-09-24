@@ -1,4 +1,3 @@
-[importlinter]
 root_package = navigator
 
 [contract:layers]
@@ -10,14 +9,18 @@ layers =
     navigator.adapters
     navigator.infra
     navigator.presentation
+    navigator.bootstrap
+    navigator.api
     navigator.entrypoints
 allowed_dependencies =
     navigator.core ->
     navigator.app -> navigator.core
     navigator.adapters -> navigator.core
-    navigator.infra -> navigator.adapters,navigator.app,navigator.core,navigator.presentation
-    navigator.presentation -> navigator.core
-    navigator.entrypoints -> navigator.api,navigator.infra,navigator.core
+    navigator.infra -> navigator.adapters,navigator.app,navigator.core
+    navigator.presentation -> navigator.app,navigator.core
+    navigator.bootstrap -> navigator.infra,navigator.presentation,navigator.app,navigator.adapters,navigator.core
+    navigator.api -> navigator.bootstrap
+    navigator.entrypoints -> navigator.api,navigator.presentation,navigator.core
 
 [contract:forbid_presentation_to_adapters]
 name = Presentation must not import adapters
@@ -33,7 +36,7 @@ type = forbidden
 source_modules =
     navigator.core
 forbidden_modules =
-    navigator.adapters,navigator.app,navigator.infra,navigator.presentation,navigator.entrypoints
+    navigator.adapters,navigator.app,navigator.infra,navigator.presentation,navigator.entrypoints,navigator.bootstrap,navigator.api
 
 [contract:forbid_app_to_adapters]
 name = Application must not import adapters
@@ -81,12 +84,12 @@ type = forbidden
 source_modules =
     navigator.adapters
 forbidden_modules =
-    navigator.app,navigator.infra,navigator.presentation,navigator.entrypoints
+    navigator.app,navigator.infra,navigator.presentation,navigator.entrypoints,navigator.bootstrap,navigator.api
 
-[contract:forbid_entrypoints_to_presentation]
-name = Entrypoints must not depend on presentation
+[contract:forbid_entrypoints_to_infra_or_bootstrap]
+name = Entrypoints must not use infrastructure or bootstrap
 type = forbidden
 source_modules =
     navigator.entrypoints
 forbidden_modules =
-    navigator.presentation
+    navigator.adapters,navigator.infra,navigator.bootstrap

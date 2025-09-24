@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 
-import logging
-
 from aiogram import Bot
 from aiogram.types import InputMedia
 
