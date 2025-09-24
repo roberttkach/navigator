@@ -4,20 +4,21 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from navigator.domain.entity.history import Message, Entry
+from navigator.domain.entity.history import Entry, Message
 from navigator.domain.error import (
     CaptionOverflow,
     EditForbidden,
     EmptyPayload,
     ExtraForbidden,
+    MetadataKindMissing,
     MessageUnchanged,
     TextOverflow,
 )
-from navigator.logging import LogCode, jlog
 from navigator.domain.port.message import MessageGateway, Result
 from navigator.domain.service.rendering import decision
 from navigator.domain.value.content import Payload, caption
 from navigator.domain.value.message import Scope
+from navigator.log import LogCode, jlog
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +205,7 @@ class EditExecutor:
 
         kind = meta.get("kind")
         if kind not in {"text", "media", "group"}:
-            raise ValueError("render_meta_missing_kind")
+            raise MetadataKindMissing()
 
         return meta
 

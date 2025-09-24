@@ -4,7 +4,7 @@ import logging
 from typing import Dict
 
 from navigator.domain.port.factory import ViewForge, ViewLedger as ViewLedgerProtocol
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,5 @@ class ViewLedger(ViewLedgerProtocol):
         return exists
 
 
-default = ViewLedger()
-
-__all__ = ["ViewLedger", "key", "default"]
+__all__ = ["ViewLedger", "key"]
 

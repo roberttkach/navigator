@@ -7,7 +7,7 @@ from aiogram.types import (
 
 from navigator.domain.entity.markup import Markup
 from navigator.domain.port.markup import MarkupCodec
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 
 logger = logging.getLogger(__name__)
 

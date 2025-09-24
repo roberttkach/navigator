@@ -1,11 +1,12 @@
+from __future__ import annotations
+
+
 class NavigatorError(Exception):
     """Base error for navigator domain."""
-    pass
 
 
 class HistoryEmpty(NavigatorError):
     """History is too short to perform the operation."""
-    pass
 
 
 class StateNotFound(NavigatorError):
@@ -25,29 +26,52 @@ class EditForbidden(NavigatorError):
 
 class MessageUnchanged(NavigatorError):
     """Edit operation produced no changes."""
-    pass
 
 
 class InlineUnsupported(NavigatorError):
     """Operation is not supported in inline context."""
-    pass
 
 
 class EmptyPayload(NavigatorError):
     """Attempt to send or edit with empty payload."""
-    pass
 
 
 class TextOverflow(NavigatorError):
-    pass
+    """Text payload exceeds gateway limits."""
 
 
 class CaptionOverflow(NavigatorError):
-    pass
+    """Caption payload exceeds gateway limits."""
 
 
 class ExtraForbidden(NavigatorError):
-    pass
+    """Extra payload rejected by codec."""
+
+
+class MetadataError(NavigatorError):
+    """Base class for metadata mapping errors."""
+
+
+class MetadataKindMissing(MetadataError):
+    def __init__(self) -> None:
+        super().__init__("metadata_kind_missing")
+
+
+class MetadataKindUnsupported(MetadataError):
+    def __init__(self, kind: str | None = None) -> None:
+        tag = kind or "unknown"
+        super().__init__(f"metadata_kind_unsupported:{tag}")
+        self.kind = kind
+
+
+class MetadataMediumMissing(MetadataError):
+    def __init__(self) -> None:
+        super().__init__("metadata_medium_missing")
+
+
+class MetadataGroupMediumMissing(MetadataError):
+    def __init__(self) -> None:
+        super().__init__("metadata_group_medium_missing")
 
 
 __all__ = [
@@ -61,4 +85,9 @@ __all__ = [
     "CaptionOverflow",
     "ExtraForbidden",
     "StateNotFound",
+    "MetadataError",
+    "MetadataKindMissing",
+    "MetadataKindUnsupported",
+    "MetadataMediumMissing",
+    "MetadataGroupMediumMissing",
 ]

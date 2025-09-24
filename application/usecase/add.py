@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional
 
 from ..log.decorators import trace
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from ..map.entry import EntryMapper, Outcome
 from ..service.view.planner import ViewPlanner
 from ..service.view.policy import adapt

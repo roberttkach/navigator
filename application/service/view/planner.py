@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
 from navigator.domain.entity.history import Entry, Message
-from navigator.logging import LogCode, jlog
+from navigator.domain.error import MetadataKindUnsupported
 from navigator.domain.service.rendering import decision
 from navigator.domain.service.rendering.config import RenderingConfig
 from navigator.domain.value.content import Payload
 from navigator.domain.value.message import Scope
+from navigator.log import LogCode, jlog
 
 from ...internal.policy import validate_inline
 from .album import AlbumService
@@ -63,7 +64,7 @@ def _meta(node: Message) -> dict:
 def _verify(meta: dict) -> dict:
     kind = meta.get("kind")
     if kind not in {"text", "media", "group"}:
-        raise ValueError("render_meta_unsupported_kind")
+        raise MetadataKindUnsupported(kind if isinstance(kind, str) else None)
     return meta
 
 

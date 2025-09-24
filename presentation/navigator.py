@@ -61,7 +61,7 @@ from ..application.locks.guard import GuardFactory
 from ..domain.error import StateNotFound
 from ..domain.service.scope import profile
 from ..domain.value.message import Scope
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from .alerts import prev_not_found
 from .types import StateLike
 

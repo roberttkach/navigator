@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import logging
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from aiogram.fsm.context import FSMContext
 
-from navigator.logging import LogCode, jlog
 from navigator.domain.port.state import StateRepository
+from navigator.log import LogCode, jlog
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from typing import Optional
 
 from navigator.domain.entity.history import Message
 from navigator.domain.entity.media import MediaItem
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from navigator.domain.port.limits import Limits
 from navigator.domain.service.rendering.album import aligned
 from navigator.domain.service.rendering.helpers import match

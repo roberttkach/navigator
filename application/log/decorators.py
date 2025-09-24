@@ -4,7 +4,7 @@ from functools import wraps
 import time
 from typing import Any, Optional, Callable, Tuple, Dict
 
-from navigator.logging import jlog
+from navigator.log import jlog
 
 
 def _capture(fn: Callable[..., Any], args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[

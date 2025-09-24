@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional
 
 from ..internal.policy import prime, validate_inline
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from ..service.view.executor import EditExecutor
 from ..service.view.inline import InlineStrategy
 from ..service.view.planner import RenderResult, ViewPlanner

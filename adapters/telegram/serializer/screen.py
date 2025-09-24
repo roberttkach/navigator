@@ -4,7 +4,7 @@ import inspect
 import logging
 from typing import Any, Dict, FrozenSet
 
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 
 
 class SignatureScreen:

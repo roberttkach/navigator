@@ -1,45 +1,14 @@
 from __future__ import annotations
 
-import importlib.machinery
-import importlib.util
 import json
-import os
-import sysconfig
-import types
+import logging
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict
 
-
-def _load_stdlib_logging() -> types.ModuleType:
-    """Import the standard library :mod:`logging` module.
-
-    When this package is imported as ``logging`` (e.g. because the project root is on
-    ``sys.path``) we shadow ``logging`` from the standard library.  Downstream
-    dependencies expect the stdlib API to be present, so we load the real module from
-    the interpreter's standard library path and re-export its public surface.
-    """
-
-    location = sysconfig.get_path("stdlib")
-    if not location:
-        raise RuntimeError("Unable to locate Python standard library directory")
-    target = os.path.join(location, "logging", "__init__.py")
-    loader = importlib.machinery.SourceFileLoader("_stdlib_logging", target)
-    spec = importlib.util.spec_from_loader(loader.name, loader)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None  # for mypy; loader is always provided here
-    spec.loader.exec_module(module)
-    return module
-
-
-_stdlib_logging = _load_stdlib_logging()
-
-for name in dir(_stdlib_logging):
-    if name.startswith("__"):
-        continue
-    globals()[name] = getattr(_stdlib_logging, name)
-
-__all__ = list(dict.fromkeys(list(getattr(_stdlib_logging, "__all__", [])) + ["LogCode", "calibrate", "jlog"]))
+REDACT_KEYS = {"path", "inline", "business", "url", "caption", "thumb"}
+DEFAULT_MODE = "safe"
+_mode = DEFAULT_MODE
 
 
 class LogCode(Enum):
@@ -108,11 +77,6 @@ class LogCode(Enum):
     RESTORE_DYNAMIC_FALLBACK = "restore_dynamic_fallback"
 
 
-REDACT_KEYS = {"path", "inline", "business", "url", "caption", "thumb"}
-DEFAULT_MODE = "safe"
-_mode = DEFAULT_MODE
-
-
 def calibrate(mode: str) -> None:
     """Configure log redaction mode."""
 
@@ -156,3 +120,5 @@ def jlog(logger: logging.Logger, level: int, code: LogCode, **fields: Any) -> No
     }
     logger.log(level, json.dumps(payload, ensure_ascii=False, default=str), exc_info=trace)
 
+
+__all__ = ["LogCode", "calibrate", "jlog"]

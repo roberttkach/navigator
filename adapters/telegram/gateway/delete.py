@@ -5,7 +5,7 @@ import asyncio
 import logging
 from typing import List
 
-from navigator.logging import LogCode, jlog
+from navigator.log import LogCode, jlog
 from navigator.domain.service.scope import profile
 from navigator.domain.value.ids import order as _order
 from navigator.domain.value.message import Scope
