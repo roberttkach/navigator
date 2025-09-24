@@ -10,9 +10,7 @@ class LogCode(Enum):
     RERENDER_INLINE_NO_FALLBACK = "rerender_inline_no_fallback"
 
     # Inline
-    INLINE_DROP_EXTRA = "inline_drop_extra"
     INLINE_CONTENT_SWITCH_FORBIDDEN = "inline_content_switch_forbidden"
-    INLINE_TAIL_DELETE_IDS = "inline_tail_delete_ids"
     INLINE_REMAP_DELETE_SEND = "inline_remap_delete_send"
 
     # Albums
