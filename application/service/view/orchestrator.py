@@ -299,7 +299,6 @@ class ViewOrchestrator:
                 }
             return {"kind": "text", "text": node.text, "inline": node.inline}
 
-        shield(scope, fresh[0] if fresh else Payload())
         ledger: List[Message] = list(trail.messages) if trail else []
 
         primary: List[int] = []
