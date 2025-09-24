@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 from ..entity.markup import Markup
 from ..entity.media import MediaItem
-from ..types import Extra
 
 if TYPE_CHECKING:
     from ..entity.history import Entry
@@ -27,7 +26,7 @@ class Payload:
     group: list[MediaItem] | None = None
     reply: Markup | None = None
     preview: Preview | None = None
-    extra: Extra | None = None
+    extra: Dict[str, Any] | None = None
     erase: bool = False
 
     def morph(self, **kw: Any) -> Payload:

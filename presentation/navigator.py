@@ -47,7 +47,6 @@ from __future__ import annotations
 import logging
 from typing import Optional, Dict, Any, Union, SupportsInt
 
-from ..application import locks
 from ..application.dto.content import Content, Node
 from ..application.log.emit import jlog
 from ..application.map.payload import collect, convert
@@ -59,6 +58,7 @@ from ..application.usecase.pop import Trimmer
 from ..application.usecase.rebase import Shifter
 from ..application.usecase.replace import Swapper
 from ..application.usecase.set import Setter
+from ..application.locks.guard import GuardFactory
 from ..domain.error import StateNotFound
 from ..domain.service.scope import profile
 from ..domain.value.message import Scope
@@ -70,13 +70,14 @@ logger = logging.getLogger(__name__)
 
 
 class _Tail:
-    def __init__(self, flow: Tailer, scope: Scope):
+    def __init__(self, flow: Tailer, scope: Scope, guard: GuardFactory):
         self._tailer = flow
         self._scope = scope
+        self._guard = guard
 
     async def get(self) -> Optional[Dict[str, Any]]:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.get", scope=profile(self._scope))
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             identifier = await self._tailer.peek()
         if identifier is None:
             return None
@@ -88,7 +89,7 @@ class _Tail:
 
     async def delete(self) -> None:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="last.delete", scope=profile(self._scope))
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             await self._tailer.delete(self._scope)
 
     async def edit(self, content: Content) -> Optional[int]:
@@ -100,7 +101,7 @@ class _Tail:
             scope=profile(self._scope),
             payload={"text": bool(content.text), "media": bool(content.media), "group": bool(content.group)},
         )
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             result = await self._tailer.edit(self._scope, convert(content))
         return result
 
@@ -118,6 +119,7 @@ class Navigator:
             tailer: Tailer,
             alarm: Alarm,
             scope: Scope,
+            guard: GuardFactory,
     ):
         self._appender = appender
         self._swapper = swapper
@@ -128,7 +130,8 @@ class Navigator:
         self._tailer = tailer
         self._alarm = alarm
         self._scope = scope
-        self.last = _Tail(flow=tailer, scope=scope)
+        self._guard = guard
+        self.last = _Tail(flow=tailer, scope=scope, guard=guard)
 
     async def add(self, content: Union[Content, Node], *, key: Optional[str] = None, root: bool = False) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
@@ -143,7 +146,7 @@ class Navigator:
             root=root,
             payload={"count": len(payloads)},
         )
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             await self._appender.execute(self._scope, payloads, key, root=root)
 
     async def replace(self, content: Union[Content, Node]) -> None:
@@ -157,7 +160,7 @@ class Navigator:
             scope=profile(self._scope),
             payload={"count": len(payloads)},
         )
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             await self._swapper.execute(self._scope, payloads)
 
     async def rebase(self, message: int | SupportsInt) -> None:
@@ -170,7 +173,7 @@ class Navigator:
             scope=profile(self._scope),
             message={"id": int(identifier)},
         )
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             await self._shifter.execute(int(identifier))
 
     async def back(self, context: Dict[str, Any]) -> None:
@@ -182,13 +185,13 @@ class Navigator:
             scope=profile(self._scope),
             handlers=sorted(list(context.keys())) if isinstance(context, dict) else None,
         )
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             await self._rewinder.execute(self._scope, context)
 
     async def set(self, state: Union[str, StateLike], context: Dict[str, Any] | None = None) -> None:
         status = getattr(state, "state", state)
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=status)
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             try:
                 await self._setter.execute(self._scope, status, context or {})
             except StateNotFound:
@@ -196,7 +199,7 @@ class Navigator:
 
     async def pop(self, count: int = 1) -> None:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=profile(self._scope), count=count)
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             await self._trimmer.execute(count)
 
     async def alert(self) -> None:

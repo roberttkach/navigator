@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -6,7 +7,8 @@ from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway import delete as delete_module
 from navigator.adapters.telegram.gateway.delete import DeleteBatch
-from navigator.application.service.view.orchestrator import ViewOrchestrator
+from navigator.adapters.telegram.serializer.screen import SignatureScreen
+from navigator.application.service.view.planner import ViewPlanner
 from navigator.application.service.view.restorer import ViewRestorer
 from navigator.application.usecase.alarm import Alarm
 from navigator.application.usecase.last import Tailer
@@ -19,6 +21,11 @@ from navigator.domain.value.content import Payload
 from navigator.domain.value.message import Scope
 from navigator.presentation.alerts import prev_not_found
 from navigator.presentation.navigator import Navigator
+
+
+@asynccontextmanager
+async def noop_guard():
+    yield
 
 
 def digest_alarm_uses_alert_provider() -> None:
@@ -58,7 +65,7 @@ def digest_setter_raises_when_history_missing() -> None:
     gateway = Mock()
     gateway.alert = AsyncMock()
     restorer = SimpleNamespace(revive=AsyncMock())
-    orchestrator = SimpleNamespace(render=AsyncMock())
+    planner = SimpleNamespace(render=AsyncMock())
     latest = SimpleNamespace(mark=AsyncMock())
 
     setter = Setter(
@@ -66,7 +73,7 @@ def digest_setter_raises_when_history_missing() -> None:
         status=status,
         gateway=gateway,
         restorer=restorer,
-        orchestrator=orchestrator,
+        planner=planner,
         latest=latest,
     )
 
@@ -79,7 +86,7 @@ def digest_setter_raises_when_history_missing() -> None:
 
     gateway.alert.assert_not_awaited()
     ledger.archive.assert_not_awaited()
-    orchestrator.render.assert_not_awaited()
+    planner.render.assert_not_awaited()
 
 
 def digest_view_restorer_inline_dynamic_factory_rejects_multi_payload() -> None:
@@ -138,7 +145,7 @@ def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
     restorer = SimpleNamespace(
         revive=AsyncMock(side_effect=InlineUnsupported("inline_dynamic_multi_payload"))
     )
-    orchestrator = SimpleNamespace(render=AsyncMock())
+    planner = SimpleNamespace(render=AsyncMock())
     latest = SimpleNamespace(mark=AsyncMock())
 
     setter = Setter(
@@ -146,7 +153,7 @@ def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
         status=status,
         gateway=gateway,
         restorer=restorer,
-        orchestrator=orchestrator,
+        planner=planner,
         latest=latest,
     )
 
@@ -157,29 +164,22 @@ def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
     else:
         raise AssertionError("InlineUnsupported was not raised")
 
-    orchestrator.render.assert_not_awaited()
+    planner.render.assert_not_awaited()
     latest.mark.assert_not_awaited()
 
 
-def digest_view_orchestrator_inline_rejects_multi_payload() -> None:
+def digest_view_planner_inline_rejects_multi_payload() -> None:
     scope = Scope(chat=7, lang="en", inline="token")
-    gateway = SimpleNamespace(
-        send=AsyncMock(),
-        rewrite=AsyncMock(),
-        recast=AsyncMock(),
-        retitle=AsyncMock(),
-        remap=AsyncMock(),
-        delete=AsyncMock(),
-    )
-    orchestrator = ViewOrchestrator(
-        gateway=gateway,
+    planner = ViewPlanner(
+        executor=SimpleNamespace(),
         inline=SimpleNamespace(handle=AsyncMock()),
+        album=SimpleNamespace(partial_update=AsyncMock()),
         rendering=RenderingConfig(),
     )
 
     try:
         asyncio.run(
-            orchestrator.render(
+            planner.render(
                 scope,
                 [Payload(text="one"), Payload(text="two")],
                 trail=None,
@@ -192,19 +192,12 @@ def digest_view_orchestrator_inline_rejects_multi_payload() -> None:
         raise AssertionError("InlineUnsupported was not raised")
 
 
-def digest_view_orchestrator_inline_rejects_media_group() -> None:
+def digest_view_planner_inline_rejects_media_group() -> None:
     scope = Scope(chat=8, lang="en", inline="token")
-    gateway = SimpleNamespace(
-        send=AsyncMock(),
-        rewrite=AsyncMock(),
-        recast=AsyncMock(),
-        retitle=AsyncMock(),
-        remap=AsyncMock(),
-        delete=AsyncMock(),
-    )
-    orchestrator = ViewOrchestrator(
-        gateway=gateway,
+    planner = ViewPlanner(
+        executor=SimpleNamespace(),
         inline=SimpleNamespace(handle=AsyncMock()),
+        album=SimpleNamespace(partial_update=AsyncMock()),
         rendering=RenderingConfig(),
     )
     album = [
@@ -214,7 +207,7 @@ def digest_view_orchestrator_inline_rejects_media_group() -> None:
 
     try:
         asyncio.run(
-            orchestrator.render(
+            planner.render(
                 scope,
                 [Payload(group=album)],
                 trail=None,
@@ -231,13 +224,21 @@ def digest_tailer_inline_edit_rejects_media_group() -> None:
     scope = Scope(chat=9, lang="en", inline="token")
     latest = SimpleNamespace(peek=AsyncMock(return_value=100), mark=AsyncMock())
     ledger = SimpleNamespace(recall=AsyncMock(), archive=AsyncMock())
-    gateway = SimpleNamespace(delete=AsyncMock())
-    orchestrator = SimpleNamespace(
-        rendering=RenderingConfig(),
-        inline=AsyncMock(),
-        swap=AsyncMock(),
+    planner = SimpleNamespace(render=AsyncMock())
+    executor = SimpleNamespace(
+        delete=AsyncMock(),
+        execute=AsyncMock(),
+        refine_meta=Mock(return_value={"kind": "text", "text": "noop", "inline": True}),
     )
-    tailer = Tailer(latest=latest, ledger=ledger, gateway=gateway, orchestrator=orchestrator)
+    inline = SimpleNamespace(handle=AsyncMock())
+    tailer = Tailer(
+        latest=latest,
+        ledger=ledger,
+        planner=planner,
+        executor=executor,
+        inline=inline,
+        rendering=RenderingConfig(),
+    )
     payload = Payload(
         group=[
             MediaItem(type=MediaType.PHOTO, path="file-x"),
@@ -270,6 +271,7 @@ def digest_navigator_set_triggers_alarm_on_missing_state() -> None:
         tailer=SimpleNamespace(peek=AsyncMock(), delete=AsyncMock(), edit=AsyncMock()),
         alarm=alarm,
         scope=scope,
+        guard=lambda _: noop_guard(),
     )
 
     asyncio.run(navigator.set("missing"))
@@ -283,7 +285,55 @@ def digest_navigator_set_triggers_alarm_on_missing_state() -> None:
 
 def digest_telegram_gateway_uses_provided_text() -> None:
     bot = SimpleNamespace(send_message=AsyncMock())
-    gateway = TelegramGateway(bot=bot, codec=object(), chunk=10, truncate=False)
+    
+    class DummyCodec:
+        def decode(self, markup):
+            return markup
+
+    class DummySchema:
+        def for_send(self, *args, **kwargs):
+            return {"text": {}, "caption": {}, "media": {}, "effect": None}
+
+        def for_edit(self, *args, **kwargs):
+            return {"text": {}, "caption": {}, "media": {}, "effect": None}
+
+        def for_history(self, *args, **kwargs):  # pragma: no cover - not used
+            return None
+
+    class DummyLimits:
+        def text_max(self):
+            return 4096
+
+        def caption_max(self):
+            return 1024
+
+        def album_floor(self):
+            return 2
+
+        def album_ceiling(self):
+            return 10
+
+        def album_blend(self):
+            return set()
+
+    class DummyPolicy:
+        def admissible(self, path, *, inline):
+            return True
+
+        def adapt(self, path, *, native):
+            return path
+
+    gateway = TelegramGateway(
+        bot=bot,
+        codec=DummyCodec(),
+        limits=DummyLimits(),
+        schema=DummySchema(),
+        policy=DummyPolicy(),
+        screen=SignatureScreen(),
+        chunk=10,
+        truncate=False,
+        delete_delay=0.0,
+    )
     scope = Scope(chat=42, lang="en")
 
     asyncio.run(gateway.alert(scope, "payload message"))
@@ -311,7 +361,7 @@ def digest_delete_batch_uses_business_api_only() -> None:
         ),
         delete_messages=AsyncMock(),
     )
-    runner = DeleteBatch(bot=bot, chunk=2)
+    runner = DeleteBatch(bot=bot, chunk=2, delay=0.0)
 
     captured = []
 

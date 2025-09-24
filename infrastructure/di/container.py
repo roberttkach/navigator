@@ -1,15 +1,21 @@
-from dependency_injector import containers, providers
+from __future__ import annotations
 
+from dependency_injector import containers, providers
 from aiogram.fsm.context import FSMContext
+
 from ...adapters.storage.chronicle import Chronicle
 from ...adapters.storage.latest import Latest
 from ...adapters.storage.status import Status
 from ...adapters.telegram.gateway import TelegramGateway
 from ...adapters.telegram.codec import AiogramCodec
-from ...adapters.telegram.media import weblink
+from ...adapters.telegram.media import TelegramMediaPolicy
+from ...adapters.telegram.serializer import SignatureScreen, TelegramExtraSchema
+from ...application.locks.guard import GuardFactory
 from ...application.map.entry import EntryMapper
+from ...application.service.view.album import AlbumService
+from ...application.service.view.executor import EditExecutor
 from ...application.service.view.inline import InlineStrategy
-from ...application.service.view.orchestrator import ViewOrchestrator
+from ...application.service.view.planner import ViewPlanner
 from ...application.service.view.restorer import ViewRestorer
 from ...application.usecase.add import Appender
 from ...application.usecase.back import Rewinder
@@ -21,77 +27,119 @@ from ...application.usecase.replace import Swapper
 from ...application.usecase.set import Setter
 from ...domain.port.factory import ViewLedger
 from ...domain.service.rendering.config import RenderingConfig
-from ...infrastructure.config import SETTINGS
+from ..clock.system import SystemClock
+from ..config.settings import load as load_settings
+from ..limits.config import ConfigLimits
+from ..locks.memory import MemoryLockProvider
 
 
 class AppContainer(containers.DeclarativeContainer):
+    settings = providers.Singleton(load_settings)
+
     event = providers.Dependency()
     state = providers.Dependency(instance_of=FSMContext)
     ledger = providers.Dependency(instance_of=ViewLedger)
     alert = providers.Dependency()
 
-    retention = providers.Object(SETTINGS.retention)
-    chunk = providers.Object(SETTINGS.chunk)
-
     codec = providers.Singleton(AiogramCodec)
-    gateway = providers.Singleton(
-        TelegramGateway,
-        bot=event.provided.bot,
-        codec=codec,
-        chunk=chunk,
-        truncate=providers.Object(SETTINGS.truncate),
+    clock = providers.Singleton(SystemClock)
+    limits = providers.Singleton(
+        ConfigLimits,
+        text=settings.provided.text_limit,
+        caption=settings.provided.caption_limit,
+        floor=settings.provided.album_floor,
+        ceiling=settings.provided.album_ceiling,
+        blend=settings.provided.album_blend_set,
     )
+    screen = providers.Factory(SignatureScreen)
+    schema = providers.Factory(TelegramExtraSchema)
+    policy = providers.Factory(TelegramMediaPolicy, strict=settings.provided.strictpath)
+    lock_provider = providers.Singleton(MemoryLockProvider)
+    guard = providers.Factory(GuardFactory, provider=lock_provider)
+
+    rendering = providers.Factory(RenderingConfig, thumbguard=settings.provided.thumbguard)
+
     chronicle = providers.Factory(Chronicle, state=state)
     status = providers.Factory(Status, state=state)
     latest = providers.Factory(Latest, state=state)
     mapper = providers.Factory(EntryMapper, ledger=ledger)
-    strategy = providers.Factory(
-        InlineStrategy,
-        probe=weblink,
-        strictpath=providers.Object(SETTINGS.strictpath),
+    gateway = providers.Factory(
+        TelegramGateway,
+        bot=event.provided.bot,
+        codec=codec,
+        limits=limits,
+        schema=schema,
+        policy=policy,
+        screen=screen,
+        chunk=settings.provided.chunk,
+        truncate=settings.provided.truncate,
+        delete_delay=settings.provided.delete_delay,
     )
-    rendering = providers.Object(RenderingConfig(thumbguard=SETTINGS.thumbguard))
-    orchestrator = providers.Factory(
-        ViewOrchestrator,
-        gateway=gateway,
-        inline=strategy,
+
+    inline = providers.Factory(InlineStrategy, policy=policy)
+    executor = providers.Factory(EditExecutor, gateway=gateway)
+    album = providers.Factory(AlbumService, executor=executor, thumbguard=settings.provided.thumbguard)
+    planner = providers.Factory(
+        ViewPlanner,
+        executor=executor,
+        inline=inline,
+        album=album,
         rendering=rendering,
     )
     restorer = providers.Factory(ViewRestorer, ledger=ledger)
 
     appender = providers.Factory(
         Appender,
-        archive=chronicle, state=status, tail=latest,
-        orchestrator=orchestrator,
-        mapper=mapper, limit=retention,
+        archive=chronicle,
+        state=status,
+        tail=latest,
+        planner=planner,
+        mapper=mapper,
+        limit=settings.provided.history_limit,
     )
     swapper = providers.Factory(
         Swapper,
-        archive=chronicle, state=status, tail=latest,
-        orchestrator=orchestrator,
-        mapper=mapper, limit=retention,
+        archive=chronicle,
+        state=status,
+        tail=latest,
+        planner=planner,
+        mapper=mapper,
+        limit=settings.provided.history_limit,
     )
     rewinder = providers.Factory(
         Rewinder,
-        ledger=chronicle, status=status,
-        gateway=gateway, restorer=restorer,
-        orchestrator=orchestrator, latest=latest,
+        ledger=chronicle,
+        status=status,
+        gateway=gateway,
+        restorer=restorer,
+        planner=planner,
+        latest=latest,
     )
     setter = providers.Factory(
         Setter,
-        ledger=chronicle, status=status,
+        ledger=chronicle,
+        status=status,
         gateway=gateway,
         restorer=restorer,
-        orchestrator=orchestrator, latest=latest,
+        planner=planner,
+        latest=latest,
     )
     trimmer = providers.Factory(Trimmer, ledger=chronicle, latest=latest)
     shifter = providers.Factory(Shifter, ledger=chronicle, latest=latest)
     tailer = providers.Factory(
-        Tailer, latest=latest, ledger=chronicle, gateway=gateway,
-        orchestrator=orchestrator,
+        Tailer,
+        latest=latest,
+        ledger=chronicle,
+        planner=planner,
+        executor=executor,
+        inline=inline,
+        rendering=rendering,
     )
     alarm = providers.Factory(
         Alarm,
         gateway=gateway,
         alert=alert,
     )
+
+
+__all__ = ["AppContainer"]
