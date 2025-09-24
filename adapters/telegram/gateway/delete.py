@@ -1,31 +1,27 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from typing import List
 
 from navigator.core.service.scope import profile
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.ids import order as _order
 from navigator.core.value.message import Scope
 
 from ..errors import excusable
 from .retry import invoke
 
-channel = telemetry.channel(__name__)
-
-
 class DeleteBatch:
-    def __init__(self, bot, *, chunk: int, delay: float) -> None:
+    def __init__(self, bot, *, chunk: int, delay: float, telemetry: Telemetry) -> None:
         self._bot = bot
         self._chunk = min(int(chunk), 100)
         self._delay = max(float(delay), 0.0)
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def run(self, scope: Scope, identifiers: List[int]) -> None:
         if scope.inline and not scope.business:
-            channel.emit(
+            self._channel.emit(
                 logging.INFO,
                 LogCode.RENDER_SKIP,
                 scope=profile(scope),
@@ -43,7 +39,7 @@ class DeleteBatch:
             for start in range(0, len(unique), self._chunk)
         ]
         total = len(groups)
-        channel.emit(
+        self._channel.emit(
             logging.DEBUG,
             LogCode.RERENDER_START,
             note="delete_chunking",
@@ -65,8 +61,9 @@ class DeleteBatch:
                         delete_action,
                         message_ids=group,
                         **delete_kwargs,
+                        channel=self._channel,
                     )
-                    channel.emit(
+                    self._channel.emit(
                         logging.INFO,
                         LogCode.GATEWAY_DELETE_OK,
                         scope=scope_profile,
@@ -80,7 +77,7 @@ class DeleteBatch:
                         continue
                     raise
         except Exception as error:
-            channel.emit(
+            self._channel.emit(
                 logging.WARNING,
                 LogCode.GATEWAY_DELETE_FAIL,
                 scope=scope_profile,

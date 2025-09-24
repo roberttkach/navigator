@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 
 from aiogram import Bot
-from aiogram.types import InputMedia
-
 from navigator.core.error import CaptionOverflow, TextOverflow
 from navigator.core.port.extraschema import ExtraSchema
 from navigator.core.port.limits import Limits
@@ -13,7 +11,7 @@ from navigator.core.port.pathpolicy import MediaPathPolicy
 from navigator.core.port.preview import LinkPreviewCodec
 from navigator.core.service.rendering.helpers import classify
 from navigator.core.service.scope import profile
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
@@ -22,9 +20,6 @@ from ..serializer import caption as caption_tools
 from ..serializer import text as text_tools
 from ..serializer.screen import SignatureScreen
 from . import util
-
-channel = telemetry.channel(__name__)
-
 
 async def rewrite(
     bot: Bot,
@@ -38,6 +33,7 @@ async def rewrite(
     message_id: int,
     payload: Payload,
     truncate: bool,
+    channel: TelemetryChannel,
 ):
     text = payload.text or ""
     if len(text) > limits.text_max():
@@ -85,6 +81,7 @@ async def recast(
     message_id: int,
     payload: Payload,
     truncate: bool,
+    channel: TelemetryChannel,
 ):
     caption_text = caption_tools.caption(payload)
     if caption_text is not None and len(caption_text) > limits.caption_max():
@@ -136,6 +133,7 @@ async def retitle(
     message_id: int,
     payload: Payload,
     truncate: bool,
+    channel: TelemetryChannel,
 ):
     caption_text = caption_tools.restate(payload)
     if caption_text is not None and len(caption_text) > limits.caption_max():
@@ -174,6 +172,7 @@ async def remap(
     scope: Scope,
     message_id: int,
     payload: Payload,
+    channel: TelemetryChannel,
 ):
     markup = text_tools.decode(codec, payload.reply)
     message = await bot.edit_message_reply_markup(

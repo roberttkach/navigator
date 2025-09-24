@@ -60,22 +60,32 @@ from ..app.usecase.set import Setter
 from ..app.locks.guard import GuardFactory
 from ..core.error import StateNotFound
 from ..core.service.scope import profile
-from ..core.telemetry import LogCode, telemetry
+from ..core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..core.value.message import Scope
 from .alerts import prev_not_found
 from .types import StateLike
 
-channel = telemetry.channel(__name__)
-
 
 class _Tail:
-    def __init__(self, flow: Tailer, scope: Scope, guard: GuardFactory):
+    def __init__(
+        self,
+        flow: Tailer,
+        scope: Scope,
+        guard: GuardFactory,
+        telemetry: Telemetry,
+    ):
         self._tailer = flow
         self._scope = scope
         self._guard = guard
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def get(self) -> Optional[Dict[str, Any]]:
-        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="last.get", scope=profile(self._scope))
+        self._channel.emit(
+            logging.INFO,
+            LogCode.NAVIGATOR_API,
+            method="last.get",
+            scope=profile(self._scope),
+        )
         async with self._guard(self._scope):
             identifier = await self._tailer.peek()
         if identifier is None:
@@ -87,12 +97,17 @@ class _Tail:
         }
 
     async def delete(self) -> None:
-        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="last.delete", scope=profile(self._scope))
+        self._channel.emit(
+            logging.INFO,
+            LogCode.NAVIGATOR_API,
+            method="last.delete",
+            scope=profile(self._scope),
+        )
         async with self._guard(self._scope):
             await self._tailer.delete(self._scope)
 
     async def edit(self, content: Content) -> Optional[int]:
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="last.edit",
@@ -118,6 +133,7 @@ class Navigator:
             alarm: Alarm,
             scope: Scope,
             guard: GuardFactory,
+            telemetry: Telemetry,
     ):
         self._appender = appender
         self._swapper = swapper
@@ -129,12 +145,13 @@ class Navigator:
         self._alarm = alarm
         self._scope = scope
         self._guard = guard
-        self.last = _Tail(flow=tailer, scope=scope, guard=guard)
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+        self.last = _Tail(flow=tailer, scope=scope, guard=guard, telemetry=telemetry)
 
     async def add(self, content: Union[Content, Node], *, key: Optional[str] = None, root: bool = False) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
         payloads = collect(node)
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="add",
@@ -149,7 +166,7 @@ class Navigator:
     async def replace(self, content: Union[Content, Node]) -> None:
         node = content if isinstance(content, Node) else Node(messages=[content])
         payloads = collect(node)
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="replace",
@@ -161,7 +178,7 @@ class Navigator:
 
     async def rebase(self, message: int | SupportsInt) -> None:
         identifier = getattr(message, "id", message)
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="rebase",
@@ -172,7 +189,7 @@ class Navigator:
             await self._shifter.execute(int(identifier))
 
     async def back(self, context: Dict[str, Any]) -> None:
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method="back",
@@ -184,7 +201,13 @@ class Navigator:
 
     async def set(self, state: Union[str, StateLike], context: Dict[str, Any] | None = None) -> None:
         status = getattr(state, "state", state)
-        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="set", scope=profile(self._scope), state=status)
+        self._channel.emit(
+            logging.INFO,
+            LogCode.NAVIGATOR_API,
+            method="set",
+            scope=profile(self._scope),
+            state=status,
+        )
         async with self._guard(self._scope):
             try:
                 await self._setter.execute(self._scope, status, context or {})
@@ -192,12 +215,23 @@ class Navigator:
                 await self._alarm.execute(self._scope, text=prev_not_found(self._scope))
 
     async def pop(self, count: int = 1) -> None:
-        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="pop", scope=profile(self._scope), count=count)
+        self._channel.emit(
+            logging.INFO,
+            LogCode.NAVIGATOR_API,
+            method="pop",
+            scope=profile(self._scope),
+            count=count,
+        )
         async with self._guard(self._scope):
             await self._trimmer.execute(count)
 
     async def alert(self) -> None:
-        channel.emit(logging.INFO, LogCode.NAVIGATOR_API, method="alert", scope=profile(self._scope))
+        self._channel.emit(
+            logging.INFO,
+            LogCode.NAVIGATOR_API,
+            method="alert",
+            scope=profile(self._scope),
+        )
         async with self._guard(self._scope):
             await self._alarm.execute(self._scope)
 

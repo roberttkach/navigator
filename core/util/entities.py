@@ -3,9 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List
 
-from ..telemetry import LogCode, telemetry
-
-channel = telemetry.channel(__name__)
+from ..telemetry import LogCode, Telemetry, TelemetryChannel
 
 _ALLOWED_ENTITY_TYPES = {
     "mention",
@@ -30,7 +28,15 @@ _ALLOWED_ENTITY_TYPES = {
 }
 
 
-def sanitize(entities: Any, length: int) -> List[Dict[str, Any]]:
+def sanitize(
+    entities: Any,
+    length: int,
+    *,
+    telemetry: Telemetry | None = None,
+) -> List[Dict[str, Any]]:
+    channel: TelemetryChannel | None = (
+        telemetry.channel(__name__) if telemetry else None
+    )
     result: List[Dict[str, Any]] = []
     if not isinstance(entities, list):
         return result
@@ -61,6 +67,10 @@ def sanitize(entities: Any, length: int) -> List[Dict[str, Any]]:
         if kind == "custom_emoji" and isinstance(entity.get("custom_emoji_id"), str):
             entry["custom_emoji_id"] = entity["custom_emoji_id"]
         result.append(entry)
-    if entities and not result:
-        channel.emit(logging.DEBUG, LogCode.EXTRA_UNKNOWN_DROPPED, note="entities_dropped_all")
+    if entities and not result and channel is not None:
+        channel.emit(
+            logging.DEBUG,
+            LogCode.EXTRA_UNKNOWN_DROPPED,
+            note="entities_dropped_all",
+        )
     return result

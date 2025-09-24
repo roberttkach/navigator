@@ -5,26 +5,32 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from ...telemetry import LogCode, telemetry
+from ...telemetry import LogCode, Telemetry, TelemetryChannel
 from ...util.entities import sanitize
 
-channel = telemetry.channel(__name__)
 
-
-def cleanse(extra: Any, *, length: int) -> Optional[Dict[str, Any]]:
+def cleanse(
+    extra: Any,
+    *,
+    length: int,
+    telemetry: Telemetry | None = None,
+) -> Optional[Dict[str, Any]]:
     """Normalize a history ``extra`` payload into a JSON-friendly mapping."""
 
     if not isinstance(extra, dict):
         return None
 
     filtered: Dict[str, Any] = {}
+    channel: TelemetryChannel | None = (
+        telemetry.channel(__name__) if telemetry else None
+    )
 
     for key, value in extra.items():
         if key == "entities":
-            vetted = sanitize(value, length)
+            vetted = sanitize(value, length, telemetry=telemetry)
             if vetted:
                 filtered["entities"] = vetted
-            else:
+            elif channel:
                 channel.emit(
                     logging.DEBUG,
                     LogCode.EXTRA_UNKNOWN_DROPPED,

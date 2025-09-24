@@ -4,9 +4,7 @@ import logging
 from typing import Dict
 
 from navigator.core.port.factory import ViewForge, ViewLedger as ViewLedgerProtocol
-from navigator.core.telemetry import LogCode, telemetry
-
-channel = telemetry.channel(__name__)
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 
 def _stamp(forger: ViewForge) -> str:
@@ -20,15 +18,22 @@ def key(forger: ViewForge) -> str:
 
 
 class ViewLedger(ViewLedgerProtocol):
-    def __init__(self) -> None:
+    def __init__(self, telemetry: Telemetry | None = None) -> None:
         self._ledger: Dict[str, ViewForge] = {}
+        self._channel: TelemetryChannel | None = (
+            telemetry.channel(__name__) if telemetry else None
+        )
+
+    def _emit(self, level: int, code: LogCode, /, **fields: object) -> None:
+        if self._channel:
+            self._channel.emit(level, code, **fields)
 
     def register(self, name: str, forge: ViewForge) -> None:
         if name in self._ledger:
-            channel.emit(logging.WARNING, LogCode.REGISTRY_REGISTER, key=name, note="duplicate")
+            self._emit(logging.WARNING, LogCode.REGISTRY_REGISTER, key=name, note="duplicate")
             raise KeyError(f"Factory already registered for key: {name}")
         self._ledger[name] = forge
-        channel.emit(logging.INFO, LogCode.REGISTRY_REGISTER, key=name, note="ok")
+        self._emit(logging.INFO, LogCode.REGISTRY_REGISTER, key=name, note="ok")
 
     def enlist(self, forge: ViewForge) -> str:
         signature = _stamp(forge)
@@ -38,15 +43,15 @@ class ViewLedger(ViewLedgerProtocol):
     def get(self, key: str) -> ViewForge:
         try:
             found = self._ledger[key]
-            channel.emit(logging.DEBUG, LogCode.REGISTRY_GET, key=key, found=True)
+            self._emit(logging.DEBUG, LogCode.REGISTRY_GET, key=key, found=True)
             return found
         except KeyError as e:
-            channel.emit(logging.DEBUG, LogCode.REGISTRY_GET, key=key, found=False)
+            self._emit(logging.DEBUG, LogCode.REGISTRY_GET, key=key, found=False)
             raise KeyError(f"Factory not found for key: {key}") from e
 
     def has(self, key: str) -> bool:
         exists = key in self._ledger
-        channel.emit(logging.DEBUG, LogCode.REGISTRY_HAS, key=key, found=exists)
+        self._emit(logging.DEBUG, LogCode.REGISTRY_HAS, key=key, found=exists)
         return exists
 
 

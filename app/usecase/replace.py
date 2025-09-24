@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 from typing import List
 
-from ..log.decorators import trace
-from ...core.telemetry import LogCode, telemetry
+from ..log import events
+from ..log.aspect import TraceAspect
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..map.entry import EntryMapper, Outcome
 from ..service.view.planner import ViewPlanner
 from ..service.view.policy import adapt
@@ -15,9 +16,6 @@ from ...core.service.history import policy as chronicle
 from ...core.value.content import Payload, normalize
 from ...core.value.message import Scope
 
-channel = telemetry.channel(__name__)
-
-
 class Swapper:
     def __init__(
             self,
@@ -27,6 +25,7 @@ class Swapper:
             planner: ViewPlanner,
             mapper: EntryMapper,
             limit: int,
+            telemetry: Telemetry,
     ):
         self._archive = archive
         self._state = state
@@ -34,12 +33,17 @@ class Swapper:
         self._planner = planner
         self._mapper = mapper
         self._limit = limit
+        self._telemetry = telemetry
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+        self._trace = TraceAspect(telemetry)
 
-    @trace(None, None, None)
     async def execute(self, scope: Scope, bundle: List[Payload]) -> None:
+        await self._trace.run(events.REPLACE, self._perform, scope, bundle)
+
+    async def _perform(self, scope: Scope, bundle: List[Payload]) -> None:
         adjusted = [adapt(scope, normalize(p)) for p in bundle]
         records = await self._archive.recall()
-        channel.emit(
+        self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_LOAD,
             op="replace",
@@ -54,7 +58,7 @@ class Swapper:
         )
 
         if not render or not render.ids or not render.changed:
-            channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="replace")
+            self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="replace")
             return
         status = await self._state.status()
 
@@ -79,4 +83,5 @@ class Swapper:
             self._limit,
             timeline,
             operation="replace",
+            telemetry=self._telemetry,
         )

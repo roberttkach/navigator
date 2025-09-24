@@ -1,20 +1,22 @@
 """Public entry points for embedding Navigator."""
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import Any, cast
 
-from ..core.port.factory import ViewLedger
-from ..core.value.message import Scope
+from .contracts import NavigatorLike, ScopeDTO, ViewLedgerDTO
 from ..bootstrap.navigator import build_navigator as _bootstrap
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from ..presentation.navigator import Navigator
 
+async def build_navigator(
+    event: Any,
+    state: Any,
+    ledger: ViewLedgerDTO,
+    scope: ScopeDTO,
+) -> NavigatorLike:
+    """Assemble and return a Navigator facade instance."""
 
-async def build_navigator(event: Any, state: Any, ledger: ViewLedger, scope: Scope) -> "Navigator":
-    """Assemble a Navigator facade using the composition root."""
-
-    return await _bootstrap(event=event, state=state, ledger=ledger, scope=scope)
+    navigator = await _bootstrap(event=event, state=state, ledger=ledger, scope=scope)
+    return cast(NavigatorLike, navigator)
 
 
 __all__ = ["build_navigator"]

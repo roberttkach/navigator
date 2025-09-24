@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import random
@@ -11,12 +9,11 @@ from typing import ParamSpec, TypeVar
 from aiogram.exceptions import TelegramRetryAfter
 
 from ....core.error import EditForbidden, MessageUnchanged
-from ....core.telemetry import LogCode, telemetry
+from ....core.telemetry import LogCode, TelemetryChannel
 from .patterns import EDIT_FORBIDDEN, NOT_MODIFIED
 
 P = ParamSpec("P")
 T = TypeVar("T")
-channel = telemetry.channel(__name__)
 
 
 def _delay(error: TelegramRetryAfter) -> int | None:
@@ -33,6 +30,7 @@ def _delay(error: TelegramRetryAfter) -> int | None:
 async def invoke(
     action: Callable[P, Awaitable[T]],
     *values: P.args,
+    channel: TelemetryChannel,
     **labels: P.kwargs,
 ) -> T:
     tries = 0

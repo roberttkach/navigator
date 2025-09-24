@@ -17,11 +17,24 @@ from navigator.core.entity.history import Entry
 from navigator.core.entity.media import MediaItem, MediaType
 from navigator.core.error import InlineUnsupported, StateNotFound
 from navigator.core.service.rendering.config import RenderingConfig
+from navigator.core.telemetry import Telemetry
 from navigator.core.typing.result import TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 from navigator.presentation.alerts import prev_not_found
 from navigator.presentation.navigator import Navigator
+
+
+class _StubTelemetryPort:
+    def calibrate(self, mode: str) -> None:
+        return None
+
+    def emit(self, code, level, *, origin=None, **fields) -> None:
+        return None
+
+
+def stub_telemetry() -> Telemetry:
+    return Telemetry(_StubTelemetryPort())
 
 
 @asynccontextmanager
@@ -35,7 +48,7 @@ def digest_alarm_uses_alert_provider() -> None:
     gateway = Mock()
     gateway.alert = AsyncMock()
 
-    alarm = Alarm(gateway=gateway, alert=provider)
+    alarm = Alarm(gateway=gateway, alert=provider, telemetry=stub_telemetry())
 
     asyncio.run(alarm.execute(scope))
 
@@ -50,7 +63,7 @@ def digest_alarm_prefers_explicit_text() -> None:
     gateway = Mock()
     gateway.alert = AsyncMock()
 
-    alarm = Alarm(gateway=gateway, alert=provider)
+    alarm = Alarm(gateway=gateway, alert=provider, telemetry=stub_telemetry())
 
     asyncio.run(alarm.execute(scope, text="override"))
 
@@ -76,6 +89,7 @@ def digest_setter_raises_when_history_missing() -> None:
         restorer=restorer,
         planner=planner,
         latest=latest,
+        telemetry=stub_telemetry(),
     )
 
     try:
@@ -104,7 +118,7 @@ def digest_view_restorer_inline_dynamic_factory_rejects_multi_payload() -> None:
             return self._mapping[key]
 
     entry = Entry(state="alpha", view="dynamic", messages=[])
-    restorer = ViewRestorer(ledger=Ledger())
+    restorer = ViewRestorer(ledger=Ledger(), telemetry=stub_telemetry())
 
     try:
         asyncio.run(restorer.revive(entry, {}, inline=True))
@@ -128,7 +142,7 @@ def digest_view_restorer_dynamic_factory_allows_multi_payload_outside_inline() -
             return self._mapping[key]
 
     entry = Entry(state="alpha", view="dynamic", messages=[])
-    restorer = ViewRestorer(ledger=Ledger())
+    restorer = ViewRestorer(ledger=Ledger(), telemetry=stub_telemetry())
 
     restored = asyncio.run(restorer.revive(entry, {}, inline=False))
 
@@ -156,6 +170,7 @@ def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
         restorer=restorer,
         planner=planner,
         latest=latest,
+        telemetry=stub_telemetry(),
     )
 
     try:
@@ -176,6 +191,7 @@ def digest_view_planner_inline_rejects_multi_payload() -> None:
         inline=SimpleNamespace(handle=AsyncMock()),
         album=SimpleNamespace(partial_update=AsyncMock()),
         rendering=RenderingConfig(),
+        telemetry=stub_telemetry(),
     )
 
     try:
@@ -200,6 +216,7 @@ def digest_view_planner_inline_rejects_media_group() -> None:
         inline=SimpleNamespace(handle=AsyncMock()),
         album=SimpleNamespace(partial_update=AsyncMock()),
         rendering=RenderingConfig(),
+        telemetry=stub_telemetry(),
     )
     album = [
         MediaItem(type=MediaType.PHOTO, path="file-a", caption="a"),
@@ -239,6 +256,7 @@ def digest_tailer_inline_edit_rejects_media_group() -> None:
         executor=executor,
         inline=inline,
         rendering=RenderingConfig(),
+        telemetry=stub_telemetry(),
     )
     payload = Payload(
         group=[
@@ -273,6 +291,7 @@ def digest_navigator_set_triggers_alarm_on_missing_state() -> None:
         alarm=alarm,
         scope=scope,
         guard=lambda _: noop_guard(),
+        telemetry=stub_telemetry(),
     )
 
     asyncio.run(navigator.set("missing"))
@@ -324,16 +343,18 @@ def digest_telegram_gateway_uses_provided_text() -> None:
         def adapt(self, path, *, native):
             return path
 
+    telemetry = stub_telemetry()
     gateway = TelegramGateway(
         bot=bot,
         codec=DummyCodec(),
         limits=DummyLimits(),
         schema=DummySchema(),
         policy=DummyPolicy(),
-        screen=SignatureScreen(),
+        screen=SignatureScreen(telemetry=telemetry),
         chunk=10,
         truncate=False,
         delete_delay=0.0,
+        telemetry=telemetry,
     )
     scope = Scope(chat=42, lang="en")
 
@@ -362,7 +383,7 @@ def digest_delete_batch_uses_business_api_only() -> None:
         ),
         delete_messages=AsyncMock(),
     )
-    runner = DeleteBatch(bot=bot, chunk=2, delay=0.0)
+    runner = DeleteBatch(bot=bot, chunk=2, delay=0.0, telemetry=stub_telemetry())
 
     captured = []
 

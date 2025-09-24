@@ -5,9 +5,7 @@ from dataclasses import replace
 from typing import List, Optional
 
 from ...core.entity.history import Entry, Message
-from ...core.telemetry import LogCode, telemetry
-
-channel = telemetry.channel(__name__)
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 
 def preserve(payload, entry):
@@ -18,9 +16,21 @@ def preserve(payload, entry):
     )
 
 
-async def persist(archive, ledger, policy, limit, history, *, operation: str):
+async def persist(
+    archive,
+    ledger,
+    policy,
+    limit,
+    history,
+    *,
+    operation: str,
+    telemetry: Telemetry | None = None,
+):
+    channel: TelemetryChannel | None = (
+        telemetry.channel(__name__) if telemetry else None
+    )
     trimmed = policy.prune(history, limit)
-    if len(trimmed) != len(history):
+    if len(trimmed) != len(history) and channel is not None:
         channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_TRIM,
@@ -28,11 +38,23 @@ async def persist(archive, ledger, policy, limit, history, *, operation: str):
             history={"before": len(history), "after": len(trimmed)},
         )
     await archive.archive(trimmed)
-    channel.emit(logging.DEBUG, LogCode.HISTORY_SAVE, op=operation, history={"len": len(trimmed)})
+    if channel is not None:
+        channel.emit(
+            logging.DEBUG,
+            LogCode.HISTORY_SAVE,
+            op=operation,
+            history={"len": len(trimmed)},
+        )
     if trimmed and trimmed[-1].messages:
         marker = trimmed[-1].messages[0].id
         await ledger.mark(marker)
-        channel.emit(logging.INFO, LogCode.LAST_SET, op=operation, message={"id": marker})
+        if channel is not None:
+            channel.emit(
+                logging.INFO,
+                LogCode.LAST_SET,
+                op=operation,
+                message={"id": marker},
+            )
 
 
 def reindex(entry: Entry, identifiers: List[int], extras: Optional[List[List[int]]] = None) -> Entry:

@@ -12,12 +12,14 @@ from ...app.usecase.pop import Trimmer
 from ...app.usecase.rebase import Shifter
 from ...app.usecase.replace import Swapper
 from ...app.usecase.set import Setter
+from ...core.telemetry import Telemetry
 from ...core.value.message import Scope
 from ..navigator import Navigator
 
 
 class _Core(Protocol):
     def guard(self) -> GuardFactory: ...
+    def telemetry(self) -> Telemetry: ...
 
 
 class _Usecases(Protocol):
@@ -58,6 +60,7 @@ def build_navigator(
         alarm=usecases.alarm(),
         scope=scope,
         guard=guard_factory,
+        telemetry=core.telemetry(),
     )
 
 

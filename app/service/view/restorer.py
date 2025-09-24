@@ -7,19 +7,17 @@ from typing import Any, Dict, List, Optional
 from ....core.entity.history import Entry
 from ....core.error import InlineUnsupported
 from ....core.port.factory import ViewLedger
-from ....core.telemetry import LogCode, telemetry
+from ....core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ....core.value.content import Payload
 
-channel = telemetry.channel(__name__)
-
-
 class ViewRestorer:
-    def __init__(self, ledger: ViewLedger):
+    def __init__(self, ledger: ViewLedger, telemetry: Telemetry):
         self._ledger = ledger
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def revive(self, entry: Entry, context: Dict[str, Any], *, inline: bool) -> List[Payload]:
         if entry.view:
-            channel.emit(logging.INFO, LogCode.RESTORE_DYNAMIC, forge=entry.view)
+            self._channel.emit(logging.INFO, LogCode.RESTORE_DYNAMIC, forge=entry.view)
             content = await self._dynamic(entry.view, context)
             if content:
                 if isinstance(content, list):
@@ -37,7 +35,7 @@ class ViewRestorer:
         try:
             forge = self._ledger.get(key)
         except KeyError:
-            channel.emit(
+            self._channel.emit(
                 logging.WARNING,
                 LogCode.RESTORE_DYNAMIC_FALLBACK,
                 forge=key,
@@ -50,7 +48,7 @@ class ViewRestorer:
             content = await forge(**supplies)
             return content
         except Exception as exc:
-            channel.emit(
+            self._channel.emit(
                 logging.WARNING,
                 LogCode.RESTORE_DYNAMIC_FALLBACK,
                 forge=key,
