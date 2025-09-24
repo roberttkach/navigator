@@ -35,7 +35,7 @@ class TelegramGateway(MessageGateway):
         preview: LinkPreviewCodec | None = None,
         chunk: int = 100,
         truncate: bool = False,
-        delete_delay: float = 0.05,
+        deletepause: float = 0.05,
         telemetry: Telemetry,
     ) -> None:
         self._bot = bot
@@ -50,7 +50,7 @@ class TelegramGateway(MessageGateway):
         self._channel: TelemetryChannel = telemetry.channel(__name__)
         from .delete import DeleteBatch
 
-        self._delete = DeleteBatch(bot, chunk=chunk, delay=delete_delay, telemetry=telemetry)
+        self._delete = DeleteBatch(bot, chunk=chunk, delay=deletepause, telemetry=telemetry)
 
     async def send(self, scope: Scope, payload: Payload) -> Result:
         message, extras, meta = await send(

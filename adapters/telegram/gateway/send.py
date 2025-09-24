@@ -51,7 +51,7 @@ async def send(
 
     if payload.group:
         caption_text = caption_tools.caption(payload)
-        extras = schema.for_send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+        extras = schema.send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
         effect = extras.get("effect")
         bundle = assemble(
             payload.group,
@@ -126,9 +126,9 @@ async def send(
 
     if payload.media:
         caption_text = caption_tools.caption(payload)
-        if caption_text is not None and len(caption_text) > limits.caption_max():
+        if caption_text is not None and len(caption_text) > limits.captionlimit():
             if truncate:
-                caption_text = caption_text[: limits.caption_max()]
+                caption_text = caption_text[: limits.captionlimit()]
                 channel.emit(
                     logging.INFO,
                     LogCode.TOO_LONG_TRUNCATED,
@@ -137,7 +137,7 @@ async def send(
                 )
             else:
                 raise CaptionOverflow()
-        extras = schema.for_send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+        extras = schema.send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
         sender = getattr(bot, f"send_{payload.media.type.value}")
         arguments = {
             **targets,
@@ -162,9 +162,9 @@ async def send(
     text = payload.text or ""
     if not text.strip():
         raise EmptyPayload()
-    if len(text) > limits.text_max():
+    if len(text) > limits.textlimit():
         if truncate:
-            text = text[: limits.text_max()]
+            text = text[: limits.textlimit()]
             channel.emit(
                 logging.INFO,
                 LogCode.TOO_LONG_TRUNCATED,
@@ -173,7 +173,7 @@ async def send(
             )
         else:
             raise TextOverflow()
-    extras = schema.for_send(scope, payload.extra, caption_len=len(text), media=False)
+    extras = schema.send(scope, payload.extra, caption_len=len(text), media=False)
     message = await bot.send_message(
         **targets,
         text=text,

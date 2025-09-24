@@ -28,28 +28,35 @@ work.
 | Tests | `trial.stub_telemetry` | `trial.monitor` | Returns a monitoring stub for telemetry. |
 | Tests | `trial.noop_guard` | `trial.sentinel` | Async context manager used as guard stub. |
 | Tests | `trial.digest_*` helpers | `reliance`, `override`, `absence`, `veto`, `assent`, `surface`, `rebuff`, `refuse`, `decline`, `siren`, `wording`, `translation`, `commerce`, `fragments` | Bring the scenario helpers in line with the policy. |
+| Core limits | `Limits.text_max`, `caption_max`, `album_floor`, `album_ceiling`, `album_blend` | `textlimit`, `captionlimit`, `groupmin`, `groupmax`, `groupmix` | Protocol names and all adapters now share the single-word vocabulary. |
+| Core limits | `ConfigLimits` constructor `floor`, `ceiling`, `blend` | `minimum`, `maximum`, `mix` | Keeps the configuration wiring aligned with the new protocol. |
+| Settings | `text_limit`, `caption_limit`, `album_floor`, `album_ceiling`, `album_blend`, `album_blend_set`, `delete_delay`, `delete_delay_ms` | `textlimit`, `captionlimit`, `groupmin`, `groupmax`, `mixcodes`, `mixset`, `deletepause`, `deletepausems` | Updated environment mapping and dependency injection bindings. |
+| Telegram gateway | `delete_delay` argument | `deletepause` | Matches the configuration name and emphasises the pacing behaviour. |
+| Extra schema | `ExtraSchema.for_send`, `for_edit`, `for_history` | `send`, `edit`, `history` | Reflected in the Telegram serializer and gateway usage. |
+| Gateway util | `result_from_message` | `derive` | Shortens the helper that builds message results. |
+| Presentation | `presentation.markup.sanitize_caption` | `presentation.markup.purify` | Keeps the markup helper compliant even though it is currently unused. |
+| View planner | `_RenderState.add_existing`, `_RenderState.add_execution` | `retain`, `collect` | Reduces the remaining snake_case verbs inside the planner flow. |
 
 ## Scheduled Renames
 
 The remaining snake_case identifiers are grouped by module so that each block can
 be addressed incrementally. Proposed target names are provided for future work:
 
-* `core.port.limits.Limits`: rename `text_max`, `caption_max`, `album_floor`,
-  `album_ceiling`, `album_blend` to single-word counterparts such as
-  `textcap`, `captioncap`, `albumfloor`, `albumceiling`, `albumblend`, and
-  update all adapters implementing the protocol.
-* `core.port.extraschema.ExtraSchema`: rename `for_send`, `for_edit`,
-  `for_history` to concise verbs like `send`, `edit`, and `history`, mirrored in
-  the Telegram serializer implementations.
-* `presentation.markup.sanitize_caption`: shorten to a single action word such
-  as `sanitize` and adjust importers.
-* `adapters.telegram.gateway.util.result_from_message`: compress into an
-  accurate single word (e.g. `extract`) used consistently by the gateway.
-* `app.service.view.planner` and related inline/album helpers: rename the public
-  methods that still rely on snake_case (e.g. `add_existing`, `add_execution`)
-  using domain-specific verbs (`attach`, `enqueue`, etc.).
-* `infra.config.settings.album_blend_set` and `delete_delay`: rename to
-  `albumblend` and `deletemoment` or other precise words.
+* `infra.config.settings.history_limit`: adopt a single-word synonym (for
+  example `historylimit`) and propagate the change through ledger factories and
+  environment overrides.
+* `app.internal.policy.validate_inline`: collapse the helper into a single verb
+  such as `validate` or `inlinecheck` and update the inline planner guards.
+* `app.service.view.executor.refine_meta`: rename the executor hook to a single
+  verb (e.g. `refine`) together with its call sites in the planner.
+* `app.service.view.album.AlbumService.partial_update`: choose a concise name
+  (for instance `partial` or `refresh`) and rename the associated helper
+  functions (`_album_ids`, `_alter`, `_clone`, `_clusters`) so their suffixes no
+  longer use snake_case.
+* `app.service.view.inline.InlineHandler`: when the inline workflow stabilises,
+  shorten the internal helpers (`_handle_media`, `_handle_text`,
+  `_fallback_markup`) so that the trailing segments also follow the single-word
+  guidance.
 
 Each future step should follow the same approach as this update: choose the
 shortest precise word, refactor call sites, and update exports (`__all__`,

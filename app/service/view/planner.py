@@ -39,12 +39,12 @@ class _RenderState:
     extras: List[List[int]] = field(default_factory=list)
     metas: List[Meta] = field(default_factory=list)
 
-    def add_existing(self, message: Message) -> None:
+    def retain(self, message: Message) -> None:
         self.ids.append(message.id)
         self.extras.append(list(message.extras or []))
         self.metas.append(_meta(message))
 
-    def add_execution(self, execution: Execution, meta: Meta) -> None:
+    def collect(self, execution: Execution, meta: Meta) -> None:
         self.ids.append(execution.result.id)
         self.extras.append(list(execution.result.extra))
         self.metas.append(meta)
@@ -174,19 +174,19 @@ class ViewPlanner:
             verdict = decision.decide(previous, current, self._rendering)
 
             if verdict is decision.Decision.NO_CHANGE:
-                state.add_existing(previous)
+                state.retain(previous)
                 continue
 
             if inline_mode:
                 changed = await self._apply_inline(scope, current, previous, state)
                 if not changed:
-                    state.add_existing(previous)
+                    state.retain(previous)
                 mutated = mutated or changed
                 continue
 
             changed = await self._apply_regular(scope, verdict, current, previous, state)
             if not changed:
-                state.add_existing(previous)
+                state.retain(previous)
             mutated = mutated or changed
 
         return mutated
@@ -211,7 +211,7 @@ class ViewPlanner:
 
     def _record_inline(self, outcome: InlineOutcome, state: _RenderState) -> bool:
         meta = self._executor.refine_meta(outcome.execution, outcome.decision, outcome.payload)
-        state.add_execution(outcome.execution, meta)
+        state.collect(outcome.execution, meta)
         return True
 
     async def _apply_regular(
@@ -226,7 +226,7 @@ class ViewPlanner:
         if execution is None:
             return False
         meta = self._executor.refine_meta(execution, verdict, payload)
-        state.add_execution(execution, meta)
+        state.collect(execution, meta)
         return True
 
     async def _trim_tail(self, scope: Scope, ledger: List[Message], incoming: int) -> bool:
@@ -261,7 +261,7 @@ class ViewPlanner:
             if not execution:
                 continue
             meta = self._executor.refine_meta(execution, decision.Decision.RESEND, payload)
-            state.add_execution(execution, meta)
+            state.collect(execution, meta)
             mutated = True
         return mutated
 

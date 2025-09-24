@@ -9,30 +9,30 @@ class ConfigLimits(Limits):
         *,
         text: int,
         caption: int,
-        floor: int,
-        ceiling: int,
-        blend: set[str],
+        minimum: int,
+        maximum: int,
+        mix: set[str],
     ) -> None:
         self._text = int(text)
         self._caption = int(caption)
-        self._floor = int(floor)
-        self._ceiling = int(ceiling)
-        self._blend = set(blend)
+        self._minimum = int(minimum)
+        self._maximum = int(maximum)
+        self._mix = set(mix)
 
-    def text_max(self) -> int:
+    def textlimit(self) -> int:
         return self._text
 
-    def caption_max(self) -> int:
+    def captionlimit(self) -> int:
         return self._caption
 
-    def album_floor(self) -> int:
-        return self._floor
+    def groupmin(self) -> int:
+        return self._minimum
 
-    def album_ceiling(self) -> int:
-        return self._ceiling
+    def groupmax(self) -> int:
+        return self._maximum
 
-    def album_blend(self) -> set[str]:
-        return set(self._blend)
+    def groupmix(self) -> set[str]:
+        return set(self._mix)
 
 
 __all__ = ["ConfigLimits"]

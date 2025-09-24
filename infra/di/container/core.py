@@ -24,11 +24,11 @@ class CoreContainer(containers.DeclarativeContainer):
     clock = providers.Singleton(SystemClock)
     limits = providers.Singleton(
         ConfigLimits,
-        text=settings.provided.text_limit,
-        caption=settings.provided.caption_limit,
-        floor=settings.provided.album_floor,
-        ceiling=settings.provided.album_ceiling,
-        blend=settings.provided.album_blend_set,
+        text=settings.provided.textlimit,
+        caption=settings.provided.captionlimit,
+        minimum=settings.provided.groupmin,
+        maximum=settings.provided.groupmax,
+        mix=settings.provided.mixset,
     )
     lock_provider = providers.Singleton(MemoryLockProvider)
     guard = providers.Factory(GuardFactory, provider=lock_provider)

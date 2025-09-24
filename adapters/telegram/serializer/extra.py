@@ -9,7 +9,7 @@ from navigator.core.value.message import Scope
 
 
 class TelegramExtraSchema(ExtraSchema):
-    def for_send(
+    def send(
         self,
         scope: Scope,
         extra: dict | None,
@@ -19,7 +19,7 @@ class TelegramExtraSchema(ExtraSchema):
     ) -> dict:
         return self._compose(scope, extra, caption_len, media, editing=False)
 
-    def for_edit(
+    def edit(
         self,
         scope: Scope,
         extra: dict | None,
@@ -29,7 +29,7 @@ class TelegramExtraSchema(ExtraSchema):
     ) -> dict:
         return self._compose(scope, extra, caption_len, media, editing=True)
 
-    def for_history(self, extra: dict | None, *, length: int) -> dict | None:
+    def history(self, extra: dict | None, *, length: int) -> dict | None:
         return history_cleanse(extra, length=length)
 
     def _compose(

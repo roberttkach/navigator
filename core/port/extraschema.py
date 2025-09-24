@@ -8,7 +8,7 @@ from ..value.message import Scope
 
 @typing.runtime_checkable
 class ExtraSchema(Protocol):
-    def for_send(
+    def send(
         self,
         scope: Scope,
         extra: dict | None,
@@ -18,7 +18,7 @@ class ExtraSchema(Protocol):
     ) -> dict:
         ...
 
-    def for_edit(
+    def edit(
         self,
         scope: Scope,
         extra: dict | None,
@@ -28,7 +28,7 @@ class ExtraSchema(Protocol):
     ) -> dict:
         ...
 
-    def for_history(self, extra: dict | None, *, length: int) -> dict | None:
+    def history(self, extra: dict | None, *, length: int) -> dict | None:
         ...
 
 

@@ -6,19 +6,19 @@ from typing import Protocol, Set
 
 @typing.runtime_checkable
 class Limits(Protocol):
-    def text_max(self) -> int:
+    def textlimit(self) -> int:
         ...
 
-    def caption_max(self) -> int:
+    def captionlimit(self) -> int:
         ...
 
-    def album_floor(self) -> int:
+    def groupmin(self) -> int:
         ...
 
-    def album_ceiling(self) -> int:
+    def groupmax(self) -> int:
         ...
 
-    def album_blend(self) -> Set[str]:
+    def groupmix(self) -> Set[str]:
         ...
 
 

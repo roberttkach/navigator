@@ -109,7 +109,7 @@ def compose(
     mapping: Dict[str, object] = {}
 
     if caption is not None:
-        if len(str(caption)) > limits.caption_max():
+        if len(str(caption)) > limits.captionlimit():
             raise CaptionOverflow()
         mapping["caption"] = caption
 

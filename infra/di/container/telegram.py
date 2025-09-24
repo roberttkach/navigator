@@ -34,7 +34,7 @@ class TelegramContainer(containers.DeclarativeContainer):
         preview=preview,
         chunk=core.settings.provided.chunk,
         truncate=core.settings.provided.truncate,
-        delete_delay=core.settings.provided.delete_delay,
+        deletepause=core.settings.provided.deletepause,
         telemetry=telemetry,
     )
     inline_guard = providers.Factory(InlineGuard, policy=policy)
