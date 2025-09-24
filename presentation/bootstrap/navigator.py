@@ -38,7 +38,7 @@ class NavigatorContainer(Protocol):
     def usecases(self) -> _Usecases: ...
 
 
-def build_navigator(
+def compose(
     container: NavigatorContainer,
     scope: Scope,
     *,
@@ -64,4 +64,4 @@ def build_navigator(
     )
 
 
-__all__ = ["build_navigator", "NavigatorContainer"]
+__all__ = ["compose", "NavigatorContainer"]

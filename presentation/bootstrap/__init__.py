@@ -1,5 +1,5 @@
 """Presentation bootstrap helpers."""
 
-from .navigator import build_navigator, NavigatorContainer
+from .navigator import compose, NavigatorContainer
 
-__all__ = ["build_navigator", "NavigatorContainer"]
+__all__ = ["compose", "NavigatorContainer"]

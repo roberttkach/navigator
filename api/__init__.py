@@ -4,10 +4,10 @@ from __future__ import annotations
 from typing import Any, cast
 
 from .contracts import NavigatorLike, ScopeDTO, ViewLedgerDTO
-from ..bootstrap.navigator import build_navigator as _bootstrap
+from ..bootstrap.navigator import assemble as _bootstrap
 
 
-async def build_navigator(
+async def assemble(
     event: Any,
     state: Any,
     ledger: ViewLedgerDTO,
@@ -19,4 +19,4 @@ async def build_navigator(
     return cast(NavigatorLike, navigator)
 
 
-__all__ = ["build_navigator"]
+__all__ = ["assemble"]

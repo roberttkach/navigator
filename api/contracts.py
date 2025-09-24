@@ -28,7 +28,7 @@ class ViewLedgerDTO(Protocol):
 
 @runtime_checkable
 class NavigatorLike(Protocol):
-    """Protocol describing the facade returned by :func:`build_navigator`."""
+    """Protocol describing the facade returned by :func:`assemble`."""
 
     async def add(self, *args: Any, **kwargs: Any) -> Any: ...
 

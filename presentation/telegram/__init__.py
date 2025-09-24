@@ -1,5 +1,5 @@
 """Telegram presentation bindings."""
 
-from .router import BACK_CALLBACK_DATA, NavigatorLike, configure_telemetry, retreat, router
+from .router import BACK_CALLBACK_DATA, NavigatorLike, instrument, retreat, router
 
-__all__ = ["router", "retreat", "NavigatorLike", "BACK_CALLBACK_DATA", "configure_telemetry"]
+__all__ = ["router", "retreat", "NavigatorLike", "BACK_CALLBACK_DATA", "instrument"]

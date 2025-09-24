@@ -8,9 +8,9 @@ from navigator.core.port.factory import ViewForge, ViewLedger
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
 from navigator.infra.di.container import AppContainer
-from navigator.presentation.alerts import prev_not_found
-from navigator.presentation.telegram import configure_telemetry as configure_router
-from navigator.presentation.bootstrap.navigator import build_navigator as assemble
+from navigator.presentation.alerts import missing
+from navigator.presentation.telegram import instrument
+from navigator.presentation.bootstrap.navigator import compose
 from navigator.presentation.navigator import Navigator
 
 
@@ -39,7 +39,7 @@ def _convert_scope(dto: ScopeDTO) -> Scope:
     )
 
 
-async def build_navigator(
+async def assemble(
     *,
     event: Any,
     state: Any,
@@ -52,14 +52,14 @@ async def build_navigator(
         event=event,
         state=state,
         ledger=_LedgerAdapter(ledger),
-        alert=prev_not_found,
+        alert=missing,
         telemetry=telemetry,
     )
     settings = container.core().settings()
     mode = getattr(settings, "redaction", "")
     telemetry.calibrate(mode)
-    configure_router(telemetry)
-    return assemble(container, _convert_scope(scope))
+    instrument(telemetry)
+    return compose(container, _convert_scope(scope))
 
 
-__all__ = ["build_navigator"]
+__all__ = ["assemble"]
