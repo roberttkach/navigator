@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-"""Aiogram router bindings for the Navigator facade."""
-
 import logging
 from typing import Any, Dict, Final, Protocol
 
@@ -10,11 +8,13 @@ from aiogram.types import CallbackQuery
 
 from navigator.core.error import HistoryEmpty, InlineUnsupported, StateNotFound
 from navigator.core.telemetry import LogCode, telemetry
-from .lexicon import lexeme
+
+from ..alerts import lexeme
 
 
 class NavigatorLike(Protocol):
     async def back(self, context: Dict[str, Any]) -> None: ...
+
 
 router = Router(name="navigator_handlers")
 
@@ -61,3 +61,4 @@ async def retreat(cb: CallbackQuery, navigator: NavigatorLike, **data: Dict[str,
         await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
 
 
+__all__ = ["router", "NavigatorLike", "retreat", "BACK_CALLBACK_DATA"]

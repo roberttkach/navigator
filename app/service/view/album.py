@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import json
 import logging
 from typing import Optional
 
@@ -60,6 +59,7 @@ def _clusters(latter: list[MediaItem], album: list[int]) -> list[Cluster]:
             )
         )
     return result
+
 
 class AlbumService:
     def __init__(self, executor: EditExecutor, *, limits: Limits, thumbguard: bool) -> None:

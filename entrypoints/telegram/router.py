@@ -1,4 +1,4 @@
 """Telegram entrypoint helpers."""
-from navigator.adapters.telegram.router.aiogram import router
+from navigator.presentation.telegram import router
 
 __all__ = ["router"]
