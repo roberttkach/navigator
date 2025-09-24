@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from aiogram.client.default import Default
 from aiogram.types import LinkPreviewOptions
 
 from navigator.core.port.preview import LinkPreviewCodec
@@ -9,6 +10,18 @@ from navigator.core.value.content import Preview
 
 
 class TelegramLinkPreviewCodec(LinkPreviewCodec):
+    @staticmethod
+    def _flag(value: Any) -> bool:
+        if isinstance(value, Default):
+            return False
+        return bool(value)
+
+    @staticmethod
+    def _optional_flag(value: Any) -> Optional[bool]:
+        if isinstance(value, Default) or value is None:
+            return None
+        return bool(value)
+
     def encode(self, preview: Preview) -> LinkPreviewOptions:
         payload = {
             "url": preview.url,
@@ -28,18 +41,18 @@ class TelegramLinkPreviewCodec(LinkPreviewCodec):
         if isinstance(data, LinkPreviewOptions):
             return Preview(
                 url=getattr(data, "url", None),
-                small=bool(getattr(data, "prefer_small_media", False)),
-                large=bool(getattr(data, "prefer_large_media", False)),
-                above=bool(getattr(data, "show_above_text", False)),
-                disabled=getattr(data, "is_disabled", None),
+                small=self._flag(getattr(data, "prefer_small_media", False)),
+                large=self._flag(getattr(data, "prefer_large_media", False)),
+                above=self._flag(getattr(data, "show_above_text", False)),
+                disabled=self._optional_flag(getattr(data, "is_disabled", None)),
             )
         if isinstance(data, dict):
             return Preview(
                 url=data.get("url"),
-                small=bool(data.get("prefer_small_media", data.get("small", False))),
-                large=bool(data.get("prefer_large_media", data.get("large", False))),
-                above=bool(data.get("show_above_text", data.get("above", False))),
-                disabled=data.get("is_disabled", data.get("disabled")),
+                small=self._flag(data.get("prefer_small_media", data.get("small", False))),
+                large=self._flag(data.get("prefer_large_media", data.get("large", False))),
+                above=self._flag(data.get("show_above_text", data.get("above", False))),
+                disabled=self._optional_flag(data.get("is_disabled", data.get("disabled"))),
             )
         return None
 
