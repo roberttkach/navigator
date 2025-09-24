@@ -78,7 +78,7 @@ def convert(item: MediaItem, *, policy: MediaPathPolicy, native: bool) -> InputF
     return policy.adapt(item.path, native=native)
 
 
-def _media_handler(item: MediaItem):
+def _select(item: MediaItem):
     catalog = {
         MediaType.PHOTO: InputMediaPhoto,
         MediaType.VIDEO: InputMediaVideo,
@@ -105,7 +105,7 @@ def compose(
     limits: Limits,
     native: bool,
 ) -> InputMedia:
-    handler = _media_handler(item)
+    handler = _select(item)
     mapping: Dict[str, object] = {}
 
     if caption is not None:

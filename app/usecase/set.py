@@ -51,7 +51,7 @@ class Setter:
         goal: str,
         context: Dict[str, Any],
     ) -> None:
-        history = await self._load_history(scope)
+        history = await self._recall(scope)
         cursor = self._locate(history, goal)
         target = history[cursor]
         inline = bool(scope.inline)
@@ -64,14 +64,14 @@ class Setter:
             op="set",
             state={"target": target.state},
         )
-        resolved = await self._revive_payloads(target, context, inline)
+        resolved = await self._revive(target, context, inline)
         render = await self._render(scope, resolved, tail, inline)
         if render and render.changed:
-            await self._apply_render(scope, render)
+            await self._apply(scope, render)
         else:
             await self._skip(scope, target)
 
-    async def _load_history(self, scope: Scope) -> List[Any]:
+    async def _recall(self, scope: Scope) -> List[Any]:
         history = await self._ledger.recall()
         self._channel.emit(
             logging.DEBUG,
@@ -98,7 +98,7 @@ class Setter:
             history={"len": len(trimmed)},
         )
 
-    async def _revive_payloads(
+    async def _revive(
         self,
         target,
         context: Dict[str, Any],
@@ -123,11 +123,11 @@ class Setter:
             inline=inline,
         )
 
-    async def _apply_render(self, scope: Scope, render: RenderNode) -> None:
+    async def _apply(self, scope: Scope, render: RenderNode) -> None:
         current = await self._ledger.recall()
         if current:
             tail = current[-1]
-            patched = self._patch_entry(tail, render)
+            patched = self._patch(tail, render)
             await self._ledger.archive(current[:-1] + [patched])
             self._channel.emit(
                 logging.DEBUG,
@@ -143,7 +143,7 @@ class Setter:
             message={"id": render.ids[0]},
         )
 
-    def _patch_entry(self, entry, render: RenderNode):
+    def _patch(self, entry, render: RenderNode):
         limit = min(len(entry.messages), len(render.ids))
         messages = []
         for index in range(limit):

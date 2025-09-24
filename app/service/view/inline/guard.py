@@ -12,7 +12,7 @@ class InlineGuard:
         self._policy = policy
 
     def admissible(self, payload: Payload) -> bool:
-        media = _primary_media(payload)
+        media = _first(payload)
         if media is None:
             return False
         if media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
@@ -20,7 +20,7 @@ class InlineGuard:
         return self._policy.admissible(media.path, inline=True)
 
 
-def _primary_media(payload: Payload):
+def _first(payload: Payload):
     if getattr(payload, "media", None):
         return payload.media
     group = getattr(payload, "group", None)
