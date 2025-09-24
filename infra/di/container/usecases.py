@@ -39,7 +39,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         tail=storage.latest,
         planner=planner,
         mapper=storage.mapper,
-        limit=core.settings.provided.history_limit,
+        limit=core.settings.provided.historylimit,
         telemetry=telemetry,
     )
     swapper = providers.Factory(
@@ -49,7 +49,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         tail=storage.latest,
         planner=planner,
         mapper=storage.mapper,
-        limit=core.settings.provided.history_limit,
+        limit=core.settings.provided.historylimit,
         telemetry=telemetry,
     )
     rewinder = providers.Factory(

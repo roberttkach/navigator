@@ -189,7 +189,7 @@ def rebuff() -> None:
     planner = ViewPlanner(
         executor=SimpleNamespace(),
         inline=SimpleNamespace(handle=AsyncMock()),
-        album=SimpleNamespace(partial_update=AsyncMock()),
+        album=SimpleNamespace(refresh=AsyncMock()),
         rendering=RenderingConfig(),
         telemetry=monitor(),
     )
@@ -214,7 +214,7 @@ def refuse() -> None:
     planner = ViewPlanner(
         executor=SimpleNamespace(),
         inline=SimpleNamespace(handle=AsyncMock()),
-        album=SimpleNamespace(partial_update=AsyncMock()),
+        album=SimpleNamespace(refresh=AsyncMock()),
         rendering=RenderingConfig(),
         telemetry=monitor(),
     )
@@ -246,7 +246,7 @@ def decline() -> None:
     executor = SimpleNamespace(
         delete=AsyncMock(),
         execute=AsyncMock(),
-        refine_meta=Mock(return_value=TextMeta(text="noop", inline=True)),
+        refine=Mock(return_value=TextMeta(text="noop", inline=True)),
     )
     inline = SimpleNamespace(handle=AsyncMock())
     tailer = Tailer(

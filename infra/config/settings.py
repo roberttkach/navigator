@@ -22,7 +22,7 @@ except ImportError:  # pragma: no cover - minimal fallback for plain pydantic in
 
 
 _ENV_MAPPING: Dict[str, str] = {
-    "history_limit": "NAV_HISTORY_LIMIT",
+    "historylimit": "NAV_HISTORY_LIMIT",
     "chunk": "NAV_CHUNK",
     "truncate": "NAV_TRUNCATE",
     "strictpath": "NAV_STRICT_INLINE_MEDIA_PATH",
@@ -49,7 +49,7 @@ def _environment_overrides() -> Dict[str, str]:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
-    history_limit: int = Field(18, ge=1)
+    historylimit: int = Field(18, ge=1)
     chunk: int = Field(100, ge=1, le=100)
     truncate: bool = Field(False)
     strictpath: bool = Field(True)

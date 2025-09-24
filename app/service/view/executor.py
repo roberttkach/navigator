@@ -156,7 +156,7 @@ class EditExecutor:
         if identifiers:
             await self._gateway.delete(scope, identifiers)
 
-    def refine_meta(
+    def refine(
         self,
         execution: Execution,
         verdict: decision.Decision,
