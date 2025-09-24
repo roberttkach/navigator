@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from navigator.adapters.telemetry.python_logging import PythonLoggingTelemetry
+from navigator.adapters.telemetry.logger import PythonLoggingTelemetry
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
 from navigator.core.port.factory import ViewForge, ViewLedger
 from navigator.core.telemetry import Telemetry
