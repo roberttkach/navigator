@@ -3,8 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List
 
-from ..log.emit import jlog
-from ...domain.log.code import LogCode
+from navigator.logging import LogCode, jlog
 
 _ALLOWED_ENTITY_TYPES = {
     "mention",

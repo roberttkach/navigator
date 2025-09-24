@@ -4,15 +4,15 @@ import json
 import logging
 from typing import Optional
 
-from domain.entity.history import Message
-from domain.entity.media import MediaItem
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.service.rendering.album import aligned
-from domain.service.rendering.helpers import match
-from domain.service.rendering.decision import Decision
-from domain.value.content import Payload
-from domain.value.message import Scope
+from navigator.domain.entity.history import Message
+from navigator.domain.entity.media import MediaItem
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.limits import Limits
+from navigator.domain.service.rendering.album import aligned
+from navigator.domain.service.rendering.helpers import match
+from navigator.domain.service.rendering.decision import Decision
+from navigator.domain.value.content import Payload
+from navigator.domain.value.message import Scope
 
 from .executor import EditExecutor, Execution
 
@@ -60,8 +60,9 @@ def _clusters(latter: list[MediaItem], album: list[int]) -> list[dict]:
     return result
 
 class AlbumService:
-    def __init__(self, executor: EditExecutor, *, thumbguard: bool) -> None:
+    def __init__(self, executor: EditExecutor, *, limits: Limits, thumbguard: bool) -> None:
         self._executor = executor
+        self._limits = limits
         self._thumbguard = thumbguard
 
     async def partial_update(
@@ -70,7 +71,11 @@ class AlbumService:
         former_group = former.group or []
         latter_group = latter.group or []
 
-        if not (former_group and latter_group and aligned(former_group, latter_group)):
+        if not (
+            former_group
+            and latter_group
+            and aligned(former_group, latter_group, limits=self._limits)
+        ):
             return None
 
         album = _album_ids(former)

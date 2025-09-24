@@ -4,13 +4,12 @@ import logging
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
-from domain.entity.history import Entry, Message
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.service.rendering import decision
-from domain.service.rendering.config import RenderingConfig
-from domain.value.content import Payload
-from domain.value.message import Scope
+from navigator.domain.entity.history import Entry, Message
+from navigator.logging import LogCode, jlog
+from navigator.domain.service.rendering import decision
+from navigator.domain.service.rendering.config import RenderingConfig
+from navigator.domain.value.content import Payload
+from navigator.domain.value.message import Scope
 
 from ...internal.policy import validate_inline
 from .album import AlbumService

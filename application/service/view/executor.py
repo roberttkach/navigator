@@ -4,8 +4,8 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from domain.entity.history import Message, Entry
-from domain.error import (
+from navigator.domain.entity.history import Message, Entry
+from navigator.domain.error import (
     CaptionOverflow,
     EditForbidden,
     EmptyPayload,
@@ -13,12 +13,11 @@ from domain.error import (
     MessageUnchanged,
     TextOverflow,
 )
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.port.message import MessageGateway, Result
-from domain.service.rendering import decision
-from domain.value.content import Payload, caption
-from domain.value.message import Scope
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.message import MessageGateway, Result
+from navigator.domain.service.rendering import decision
+from navigator.domain.value.content import Payload, caption
+from navigator.domain.value.message import Scope
 
 logger = logging.getLogger(__name__)
 

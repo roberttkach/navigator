@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from domain.port.locks import Lock, LockProvider
+from navigator.domain.port.locks import Lock, LockProvider
 
 
 class ScopeForm(Protocol):

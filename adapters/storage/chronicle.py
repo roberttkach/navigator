@@ -5,12 +5,11 @@ from typing import List, Dict, Any, Optional
 from aiogram.fsm.context import FSMContext
 
 from .keys import FSM_HISTORY_KEY
-from ...domain.entity.history import Entry, Message
-from ...domain.entity.markup import Markup
-from ...domain.entity.media import MediaItem, MediaType
-from ...domain.log.emit import jlog
-from ...domain.value.content import Preview
-from ...domain.log.code import LogCode
+from navigator.domain.entity.history import Entry, Message
+from navigator.domain.entity.markup import Markup
+from navigator.domain.entity.media import MediaItem, MediaType
+from navigator.domain.value.content import Preview
+from navigator.logging import LogCode, jlog
 
 logger = logging.getLogger(__name__)
 

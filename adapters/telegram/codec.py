@@ -5,10 +5,9 @@ from aiogram.types import (
     InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
 )
 
-from ...domain.entity.markup import Markup
-from ...domain.log.emit import jlog
-from ...domain.port.markup import MarkupCodec
-from ...domain.log.code import LogCode
+from navigator.domain.entity.markup import Markup
+from navigator.domain.port.markup import MarkupCodec
+from navigator.logging import LogCode, jlog
 
 logger = logging.getLogger(__name__)
 

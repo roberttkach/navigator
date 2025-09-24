@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-from typing import Set
-
-from domain.port.limits import Limits
+from navigator.domain.port.limits import Limits
 
 
 class ConfigLimits(Limits):
@@ -15,7 +11,7 @@ class ConfigLimits(Limits):
         caption: int,
         floor: int,
         ceiling: int,
-        blend: Set[str],
+        blend: set[str],
     ) -> None:
         self._text = int(text)
         self._caption = int(caption)
@@ -35,7 +31,7 @@ class ConfigLimits(Limits):
     def album_ceiling(self) -> int:
         return self._ceiling
 
-    def album_blend(self) -> Set[str]:
+    def album_blend(self) -> set[str]:
         return set(self._blend)
 
 

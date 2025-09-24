@@ -3,11 +3,10 @@ import logging
 from html import escape
 from typing import Optional, Dict, Any, List
 
-from ...log.emit import jlog
+from navigator.logging import LogCode, jlog
 from ....domain.entity.history import Entry
 from ....domain.port.factory import ViewLedger
 from ....domain.value.content import Payload
-from ....domain.log.code import LogCode
 from ....domain.error import InlineUnsupported
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
 from .caption import caption, restate
 from .extra import TelegramExtraSchema
-from .preview import to_options
+from .preview import TelegramLinkPreviewCodec
 from .screen import SignatureScreen
 from .text import decode
 
@@ -10,5 +10,5 @@ __all__ = [
     "caption",
     "restate",
     "decode",
-    "to_options",
+    "TelegramLinkPreviewCodec",
 ]

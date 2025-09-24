@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Any
+from typing import Any, Optional
 
 from .helpers import match
 from ...entity.media import MediaType
+from ...port.mediaid import MediaIdentityPolicy
 from ...value.content import Payload, caption
 from .config import RenderingConfig
 
@@ -121,7 +122,7 @@ def _preview(obj):
     return getattr(obj, "preview", None)
 
 
-def _identical(old, new) -> bool:
+def _identical(old, new, policy: MediaIdentityPolicy) -> bool:
     """
     Сравнение по Telegram file_id:
     - в истории o.media.path — это file_id (str),
@@ -133,7 +134,7 @@ def _identical(old, new) -> bool:
         return False
     former = getattr(old.media, "path", None)
     latter = getattr(new.media, "path", None)
-    return isinstance(former, str) and isinstance(latter, str) and (former == latter)
+    return policy.same(former, latter, type=getattr(old.media.type, "value", ""))
 
 
 def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Decision:
@@ -167,20 +168,7 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
     # Текст↔текст
     if not _mediated(prior) and not _mediated(fresh):
         if (_text(prior) or "") == (_text(fresh) or ""):
-            former = _preview(prior)
-            latter = _preview(fresh)
-            coherent = False
-            if former is None and latter is None:
-                coherent = True
-            elif (former is not None) and (latter is not None):
-                coherent = (
-                    getattr(former, "url", None) == getattr(latter, "url", None)
-                    and bool(getattr(former, "small", False)) == bool(getattr(latter, "small", False))
-                    and bool(getattr(former, "large", False)) == bool(getattr(latter, "large", False))
-                    and bool(getattr(former, "above", False)) == bool(getattr(latter, "above", False))
-                    and getattr(former, "disabled", None) == getattr(latter, "disabled", None)
-                )
-            if (_extras(prior) != _extras(fresh)) or (not coherent):
+            if (_extras(prior) != _extras(fresh)) or (_preview(prior) != _preview(fresh)):
                 return Decision.EDIT_TEXT
             aligned = match(_reply(prior), _reply(fresh))
             return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
@@ -189,7 +177,7 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
     # Медиа↔медиа
     if _mediated(prior) and _mediated(fresh):
         # Сравниваем только по file_id и типу
-        if _identical(prior, fresh):
+        if _identical(prior, fresh, config.identity):
             before = _sketch(prior, config)
             after = _sketch(fresh, config)
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -9,8 +10,7 @@ from typing import ParamSpec, TypeVar
 from aiogram.exceptions import TelegramRetryAfter
 
 from ....domain.error import EditForbidden, MessageUnchanged
-from ....domain.log.code import LogCode
-from ....domain.log.emit import jlog
+from navigator.logging import LogCode, jlog
 from .patterns import EDIT_FORBIDDEN, NOT_MODIFIED
 
 P = ParamSpec("P")

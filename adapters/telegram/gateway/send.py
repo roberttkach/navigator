@@ -6,21 +6,20 @@ from typing import Dict
 from aiogram import Bot
 from aiogram.types import Message
 
-from domain.error import CaptionOverflow, EmptyPayload, InlineUnsupported, TextOverflow
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.port.extraschema import ExtraSchema
-from domain.port.limits import Limits
-from domain.port.markup import MarkupCodec
-from domain.port.pathpolicy import MediaPathPolicy
-from domain.service.rendering.helpers import classify
-from domain.service.scope import profile
-from domain.value.content import Payload
-from domain.value.message import Scope
+from navigator.domain.error import CaptionOverflow, EmptyPayload, InlineUnsupported, TextOverflow
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.extraschema import ExtraSchema
+from navigator.domain.port.limits import Limits
+from navigator.domain.port.markup import MarkupCodec
+from navigator.domain.port.pathpolicy import MediaPathPolicy
+from navigator.domain.service.rendering.helpers import classify
+from navigator.domain.service.scope import profile
+from navigator.domain.value.content import Payload
+from navigator.domain.value.message import Scope
 
 from ..media import assemble
+from navigator.domain.port.preview import LinkPreviewCodec
 from ..serializer import caption as caption_tools
-from ..serializer import preview as preview_tools
 from ..serializer import text as text_tools
 from ..serializer.screen import SignatureScreen
 from . import util
@@ -36,6 +35,7 @@ async def send(
     screen: SignatureScreen,
     policy: MediaPathPolicy,
     limits: Limits,
+    preview: LinkPreviewCodec | None,
     scope: Scope,
     payload: Payload,
     truncate: bool,
@@ -44,7 +44,9 @@ async def send(
         raise InlineUnsupported("inline_send_not_supported")
 
     reply_markup = text_tools.decode(codec, payload.reply)
-    options = preview_tools.to_options(payload.preview)
+    options = None
+    if preview is not None and payload.preview is not None:
+        options = preview.encode(payload.preview)
     targets = util.targets(scope)
 
     if payload.group:

@@ -4,9 +4,9 @@ from typing import Any, Dict, Optional
 
 from aiogram.types import Message
 
-from domain.port.message import Result
-from domain.value.content import Payload
-from domain.value.message import Scope
+from navigator.domain.port.message import Result
+from navigator.domain.value.content import Payload
+from navigator.domain.value.message import Scope
 
 
 def targets(scope: Scope, message: Optional[int] = None, *, topical: bool = True) -> Dict[str, Any]:

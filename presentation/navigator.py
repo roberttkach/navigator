@@ -48,7 +48,6 @@ import logging
 from typing import Optional, Dict, Any, Union, SupportsInt
 
 from ..application.dto.content import Content, Node
-from ..application.log.emit import jlog
 from ..application.map.payload import collect, convert
 from ..application.usecase.add import Appender
 from ..application.usecase.back import Rewinder
@@ -62,7 +61,7 @@ from ..application.locks.guard import GuardFactory
 from ..domain.error import StateNotFound
 from ..domain.service.scope import profile
 from ..domain.value.message import Scope
-from ..domain.log.code import LogCode
+from navigator.logging import LogCode, jlog
 from .alerts import prev_not_found
 from .types import StateLike
 
@@ -204,6 +203,6 @@ class Navigator:
 
     async def alert(self) -> None:
         jlog(logger, logging.INFO, LogCode.NAVIGATOR_API, method="alert", scope=profile(self._scope))
-        async with locks.guard(self._scope):
+        async with self._guard(self._scope):
             await self._alarm.execute(self._scope)
 

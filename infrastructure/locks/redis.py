@@ -9,7 +9,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     Redis = None
 
-from domain.port.locks import Lock, LockProvider
+from navigator.domain.port.locks import Lock, LockProvider
 
 logger = logging.getLogger(__name__)
 

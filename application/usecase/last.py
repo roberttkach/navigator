@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional
 
 from ..internal.policy import prime, validate_inline
-from ..log.emit import jlog
+from navigator.logging import LogCode, jlog
 from ..service.view.executor import EditExecutor
 from ..service.view.inline import InlineStrategy
 from ..service.view.planner import RenderResult, ViewPlanner
@@ -14,7 +14,6 @@ from ...domain.service.rendering import decision
 from ...domain.service.rendering.config import RenderingConfig
 from ...domain.value.content import Payload, normalize
 from ...domain.value.message import Scope
-from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

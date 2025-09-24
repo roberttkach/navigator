@@ -1,21 +1,20 @@
 from __future__ import annotations
-from __future__ import annotations
 
 import logging
 from typing import List
 
 from aiogram import Bot
 
-from domain.log.code import LogCode
-from domain.log.emit import jlog
-from domain.port.extraschema import ExtraSchema
-from domain.port.limits import Limits
-from domain.port.markup import MarkupCodec
-from domain.port.message import MessageGateway, Result
-from domain.port.pathpolicy import MediaPathPolicy
-from domain.service.scope import profile
-from domain.value.content import Payload
-from domain.value.message import Scope
+from navigator.logging import LogCode, jlog
+from navigator.domain.port.extraschema import ExtraSchema
+from navigator.domain.port.limits import Limits
+from navigator.domain.port.markup import MarkupCodec
+from navigator.domain.port.message import MessageGateway, Result
+from navigator.domain.port.pathpolicy import MediaPathPolicy
+from navigator.domain.port.preview import LinkPreviewCodec
+from navigator.domain.service.scope import profile
+from navigator.domain.value.content import Payload
+from navigator.domain.value.message import Scope
 
 from ..serializer.screen import SignatureScreen
 from . import util
@@ -36,6 +35,7 @@ class TelegramGateway(MessageGateway):
         schema: ExtraSchema,
         policy: MediaPathPolicy,
         screen: SignatureScreen,
+        preview: LinkPreviewCodec | None = None,
         chunk: int = 100,
         truncate: bool = False,
         delete_delay: float = 0.05,
@@ -46,6 +46,7 @@ class TelegramGateway(MessageGateway):
         self._schema = schema
         self._policy = policy
         self._screen = screen
+        self._preview = preview
         self._truncate = truncate
         self._delete = DeleteBatch(bot, chunk=chunk, delay=delete_delay)
 
@@ -57,6 +58,7 @@ class TelegramGateway(MessageGateway):
             screen=self._screen,
             policy=self._policy,
             limits=self._limits,
+            preview=self._preview,
             scope=scope,
             payload=payload,
             truncate=self._truncate,
@@ -70,6 +72,7 @@ class TelegramGateway(MessageGateway):
             schema=self._schema,
             screen=self._screen,
             limits=self._limits,
+            preview=self._preview,
             scope=scope,
             message_id=message,
             payload=payload,
@@ -135,7 +138,7 @@ class TelegramGateway(MessageGateway):
         jlog(
             logger,
             logging.INFO,
-            LogCode.GATEWAY_NOTIFY_EMPTY,
+            LogCode.GATEWAY_NOTIFY_OK,
             scope=profile(scope),
         )
 

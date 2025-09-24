@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Dict, Tuple
 
-from domain.port.locks import Lock, LockProvider
+from navigator.domain.port.locks import Lock, LockProvider
 
 
 class _LockWrapper(Lock):

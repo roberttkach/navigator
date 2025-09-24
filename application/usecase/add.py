@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional
 
 from ..log.decorators import trace
-from ..log.emit import jlog
+from navigator.logging import LogCode, jlog
 from ..map.entry import EntryMapper, Outcome
 from ..service.view.planner import ViewPlanner
 from ..service.view.policy import adapt
@@ -15,7 +15,6 @@ from ...domain.service.history import policy as chronicle
 from ...domain.service.scope import profile
 from ...domain.value.content import Payload, normalize
 from ...domain.value.message import Scope
-from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +54,7 @@ class Appender:
             history={"len": len(records)},
             scope=profile(scope),
         )
+
         trail = records[-1] if records else None
         render = await self._planner.render(
             scope,

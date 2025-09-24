@@ -3,8 +3,7 @@ from __future__ import annotations
 import logging
 
 from ..log.decorators import trace
-from ..log.emit import jlog
-from ...domain.log.code import LogCode
+from navigator.logging import LogCode, jlog
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LatestRepository
 

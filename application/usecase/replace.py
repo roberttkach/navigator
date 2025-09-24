@@ -4,7 +4,7 @@ import logging
 from typing import List
 
 from ..log.decorators import trace
-from ..log.emit import jlog
+from navigator.logging import LogCode, jlog
 from ..map.entry import EntryMapper, Outcome
 from ..service.view.planner import ViewPlanner
 from ..service.view.policy import adapt
@@ -14,7 +14,6 @@ from ...domain.port.state import StateRepository
 from ...domain.service.history import policy as chronicle
 from ...domain.value.content import Payload, normalize
 from ...domain.value.message import Scope
-from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +47,7 @@ class Swapper:
             trail,
             inline=bool(scope.inline),
         )
+
         if not render or not render.ids or not render.changed:
             jlog(logger, logging.INFO, LogCode.RENDER_SKIP, op="replace")
             return
