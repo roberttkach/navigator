@@ -21,7 +21,7 @@ from navigator.core.telemetry import Telemetry
 from navigator.core.typing.result import TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
-from navigator.presentation.alerts import prev_not_found
+from navigator.presentation.alerts import missing
 from navigator.presentation.navigator import Navigator
 
 
@@ -33,22 +33,22 @@ class _StubTelemetryPort:
         return None
 
 
-def stub_telemetry() -> Telemetry:
+def monitor() -> Telemetry:
     return Telemetry(_StubTelemetryPort())
 
 
 @asynccontextmanager
-async def noop_guard():
+async def sentinel():
     yield
 
 
-def digest_alarm_uses_alert_provider() -> None:
+def reliance() -> None:
     scope = Scope(chat=1, lang="en")
     provider = Mock(return_value="alert text")
     gateway = Mock()
     gateway.alert = AsyncMock()
 
-    alarm = Alarm(gateway=gateway, alert=provider, telemetry=stub_telemetry())
+    alarm = Alarm(gateway=gateway, alert=provider, telemetry=monitor())
 
     asyncio.run(alarm.execute(scope))
 
@@ -57,13 +57,13 @@ def digest_alarm_uses_alert_provider() -> None:
     assert gateway.alert.await_args.args == (scope, "alert text")
 
 
-def digest_alarm_prefers_explicit_text() -> None:
+def override() -> None:
     scope = Scope(chat=1, lang="en")
     provider = Mock(return_value="fallback")
     gateway = Mock()
     gateway.alert = AsyncMock()
 
-    alarm = Alarm(gateway=gateway, alert=provider, telemetry=stub_telemetry())
+    alarm = Alarm(gateway=gateway, alert=provider, telemetry=monitor())
 
     asyncio.run(alarm.execute(scope, text="override"))
 
@@ -72,7 +72,7 @@ def digest_alarm_prefers_explicit_text() -> None:
     assert gateway.alert.await_args.args == (scope, "override")
 
 
-def digest_setter_raises_when_history_missing() -> None:
+def absence() -> None:
     scope = Scope(chat=5, lang="ru")
     ledger = SimpleNamespace(recall=AsyncMock(return_value=[]), archive=AsyncMock())
     status = SimpleNamespace(assign=AsyncMock(), payload=AsyncMock())
@@ -89,7 +89,7 @@ def digest_setter_raises_when_history_missing() -> None:
         restorer=restorer,
         planner=planner,
         latest=latest,
-        telemetry=stub_telemetry(),
+        telemetry=monitor(),
     )
 
     try:
@@ -104,7 +104,7 @@ def digest_setter_raises_when_history_missing() -> None:
     planner.render.assert_not_awaited()
 
 
-def digest_view_restorer_inline_dynamic_factory_rejects_multi_payload() -> None:
+def veto() -> None:
     async def forge():
         return [Payload(text="one"), Payload(text="two")]
 
@@ -118,7 +118,7 @@ def digest_view_restorer_inline_dynamic_factory_rejects_multi_payload() -> None:
             return self._mapping[key]
 
     entry = Entry(state="alpha", view="dynamic", messages=[])
-    restorer = ViewRestorer(ledger=Ledger(), telemetry=stub_telemetry())
+    restorer = ViewRestorer(ledger=Ledger(), telemetry=monitor())
 
     try:
         asyncio.run(restorer.revive(entry, {}, inline=True))
@@ -128,7 +128,7 @@ def digest_view_restorer_inline_dynamic_factory_rejects_multi_payload() -> None:
         raise AssertionError("InlineUnsupported was not raised")
 
 
-def digest_view_restorer_dynamic_factory_allows_multi_payload_outside_inline() -> None:
+def assent() -> None:
     async def forge():
         return [Payload(text="one"), Payload(text="two")]
 
@@ -142,14 +142,14 @@ def digest_view_restorer_dynamic_factory_allows_multi_payload_outside_inline() -
             return self._mapping[key]
 
     entry = Entry(state="alpha", view="dynamic", messages=[])
-    restorer = ViewRestorer(ledger=Ledger(), telemetry=stub_telemetry())
+    restorer = ViewRestorer(ledger=Ledger(), telemetry=monitor())
 
     restored = asyncio.run(restorer.revive(entry, {}, inline=False))
 
     assert [payload.text for payload in restored] == ["one", "two"]
 
 
-def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
+def surface() -> None:
     scope = Scope(chat=5, lang="ru", inline="token")
     target = Entry(state="target", view="dynamic", messages=[])
     tail = Entry(state="tail", view=None, messages=[])
@@ -170,7 +170,7 @@ def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
         restorer=restorer,
         planner=planner,
         latest=latest,
-        telemetry=stub_telemetry(),
+        telemetry=monitor(),
     )
 
     try:
@@ -184,14 +184,14 @@ def digest_setter_surfaces_inline_dynamic_factory_failure() -> None:
     latest.mark.assert_not_awaited()
 
 
-def digest_view_planner_inline_rejects_multi_payload() -> None:
+def rebuff() -> None:
     scope = Scope(chat=7, lang="en", inline="token")
     planner = ViewPlanner(
         executor=SimpleNamespace(),
         inline=SimpleNamespace(handle=AsyncMock()),
         album=SimpleNamespace(partial_update=AsyncMock()),
         rendering=RenderingConfig(),
-        telemetry=stub_telemetry(),
+        telemetry=monitor(),
     )
 
     try:
@@ -209,14 +209,14 @@ def digest_view_planner_inline_rejects_multi_payload() -> None:
         raise AssertionError("InlineUnsupported was not raised")
 
 
-def digest_view_planner_inline_rejects_media_group() -> None:
+def refuse() -> None:
     scope = Scope(chat=8, lang="en", inline="token")
     planner = ViewPlanner(
         executor=SimpleNamespace(),
         inline=SimpleNamespace(handle=AsyncMock()),
         album=SimpleNamespace(partial_update=AsyncMock()),
         rendering=RenderingConfig(),
-        telemetry=stub_telemetry(),
+        telemetry=monitor(),
     )
     album = [
         MediaItem(type=MediaType.PHOTO, path="file-a", caption="a"),
@@ -238,7 +238,7 @@ def digest_view_planner_inline_rejects_media_group() -> None:
         raise AssertionError("InlineUnsupported was not raised")
 
 
-def digest_tailer_inline_edit_rejects_media_group() -> None:
+def decline() -> None:
     scope = Scope(chat=9, lang="en", inline="token")
     latest = SimpleNamespace(peek=AsyncMock(return_value=100), mark=AsyncMock())
     ledger = SimpleNamespace(recall=AsyncMock(), archive=AsyncMock())
@@ -256,7 +256,7 @@ def digest_tailer_inline_edit_rejects_media_group() -> None:
         executor=executor,
         inline=inline,
         rendering=RenderingConfig(),
-        telemetry=stub_telemetry(),
+        telemetry=monitor(),
     )
     payload = Payload(
         group=[
@@ -275,7 +275,7 @@ def digest_tailer_inline_edit_rejects_media_group() -> None:
     ledger.recall.assert_not_awaited()
 
 
-def digest_navigator_set_triggers_alarm_on_missing_state() -> None:
+def siren() -> None:
     scope = Scope(chat=10, lang="ru")
     setter = SimpleNamespace(execute=AsyncMock(side_effect=StateNotFound("missing")))
     alarm = SimpleNamespace(execute=AsyncMock())
@@ -290,8 +290,8 @@ def digest_navigator_set_triggers_alarm_on_missing_state() -> None:
         tailer=SimpleNamespace(peek=AsyncMock(), delete=AsyncMock(), edit=AsyncMock()),
         alarm=alarm,
         scope=scope,
-        guard=lambda _: noop_guard(),
-        telemetry=stub_telemetry(),
+        guard=lambda _: sentinel(),
+        telemetry=monitor(),
     )
 
     asyncio.run(navigator.set("missing"))
@@ -300,10 +300,10 @@ def digest_navigator_set_triggers_alarm_on_missing_state() -> None:
     alarm.execute.assert_awaited_once()
     call = alarm.execute.await_args
     assert call.args == (scope,)
-    assert call.kwargs == {"text": prev_not_found(scope)}
+    assert call.kwargs == {"text": missing(scope)}
 
 
-def digest_telegram_gateway_uses_provided_text() -> None:
+def wording() -> None:
     bot = SimpleNamespace(send_message=AsyncMock())
     
     class DummyCodec:
@@ -343,7 +343,7 @@ def digest_telegram_gateway_uses_provided_text() -> None:
         def adapt(self, path, *, native):
             return path
 
-    telemetry = stub_telemetry()
+    telemetry = monitor()
     gateway = TelegramGateway(
         bot=bot,
         codec=DummyCodec(),
@@ -367,15 +367,15 @@ def digest_telegram_gateway_uses_provided_text() -> None:
     assert call.kwargs["chat_id"] == scope.chat
 
 
-def extract_prev_not_found_localizes_scope_language() -> None:
+def translation() -> None:
     scope = Scope(chat=0, lang="ru")
 
-    payload = prev_not_found(scope)
+    payload = missing(scope)
 
     assert "Предыдущий экран" in payload
 
 
-def digest_delete_batch_uses_business_api_only() -> None:
+def commerce() -> None:
     scope = Scope(chat=11, lang="en", business="biz")
     bot = SimpleNamespace(
         delete_business_messages=AsyncMock(
@@ -383,7 +383,7 @@ def digest_delete_batch_uses_business_api_only() -> None:
         ),
         delete_messages=AsyncMock(),
     )
-    runner = DeleteBatch(bot=bot, chunk=2, delay=0.0, telemetry=stub_telemetry())
+    runner = DeleteBatch(bot=bot, chunk=2, delay=0.0, telemetry=monitor())
 
     captured = []
 
@@ -408,7 +408,7 @@ def digest_delete_batch_uses_business_api_only() -> None:
         assert kwargs["message_ids"]
 
 
-def digest_telegram_errors_dismissible_recognizes_known_fragments() -> None:
+def fragments() -> None:
     supported = (
         "error: message to delete not found in history",
         "oops, this message can't be deleted for everyone",

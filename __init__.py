@@ -1,5 +1,5 @@
 """Navigator public API surface."""
 
-from .api import build_navigator
+from .api import assemble
 
-__all__ = ["build_navigator"]
+__all__ = ["assemble"]

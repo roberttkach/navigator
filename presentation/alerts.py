@@ -27,16 +27,16 @@ def lexeme(key: str, locale: str | None = None) -> str:
     return values.get(lang) or values.get("en") or ""
 
 
-def prev_not_found(scope: Scope) -> str:
+def missing(scope: Scope) -> str:
     return lexeme("prev_not_found", scope.lang)
 
 
-def inline_unsupported(scope: Scope) -> str:
+def barred(scope: Scope) -> str:
     return lexeme("inline_unsupported", scope.lang)
 
 
-def back_label(locale: str | None) -> str:
+def revert(locale: str | None) -> str:
     return lexeme("back", locale)
 
 
-__all__ = ["lexeme", "prev_not_found", "inline_unsupported", "back_label"]
+__all__ = ["lexeme", "missing", "barred", "revert"]

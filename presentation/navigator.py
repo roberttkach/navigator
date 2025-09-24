@@ -58,7 +58,7 @@ from ..core.error import StateNotFound
 from ..core.service.scope import profile
 from ..core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..core.value.message import Scope
-from .alerts import prev_not_found
+from .alerts import missing
 from .types import StateLike
 
 
@@ -208,7 +208,7 @@ class Navigator:
             try:
                 await self._setter.execute(self._scope, status, context or {})
             except StateNotFound:
-                await self._alarm.execute(self._scope, text=prev_not_found(self._scope))
+                await self._alarm.execute(self._scope, text=missing(self._scope))
 
     async def pop(self, count: int = 1) -> None:
         self._channel.emit(
