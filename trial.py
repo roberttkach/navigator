@@ -311,29 +311,29 @@ def wording() -> None:
             return markup
 
     class DummySchema:
-        def for_send(self, *args, **kwargs):
+        def send(self, *args, **kwargs):
             return {"text": {}, "caption": {}, "media": {}, "effect": None}
 
-        def for_edit(self, *args, **kwargs):
+        def edit(self, *args, **kwargs):
             return {"text": {}, "caption": {}, "media": {}, "effect": None}
 
-        def for_history(self, *args, **kwargs):  # pragma: no cover - not used
+        def history(self, *args, **kwargs):  # pragma: no cover - not used
             return None
 
     class DummyLimits:
-        def text_max(self):
+        def textlimit(self):
             return 4096
 
-        def caption_max(self):
+        def captionlimit(self):
             return 1024
 
-        def album_floor(self):
+        def groupmin(self):
             return 2
 
-        def album_ceiling(self):
+        def groupmax(self):
             return 10
 
-        def album_blend(self):
+        def groupmix(self):
             return set()
 
     class DummyPolicy:
@@ -353,7 +353,7 @@ def wording() -> None:
         screen=SignatureScreen(telemetry=telemetry),
         chunk=10,
         truncate=False,
-        delete_delay=0.0,
+        deletepause=0.0,
         telemetry=telemetry,
     )
     scope = Scope(chat=42, lang="en")

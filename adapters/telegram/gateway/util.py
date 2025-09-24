@@ -62,10 +62,10 @@ def extract(outcome: Any, payload: Payload, scope: Scope) -> Meta:
     return TextMeta(text=getattr(payload, "text", None), inline=token)
 
 
-def result_from_message(message: Message, payload: Payload, scope: Scope) -> Result:
+def derive(message: Message, payload: Payload, scope: Scope) -> Result:
     meta = extract(message, payload, scope)
     identifier = message.message_id
     return Result(id=identifier, extra=[], meta=meta)
 
 
-__all__ = ["targets", "extract", "result_from_message"]
+__all__ = ["targets", "extract", "derive"]

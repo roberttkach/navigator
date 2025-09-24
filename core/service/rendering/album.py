@@ -28,7 +28,7 @@ def _audit(items: Optional[List[MediaItem]], *, limits: Limits) -> List[str]:
     if not items:
         issues.append("empty")
         return issues
-    if len(items) < limits.album_floor() or len(items) > limits.album_ceiling():
+    if len(items) < limits.groupmin() or len(items) > limits.groupmax():
         issues.append("limit")
     kinds: Set[MediaType] = {item.type for item in items}
     if kinds & {MediaType.ANIMATION, MediaType.VOICE, MediaType.VIDEO_NOTE}:
@@ -69,5 +69,5 @@ def aligned(old: List[MediaItem], new: List[MediaItem], *, limits: Limits) -> bo
         return all(item.type == MediaType.AUDIO for item in new)
     if mood == "document":
         return all(item.type == MediaType.DOCUMENT for item in new)
-    allowed = limits.album_blend()
+    allowed = limits.groupmix()
     return all(item.type.value in allowed for item in new)

@@ -28,12 +28,12 @@ _ENV_MAPPING: Dict[str, str] = {
     "strictpath": "NAV_STRICT_INLINE_MEDIA_PATH",
     "thumbguard": "NAV_DETECT_THUMB_CHANGE",
     "redaction": "NAV_LOG_REDACTION",
-    "text_limit": "NAV_TEXT_LIMIT",
-    "caption_limit": "NAV_CAPTION_LIMIT",
-    "album_floor": "NAV_ALBUM_FLOOR",
-    "album_ceiling": "NAV_ALBUM_CEILING",
-    "album_blend": "NAV_ALBUM_BLEND",
-    "delete_delay_ms": "NAV_DELETE_DELAY_MS",
+    "textlimit": "NAV_TEXT_LIMIT",
+    "captionlimit": "NAV_CAPTION_LIMIT",
+    "groupmin": "NAV_ALBUM_FLOOR",
+    "groupmax": "NAV_ALBUM_CEILING",
+    "mixcodes": "NAV_ALBUM_BLEND",
+    "deletepausems": "NAV_DELETE_DELAY_MS",
 }
 
 
@@ -55,20 +55,20 @@ class Settings(BaseSettings):
     strictpath: bool = Field(True)
     thumbguard: bool = Field(False)
     redaction: str = Field("safe")
-    text_limit: int = Field(4096, ge=1)
-    caption_limit: int = Field(1024, ge=1)
-    album_floor: int = Field(2, ge=1)
-    album_ceiling: int = Field(10, ge=1)
-    album_blend: str = Field("photo,video")
-    delete_delay_ms: int = Field(50, ge=0)
+    textlimit: int = Field(4096, ge=1)
+    captionlimit: int = Field(1024, ge=1)
+    groupmin: int = Field(2, ge=1)
+    groupmax: int = Field(10, ge=1)
+    mixcodes: str = Field("photo,video")
+    deletepausems: int = Field(50, ge=0)
 
     @property
-    def album_blend_set(self) -> Set[str]:
-        return {item.strip() for item in self.album_blend.split(",") if item.strip()}
+    def mixset(self) -> Set[str]:
+        return {item.strip() for item in self.mixcodes.split(",") if item.strip()}
 
     @property
-    def delete_delay(self) -> float:
-        return float(self.delete_delay_ms) / 1000.0
+    def deletepause(self) -> float:
+        return float(self.deletepausems) / 1000.0
 
 
 @lru_cache(maxsize=1)
