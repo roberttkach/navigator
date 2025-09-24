@@ -10,14 +10,12 @@ from navigator.core.port.limits import Limits
 from navigator.core.service.rendering.album import aligned
 from navigator.core.service.rendering.decision import Decision
 from navigator.core.service.rendering.helpers import match
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
 from .executor import EditExecutor, Execution
-
-channel = telemetry.channel(__name__)
 
 
 def _album_ids(message: Message) -> list[int]:
@@ -62,10 +60,18 @@ def _clusters(latter: list[MediaItem], album: list[int]) -> list[Cluster]:
 
 
 class AlbumService:
-    def __init__(self, executor: EditExecutor, *, limits: Limits, thumbguard: bool) -> None:
+    def __init__(
+        self,
+        executor: EditExecutor,
+        *,
+        limits: Limits,
+        thumbguard: bool,
+        telemetry: Telemetry,
+    ) -> None:
         self._executor = executor
         self._limits = limits
         self._thumbguard = thumbguard
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def partial_update(
         self, scope: Scope, former: Message, latter: Payload
@@ -169,7 +175,7 @@ class AlbumService:
 
         clusters = _clusters(latter_group, album)
 
-        channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_OK, count=len(album))
+        self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_OK, count=len(album))
 
         meta = GroupMeta(clusters=clusters, inline=former.inline)
         return album[0], list(former.extras or []), meta, mutated

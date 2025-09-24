@@ -16,13 +16,10 @@ from navigator.core.error import (
 )
 from navigator.core.port.message import MessageGateway, Result
 from navigator.core.service.rendering import decision
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload, caption
 from navigator.core.value.message import Scope
-
-channel = telemetry.channel(__name__)
-
 
 def _head(entity: Entry | Message | None) -> Optional[Message]:
     if entity is None:
@@ -52,8 +49,9 @@ class Execution:
 
 
 class EditExecutor:
-    def __init__(self, gateway: MessageGateway) -> None:
+    def __init__(self, gateway: MessageGateway, telemetry: Telemetry) -> None:
         self._gateway = gateway
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def execute(
         self,
@@ -105,7 +103,7 @@ class EditExecutor:
             return None
 
         except EmptyPayload:
-            channel.emit(
+            self._channel.emit(
                 logging.INFO,
                 LogCode.RERENDER_START,
                 note="empty_payload",
@@ -113,7 +111,7 @@ class EditExecutor:
             )
             return None
         except ExtraForbidden:
-            channel.emit(
+            self._channel.emit(
                 logging.INFO,
                 LogCode.RERENDER_START,
                 note="extra_validation_failed",
@@ -121,7 +119,7 @@ class EditExecutor:
             )
             return None
         except (TextOverflow, CaptionOverflow):
-            channel.emit(
+            self._channel.emit(
                 logging.INFO,
                 LogCode.RERENDER_START,
                 note="too_long",
@@ -129,9 +127,9 @@ class EditExecutor:
             )
             return None
         except EditForbidden:
-            channel.emit(logging.INFO, LogCode.RERENDER_START, note="edit_forbidden")
+            self._channel.emit(logging.INFO, LogCode.RERENDER_START, note="edit_forbidden")
             if scope.inline:
-                channel.emit(
+                self._channel.emit(
                     logging.INFO,
                     LogCode.RERENDER_INLINE_NO_FALLBACK,
                     note="inline_no_fallback",
@@ -143,9 +141,9 @@ class EditExecutor:
                 await self._gateway.delete(scope, _targets(stem))
             return Execution(result=result, stem=stem)
         except MessageUnchanged:
-            channel.emit(logging.INFO, LogCode.RERENDER_START, note="not_modified")
+            self._channel.emit(logging.INFO, LogCode.RERENDER_START, note="not_modified")
             if scope.inline:
-                channel.emit(
+                self._channel.emit(
                     logging.INFO,
                     LogCode.RERENDER_INLINE_NO_FALLBACK,
                     note="inline_no_fallback",

@@ -6,6 +6,7 @@ from dependency_injector import containers, providers
 from navigator.app.locks.guard import GuardFactory
 from navigator.core.port.factory import ViewLedger
 from navigator.core.service.rendering.config import RenderingConfig
+from navigator.core.telemetry import Telemetry
 from navigator.infra.clock.system import SystemClock
 from navigator.infra.config.settings import load as load_settings
 from navigator.infra.limits.config import ConfigLimits
@@ -17,6 +18,7 @@ class CoreContainer(containers.DeclarativeContainer):
     state = providers.Dependency(instance_of=FSMContext)
     ledger = providers.Dependency(instance_of=ViewLedger)
     alert = providers.Dependency()
+    telemetry = providers.Dependency(instance_of=Telemetry)
 
     settings = providers.Singleton(load_settings)
     clock = providers.Singleton(SystemClock)

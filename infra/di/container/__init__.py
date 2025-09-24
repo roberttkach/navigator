@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from dependency_injector import containers, providers
 
 from navigator.core.port.factory import ViewLedger
+from navigator.core.telemetry import Telemetry
 from .core import CoreContainer
 from .storage import StorageContainer
 from .telegram import TelegramContainer
@@ -16,6 +17,7 @@ class AppContainer(containers.DeclarativeContainer):
     state = providers.Dependency(instance_of=FSMContext)
     ledger = providers.Dependency(instance_of=ViewLedger)
     alert = providers.Dependency()
+    telemetry = providers.Dependency(instance_of=Telemetry)
 
     core = providers.Container(
         CoreContainer,
@@ -23,10 +25,17 @@ class AppContainer(containers.DeclarativeContainer):
         state=state,
         ledger=ledger,
         alert=alert,
+        telemetry=telemetry,
     )
-    storage = providers.Container(StorageContainer, core=core)
-    telegram = providers.Container(TelegramContainer, core=core)
-    usecases = providers.Container(UseCaseContainer, core=core, storage=storage, telegram=telegram)
+    storage = providers.Container(StorageContainer, core=core, telemetry=telemetry)
+    telegram = providers.Container(TelegramContainer, core=core, telemetry=telemetry)
+    usecases = providers.Container(
+        UseCaseContainer,
+        core=core,
+        storage=storage,
+        telegram=telegram,
+        telemetry=telemetry,
+    )
 
 
 __all__ = ["AppContainer"]

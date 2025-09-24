@@ -4,13 +4,13 @@ import inspect
 import logging
 from typing import Any, Dict, FrozenSet
 
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 
 class SignatureScreen:
-    def __init__(self) -> None:
+    def __init__(self, telemetry: Telemetry) -> None:
         self._seen: set[tuple[str, FrozenSet[str]]] = set()
-        self._channel = telemetry.channel(__name__)
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     def _signature(self, target: Any) -> set[str] | None:
         obj = target.__init__ if inspect.isclass(target) else target

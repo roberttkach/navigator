@@ -3,19 +3,18 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from ..log.decorators import trace
+from ..log import events
+from ..log.aspect import TraceAspect
 from ...core.error import StateNotFound
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
 from ...core.port.message import MessageGateway
 from ...core.port.state import StateRepository
-from ...core.telemetry import LogCode, telemetry
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload, normalize
 from ...core.value.message import Scope
 from ..service.view.planner import RenderNode, ViewPlanner
 from ..service.view.restorer import ViewRestorer
-
-channel = telemetry.channel(__name__)
 
 
 class Setter:
@@ -27,6 +26,7 @@ class Setter:
         restorer: ViewRestorer,
         planner: ViewPlanner,
         latest: LatestRepository,
+        telemetry: Telemetry,
     ):
         self._ledger = ledger
         self._status = status
@@ -34,9 +34,18 @@ class Setter:
         self._restorer = restorer
         self._planner = planner
         self._latest = latest
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+        self._trace = TraceAspect(telemetry)
 
-    @trace(None, None, None)
     async def execute(
+        self,
+        scope: Scope,
+        goal: str,
+        context: Dict[str, Any],
+    ) -> None:
+        await self._trace.run(events.SET, self._perform, scope, goal, context)
+
+    async def _perform(
         self,
         scope: Scope,
         goal: str,
@@ -49,7 +58,7 @@ class Setter:
         tail = history[-1] if history else target
         await self._truncate(history, cursor)
         await self._status.assign(target.state)
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.STATE_SET,
             op="set",
@@ -64,7 +73,7 @@ class Setter:
 
     async def _load_history(self, scope: Scope) -> List[Any]:
         history = await self._ledger.recall()
-        channel.emit(
+        self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_LOAD,
             op="set",
@@ -82,7 +91,7 @@ class Setter:
     async def _truncate(self, history: List[Any], cursor: int) -> None:
         trimmed = history[: cursor + 1]
         await self._ledger.archive(trimmed)
-        channel.emit(
+        self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_SAVE,
             op="set",
@@ -120,14 +129,14 @@ class Setter:
             tail = current[-1]
             patched = self._patch_entry(tail, render)
             await self._ledger.archive(current[:-1] + [patched])
-            channel.emit(
+            self._channel.emit(
                 logging.DEBUG,
                 LogCode.HISTORY_SAVE,
                 op="set",
                 history={"len": len(current)},
             )
         await self._latest.mark(render.ids[0])
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.LAST_SET,
             op="set",
@@ -163,7 +172,7 @@ class Setter:
         )
 
     async def _skip(self, scope: Scope, target) -> None:
-        channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="set")
+        self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="set")
         current = await self._ledger.recall()
         tail = current[-1] if current else target
         if tail.messages:

@@ -7,7 +7,7 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from navigator.core.error import HistoryEmpty, InlineUnsupported, StateNotFound
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 from ..alerts import lexeme
 
@@ -20,7 +20,18 @@ router = Router(name="navigator_handlers")
 
 BACK_CALLBACK_DATA: Final[str] = "back"
 
-channel = telemetry.channel(__name__)
+
+def configure_telemetry(telemetry: Telemetry) -> None:
+    """Attach a telemetry hub to the router runtime data."""
+
+    router.data["telemetry"] = telemetry
+
+
+def _channel() -> TelemetryChannel | None:
+    telemetry = router.data.get("telemetry")
+    if isinstance(telemetry, Telemetry):
+        return telemetry.channel(__name__)
+    return None
 
 
 def _tongue(obj) -> str:
@@ -31,33 +42,66 @@ def _tongue(obj) -> str:
 
 @router.callback_query(F.data == BACK_CALLBACK_DATA)
 async def retreat(cb: CallbackQuery, navigator: NavigatorLike, **data: Dict[str, Any]) -> None:
+    channel = _channel()
     try:
-        channel.emit(
-            logging.INFO,
-            LogCode.ROUTER_BACK_ENTER,
-            kind="callback",
-            scope={"chat": cb.message.chat.id if cb.message else 0, "inline": bool(cb.inline_message_id)},
-        )
+        if channel:
+            channel.emit(
+                logging.INFO,
+                LogCode.ROUTER_BACK_ENTER,
+                kind="callback",
+                scope={
+                    "chat": cb.message.chat.id if cb.message else 0,
+                    "inline": bool(cb.inline_message_id),
+                },
+            )
         context = {**data, "event": cb}
         await navigator.back(context=context)
-        channel.emit(
-            logging.INFO,
-            LogCode.ROUTER_BACK_DONE,
-            kind="callback",
-            scope={"chat": cb.message.chat.id if cb.message else 0, "inline": bool(cb.inline_message_id)},
-        )
+        if channel:
+            channel.emit(
+                logging.INFO,
+                LogCode.ROUTER_BACK_DONE,
+                kind="callback",
+                scope={
+                    "chat": cb.message.chat.id if cb.message else 0,
+                    "inline": bool(cb.inline_message_id),
+                },
+            )
         await cb.answer()
     except HistoryEmpty:
-        channel.emit(logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="history_empty")
+        if channel:
+            channel.emit(
+                logging.WARNING,
+                LogCode.ROUTER_BACK_FAIL,
+                kind="callback",
+                note="history_empty",
+            )
         await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
     except StateNotFound:
-        channel.emit(logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="state_not_found")
+        if channel:
+            channel.emit(
+                logging.WARNING,
+                LogCode.ROUTER_BACK_FAIL,
+                kind="callback",
+                note="state_not_found",
+            )
         await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
     except InlineUnsupported:
-        channel.emit(logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="inline_unsupported")
+        if channel:
+            channel.emit(
+                logging.WARNING,
+                LogCode.ROUTER_BACK_FAIL,
+                kind="callback",
+                note="inline_unsupported",
+            )
         await cb.answer(lexeme("inline_unsupported", _tongue(cb)), show_alert=True)
     except Exception:
-        channel.emit(logging.WARNING, LogCode.ROUTER_BACK_FAIL, kind="callback", note="generic")
+        if channel:
+            channel.emit(
+                logging.WARNING,
+                LogCode.ROUTER_BACK_FAIL,
+                kind="callback",
+                note="generic",
+            )
         await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
 
 

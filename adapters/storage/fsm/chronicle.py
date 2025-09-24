@@ -6,23 +6,28 @@ from typing import Any, Dict, List, Optional
 from aiogram.fsm.context import FSMContext
 
 from navigator.core.entity.history import Entry, Message
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 from ..codec import GroupCodec, MediaCodec, PreviewCodec, ReplyCodec, TimeCodec
 from .keys import FSM_HISTORY_FIELD, FSM_NAMESPACE_KEY
 
-channel = telemetry.channel(__name__)
-
-
 class Chronicle:
-    def __init__(self, state: FSMContext):
+    def __init__(self, state: FSMContext, telemetry: Telemetry | None = None):
         self._state = state
+        self._channel: TelemetryChannel | None = (
+            telemetry.channel(__name__) if telemetry else None
+        )
+        self._time = TimeCodec(telemetry)
+
+    def _emit(self, level: int, code: LogCode, /, **fields: Any) -> None:
+        if self._channel:
+            self._channel.emit(level, code, **fields)
 
     async def recall(self) -> List[Entry]:
         data = await self._state.get_data()
         namespace = data.get(FSM_NAMESPACE_KEY) or {}
         raw = namespace.get(FSM_HISTORY_FIELD, []) if isinstance(namespace, dict) else []
-        channel.emit(logging.DEBUG, LogCode.HISTORY_LOAD, history={"len": len(raw)})
+        self._emit(logging.DEBUG, LogCode.HISTORY_LOAD, history={"len": len(raw)})
         return [self._load(record) for record in raw]
 
     async def archive(self, history: List[Entry]) -> None:
@@ -31,7 +36,7 @@ class Chronicle:
         namespace = dict(data.get(FSM_NAMESPACE_KEY) or {})
         namespace[FSM_HISTORY_FIELD] = payload
         await self._state.update_data({FSM_NAMESPACE_KEY: namespace})
-        channel.emit(logging.DEBUG, LogCode.HISTORY_SAVE, history={"len": len(payload)})
+        self._emit(logging.DEBUG, LogCode.HISTORY_SAVE, history={"len": len(payload)})
 
     def _dump(self, entry: Entry) -> Dict[str, Any]:
         return {
@@ -73,7 +78,7 @@ class Chronicle:
                     continue
 
                 if "automated" not in record:
-                    channel.emit(
+                    self._emit(
                         logging.ERROR,
                         LogCode.HISTORY_LOAD,
                         note="history_message_missing_automated",
@@ -81,7 +86,7 @@ class Chronicle:
                     raise ValueError("History message payload missing required 'automated' flag")
 
                 if "id" not in record:
-                    channel.emit(
+                    self._emit(
                         logging.ERROR,
                         LogCode.HISTORY_LOAD,
                         note="history_message_missing_id",
@@ -92,7 +97,7 @@ class Chronicle:
                 try:
                     ident = int(raw)
                 except (TypeError, ValueError):
-                    channel.emit(
+                    self._emit(
                         logging.ERROR,
                         LogCode.HISTORY_LOAD,
                         note="history_message_invalid_id",
@@ -104,7 +109,7 @@ class Chronicle:
                 extras: List[int] = []
                 for value in source:
                     if not isinstance(value, int):
-                        channel.emit(
+                        self._emit(
                             logging.ERROR,
                             LogCode.HISTORY_LOAD,
                             note="history_message_invalid_extra",
@@ -128,7 +133,7 @@ class Chronicle:
                         extras=extras,
                         inline=record.get("inline"),
                         automated=bool(record.get("automated")),
-                        ts=TimeCodec.unpack(record.get("ts")),
+                        ts=self._time.unpack(record.get("ts")),
                     )
                 )
             return Entry(

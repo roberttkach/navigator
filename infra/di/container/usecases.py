@@ -14,10 +14,14 @@ from navigator.app.usecase.replace import Swapper
 from navigator.app.usecase.set import Setter
 
 
+from navigator.core.telemetry import Telemetry
+
+
 class UseCaseContainer(containers.DeclarativeContainer):
     core = providers.DependenciesContainer()
     storage = providers.DependenciesContainer()
     telegram = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
 
     planner = providers.Factory(
         ViewPlanner,
@@ -25,8 +29,9 @@ class UseCaseContainer(containers.DeclarativeContainer):
         inline=telegram.inline,
         album=telegram.album,
         rendering=core.rendering,
+        telemetry=telemetry,
     )
-    restorer = providers.Factory(ViewRestorer, ledger=core.ledger)
+    restorer = providers.Factory(ViewRestorer, ledger=core.ledger, telemetry=telemetry)
     appender = providers.Factory(
         Appender,
         archive=storage.chronicle,
@@ -35,6 +40,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         planner=planner,
         mapper=storage.mapper,
         limit=core.settings.provided.history_limit,
+        telemetry=telemetry,
     )
     swapper = providers.Factory(
         Swapper,
@@ -44,6 +50,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         planner=planner,
         mapper=storage.mapper,
         limit=core.settings.provided.history_limit,
+        telemetry=telemetry,
     )
     rewinder = providers.Factory(
         Rewinder,
@@ -53,6 +60,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         restorer=restorer,
         planner=planner,
         latest=storage.latest,
+        telemetry=telemetry,
     )
     setter = providers.Factory(
         Setter,
@@ -62,9 +70,20 @@ class UseCaseContainer(containers.DeclarativeContainer):
         restorer=restorer,
         planner=planner,
         latest=storage.latest,
+        telemetry=telemetry,
     )
-    trimmer = providers.Factory(Trimmer, ledger=storage.chronicle, latest=storage.latest)
-    shifter = providers.Factory(Shifter, ledger=storage.chronicle, latest=storage.latest)
+    trimmer = providers.Factory(
+        Trimmer,
+        ledger=storage.chronicle,
+        latest=storage.latest,
+        telemetry=telemetry,
+    )
+    shifter = providers.Factory(
+        Shifter,
+        ledger=storage.chronicle,
+        latest=storage.latest,
+        telemetry=telemetry,
+    )
     tailer = providers.Factory(
         Tailer,
         latest=storage.latest,
@@ -73,8 +92,9 @@ class UseCaseContainer(containers.DeclarativeContainer):
         executor=telegram.executor,
         inline=telegram.inline,
         rendering=core.rendering,
+        telemetry=telemetry,
     )
-    alarm = providers.Factory(Alarm, gateway=telegram.gateway, alert=core.alert)
+    alarm = providers.Factory(Alarm, gateway=telegram.gateway, alert=core.alert, telemetry=telemetry)
 
 
 __all__ = ["UseCaseContainer"]

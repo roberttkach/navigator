@@ -7,7 +7,7 @@ from typing import List, Optional, Sequence
 from navigator.core.entity.history import Entry, Message
 from navigator.core.service.rendering import decision
 from navigator.core.service.rendering.config import RenderingConfig
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
@@ -17,9 +17,6 @@ from .album import AlbumService
 from .executor import EditExecutor, Execution
 from .inline import InlineHandler, InlineOutcome
 from .policy import adapt
-
-channel = telemetry.channel(__name__)
-
 
 @dataclass(frozen=True, slots=True)
 class RenderResult:
@@ -83,11 +80,13 @@ class ViewPlanner:
         inline: InlineHandler,
         album: AlbumService,
         rendering: RenderingConfig,
+        telemetry: Telemetry,
     ) -> None:
         self._executor = executor
         self._inline = inline
         self._album = album
         self._rendering = rendering
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def render(
         self,
@@ -148,7 +147,7 @@ class ViewPlanner:
 
         album = await self._album.partial_update(scope, ledger[0], fresh[0])
         if not album:
-            channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_FALLBACK)
+            self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_FALLBACK)
             return 0, False
 
         head_id, extras, meta, changed = album

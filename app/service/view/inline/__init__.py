@@ -7,7 +7,7 @@ from navigator.core.entity.history import Entry, Message
 from navigator.core.service.rendering import decision as D
 from navigator.core.service.rendering.config import RenderingConfig
 from navigator.core.service.rendering.helpers import match
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
@@ -17,14 +17,15 @@ from .editor import InlineEditor, InlineOutcome
 from .guard import InlineGuard
 from .remap import InlineRemapper
 
-channel = telemetry.channel(__name__)
-
-
 @dataclass(slots=True)
 class InlineHandler:
     guard: InlineGuard
     remapper: InlineRemapper
     editor: InlineEditor
+    telemetry: Telemetry
+
+    def __post_init__(self) -> None:
+        self._channel: TelemetryChannel = self.telemetry.channel(__name__)
 
     async def handle(
         self,
@@ -60,7 +61,7 @@ class InlineHandler:
     ) -> InlineOutcome | None:
         if verdict is D.Decision.DELETE_SEND:
             remapped = self.remapper.remap(base, entry)
-            channel.emit(
+            self._channel.emit(
                 logging.INFO,
                 LogCode.INLINE_REMAP_DELETE_SEND,
                 origin="DELETE_SEND",
@@ -73,7 +74,7 @@ class InlineHandler:
                 outcome = await self.editor.apply(scope, remapped, entry, base, executor=executor)
                 if outcome:
                     return outcome
-            channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
+            self._channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
             return None
 
         if verdict is D.Decision.EDIT_MEDIA_CAPTION:
@@ -115,7 +116,7 @@ class InlineHandler:
                     base,
                     executor=executor,
                 )
-            channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
+            self._channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
             return None
 
         return await self.editor.apply(scope, D.Decision.EDIT_TEXT, entry, base, executor=executor)
@@ -138,7 +139,7 @@ class InlineHandler:
             )
             if outcome:
                 return outcome
-        channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
+        self._channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
         return None
 
 

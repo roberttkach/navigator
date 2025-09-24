@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional
 
 from ..internal.policy import prime, validate_inline
-from ...core.telemetry import LogCode, telemetry
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..service.view.executor import EditExecutor
 from ..service.view.inline import InlineHandler
 from ..service.view.planner import RenderResult, ViewPlanner
@@ -15,9 +15,6 @@ from ...core.service.rendering.config import RenderingConfig
 from ...core.value.content import Payload, normalize
 from ...core.value.message import Scope
 
-channel = telemetry.channel(__name__)
-
-
 class Tailer:
     def __init__(
         self,
@@ -27,6 +24,7 @@ class Tailer:
         executor: EditExecutor,
         inline: InlineHandler,
         rendering: RenderingConfig,
+        telemetry: Telemetry,
     ) -> None:
         self._latest = latest
         self._ledger = ledger
@@ -34,21 +32,24 @@ class Tailer:
         self._executor = executor
         self._inline = inline
         self._rendering = rendering
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def peek(self) -> Optional[int]:
         marker = await self._latest.peek()
-        channel.emit(logging.INFO, LogCode.LAST_GET, message={"id": marker})
+        self._channel.emit(logging.INFO, LogCode.LAST_GET, message={"id": marker})
         return marker
 
     async def delete(self, scope: Scope) -> None:
         history = await self._ledger.recall()
         if not history:
-            channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="last.delete", note="no_history")
+            self._channel.emit(
+                logging.INFO, LogCode.RENDER_SKIP, op="last.delete", note="no_history"
+            )
             return
         if scope.inline and not scope.business:
             trimmed = history[:-1]
             await self._ledger.archive(trimmed)
-            channel.emit(
+            self._channel.emit(
                 logging.DEBUG,
                 LogCode.HISTORY_SAVE,
                 op="last.delete",
@@ -58,7 +59,7 @@ class Tailer:
             if trimmed and trimmed[-1].messages:
                 marker = int(trimmed[-1].messages[0].id)
             await self._latest.mark(marker)
-            channel.emit(
+            self._channel.emit(
                 logging.INFO,
                 LogCode.LAST_SET if marker is not None else LogCode.LAST_DELETE,
                 op="last.delete",
@@ -73,14 +74,14 @@ class Tailer:
         if ids:
             await self._executor.delete(scope, ids)
         await self._ledger.archive(history[:-1])
-        channel.emit(
+        self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_SAVE,
             op="last.delete",
             history={"len": len(history) - 1},
         )
         await self._latest.mark(None)
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.LAST_DELETE,
             scope={"chat": scope.chat, "inline": bool(scope.inline)},
@@ -127,7 +128,9 @@ class Tailer:
     async def edit(self, scope: Scope, payload: Payload) -> Optional[int]:
         marker = await self._latest.peek()
         if not marker:
-            channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="last.edit", note="no_last_id")
+            self._channel.emit(
+                logging.INFO, LogCode.RENDER_SKIP, op="last.edit", note="no_last_id"
+            )
             return None
 
         normal = normalize(payload)
@@ -164,7 +167,7 @@ class Tailer:
 
         if result:
             await self._latest.mark(result.id)
-            channel.emit(
+            self._channel.emit(
                 logging.INFO,
                 LogCode.LAST_SET,
                 op="last.edit",
@@ -186,7 +189,7 @@ class Tailer:
                     patched = reindex(history[cursor], [result.id], bundle)
                     history[cursor] = patched
                     await self._ledger.archive(history)
-                    channel.emit(
+                    self._channel.emit(
                         logging.DEBUG,
                         LogCode.HISTORY_SAVE,
                         op="last.edit",
@@ -222,14 +225,14 @@ class Tailer:
                     patched = reindex(history[cursor], [resend.id], [resend.extra])
                     history[cursor] = patched
                     await self._ledger.archive(history)
-                    channel.emit(
+                    self._channel.emit(
                         logging.DEBUG,
                         LogCode.HISTORY_SAVE,
                         op="last.edit",
                         history={"len": len(history)},
                     )
                 await self._latest.mark(resend.id)
-                channel.emit(
+                self._channel.emit(
                     logging.INFO,
                     LogCode.LAST_SET,
                     op="last.edit",

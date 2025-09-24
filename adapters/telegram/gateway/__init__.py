@@ -12,7 +12,7 @@ from navigator.core.port.message import MessageGateway, Result
 from navigator.core.port.pathpolicy import MediaPathPolicy
 from navigator.core.port.preview import LinkPreviewCodec
 from navigator.core.service.scope import profile
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
@@ -20,8 +20,6 @@ from ..serializer.screen import SignatureScreen
 from . import util
 from .edit import recast, remap, retitle, rewrite
 from .send import send
-
-channel = telemetry.channel(__name__)
 
 
 class TelegramGateway(MessageGateway):
@@ -38,6 +36,7 @@ class TelegramGateway(MessageGateway):
         chunk: int = 100,
         truncate: bool = False,
         delete_delay: float = 0.05,
+        telemetry: Telemetry,
     ) -> None:
         self._bot = bot
         self._codec = codec
@@ -47,9 +46,11 @@ class TelegramGateway(MessageGateway):
         self._screen = screen
         self._preview = preview
         self._truncate = truncate
+        self._telemetry = telemetry
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
         from .delete import DeleteBatch
 
-        self._delete = DeleteBatch(bot, chunk=chunk, delay=delete_delay)
+        self._delete = DeleteBatch(bot, chunk=chunk, delay=delete_delay, telemetry=telemetry)
 
     async def send(self, scope: Scope, payload: Payload) -> Result:
         message, extras, meta = await send(
@@ -63,6 +64,8 @@ class TelegramGateway(MessageGateway):
             scope=scope,
             payload=payload,
             truncate=self._truncate,
+            channel=self._channel,
+            telemetry=self._telemetry,
         )
         return Result(id=message.message_id, extra=extras, meta=meta)
 
@@ -78,6 +81,7 @@ class TelegramGateway(MessageGateway):
             message_id=message,
             payload=payload,
             truncate=self._truncate,
+            channel=self._channel,
         )
         meta = util.extract(outcome, payload, scope)
         identifier = getattr(outcome, "message_id", message)
@@ -95,6 +99,7 @@ class TelegramGateway(MessageGateway):
             message_id=message,
             payload=payload,
             truncate=self._truncate,
+            channel=self._channel,
         )
         meta = util.extract(outcome, payload, scope)
         identifier = getattr(outcome, "message_id", message)
@@ -111,6 +116,7 @@ class TelegramGateway(MessageGateway):
             message_id=message,
             payload=payload,
             truncate=self._truncate,
+            channel=self._channel,
         )
         meta = util.extract(outcome, payload, scope)
         identifier = getattr(outcome, "message_id", message)
@@ -123,6 +129,7 @@ class TelegramGateway(MessageGateway):
             scope=scope,
             message_id=message,
             payload=payload,
+            channel=self._channel,
         )
         meta = util.extract(outcome, payload, scope)
         identifier = getattr(outcome, "message_id", message)
@@ -136,7 +143,7 @@ class TelegramGateway(MessageGateway):
             return
         kwargs = util.targets(scope)
         await self._bot.send_message(text=text, **kwargs)
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.GATEWAY_NOTIFY_OK,
             scope=profile(scope),

@@ -3,32 +3,38 @@ from __future__ import annotations
 import logging
 from typing import List
 
-from ..log.decorators import trace
-from ...core.telemetry import LogCode, telemetry
+from ..log import events
+from ..log.aspect import TraceAspect
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.entity.history import Entry, Message
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
 
-channel = telemetry.channel(__name__)
-
-
 class Shifter:
-    def __init__(self, ledger: HistoryRepository, latest: LatestRepository):
+    def __init__(self, ledger: HistoryRepository, latest: LatestRepository, telemetry: Telemetry):
         self._ledger = ledger
         self._latest = latest
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+        self._trace = TraceAspect(telemetry)
 
-    @trace(None, None, None)
     async def execute(self, marker: int) -> None:
+        await self._trace.run(events.REBASE, self._perform, marker)
+
+    async def _perform(self, marker: int) -> None:
         history = await self._ledger.recall()
-        channel.emit(logging.DEBUG, LogCode.HISTORY_LOAD, op="rebase", history={"len": len(history)})
+        self._channel.emit(
+            logging.DEBUG, LogCode.HISTORY_LOAD, op="rebase", history={"len": len(history)}
+        )
         if not history:
             return
 
         last = history[-1]
         if not last.messages:
             await self._latest.mark(int(marker))
-            channel.emit(logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(marker)})
-            channel.emit(
+            self._channel.emit(
+                logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(marker)}
+            )
+            self._channel.emit(
                 logging.INFO,
                 LogCode.REBASE_SUCCESS,
                 op="rebase",
@@ -60,7 +66,7 @@ class Shifter:
         rebuilt: List[Entry] = history[:-1] + [trailer]
 
         await self._ledger.archive(rebuilt)
-        channel.emit(
+        self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_SAVE,
             op="rebase",
@@ -68,9 +74,11 @@ class Shifter:
         )
 
         await self._latest.mark(int(marker))
-        channel.emit(logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(marker)})
+        self._channel.emit(
+            logging.INFO, LogCode.LAST_SET, op="rebase", message={"id": int(marker)}
+        )
 
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.REBASE_SUCCESS,
             op="rebase",

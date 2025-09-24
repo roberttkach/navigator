@@ -20,7 +20,7 @@ from navigator.core.error import CaptionOverflow, EditForbidden, NavigatorError
 from navigator.core.port.limits import Limits
 from navigator.core.port.pathpolicy import MediaPathPolicy
 from navigator.core.service.rendering.album import validate
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.util.path import local, remote
 
 from .serializer.screen import SignatureScreen
@@ -33,8 +33,6 @@ InputMedia = Union[
     InputMediaAudio,
     InputMediaAnimation,
 ]
-
-channel = telemetry.channel(__name__)
 
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-=]{20,}$")
 
@@ -161,17 +159,22 @@ def assemble(
     screen: SignatureScreen,
     limits: Limits,
     native: bool,
+    telemetry: Telemetry | None = None,
 ) -> List[InputMedia]:
+    channel: TelemetryChannel | None = (
+        telemetry.channel(__name__) if telemetry else None
+    )
     kinds = [getattr(i.type, "value", None) for i in (items or [])]
     try:
         validate(items, limits=limits)
     except NavigatorError as exc:
-        channel.emit(
-            logging.WARNING,
-            LogCode.MEDIA_UNSUPPORTED,
-            kind="group_invalid",
-            types=kinds,
-        )
+        if channel is not None:
+            channel.emit(
+                logging.WARNING,
+                LogCode.MEDIA_UNSUPPORTED,
+                kind="group_invalid",
+                types=kinds,
+            )
         raise exc
 
     result: List[InputMedia] = []

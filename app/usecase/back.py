@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
-from ..log.decorators import trace
-from ...core.telemetry import LogCode, telemetry
+from ..log import events
+from ..log.aspect import TraceAspect
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..service.view.planner import ViewPlanner
 from ..service.view.restorer import ViewRestorer
 from ...core.error import HistoryEmpty
@@ -15,9 +16,6 @@ from ...core.port.state import StateRepository
 from ...core.value.content import normalize
 from ...core.value.message import Scope
 
-channel = telemetry.channel(__name__)
-
-
 class Rewinder:
     def __init__(
             self,
@@ -27,6 +25,7 @@ class Rewinder:
             restorer: ViewRestorer,
             planner: ViewPlanner,
             latest: LatestRepository,
+            telemetry: Telemetry,
     ):
         self._ledger = ledger
         self._status = status
@@ -34,11 +33,15 @@ class Rewinder:
         self._restorer = restorer
         self._planner = planner
         self._latest = latest
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+        self._trace = TraceAspect(telemetry)
 
-    @trace(None, None, None)
     async def execute(self, scope: Scope, context: Dict[str, Any]) -> None:
+        await self._trace.run(events.BACK, self._perform, scope, context)
+
+    async def _perform(self, scope: Scope, context: Dict[str, Any]) -> None:
         history = await self._ledger.recall()
-        channel.emit(
+        self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_LOAD,
             op="back",
@@ -70,19 +73,19 @@ class Rewinder:
             )
 
         if not render or not render.changed:
-            channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="back")
+            self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="back")
             await self._status.assign(target.state)
             if target.messages:
                 marker = target.messages[0].id
                 await self._latest.mark(marker)
-            trimmed = history[:-1]
-            await self._ledger.archive(trimmed)
-            channel.emit(
-                logging.DEBUG,
-                LogCode.HISTORY_SAVE,
-                op="back",
-                history={"len": len(trimmed)},
-            )
+                trimmed = history[:-1]
+                await self._ledger.archive(trimmed)
+                self._channel.emit(
+                    logging.DEBUG,
+                    LogCode.HISTORY_SAVE,
+                    op="back",
+                    history={"len": len(trimmed)},
+                )
             return
         limit = min(len(target.messages), len(render.ids))
         patched = [
@@ -111,21 +114,21 @@ class Rewinder:
         trimmed = history[:-1]
         trimmed[-1] = rebuilt
         await self._ledger.archive(trimmed)
-        channel.emit(
+        self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_SAVE,
             op="back",
             history={"len": len(trimmed)},
         )
         await self._status.assign(target.state)
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.STATE_SET,
             op="back",
             state={"target": target.state},
         )
         await self._latest.mark(render.ids[0])
-        channel.emit(
+        self._channel.emit(
             logging.INFO,
             LogCode.LAST_SET,
             op="back",

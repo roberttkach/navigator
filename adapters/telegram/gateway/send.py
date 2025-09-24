@@ -14,7 +14,7 @@ from navigator.core.port.pathpolicy import MediaPathPolicy
 from navigator.core.port.preview import LinkPreviewCodec
 from navigator.core.service.rendering.helpers import classify
 from navigator.core.service.scope import profile
-from navigator.core.telemetry import LogCode, telemetry
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, Meta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
@@ -24,9 +24,6 @@ from ..serializer import caption as caption_tools
 from ..serializer import text as text_tools
 from ..serializer.screen import SignatureScreen
 from . import util
-
-channel = telemetry.channel(__name__)
-
 
 async def send(
     bot: Bot,
@@ -40,6 +37,8 @@ async def send(
     scope: Scope,
     payload: Payload,
     truncate: bool,
+    channel: TelemetryChannel,
+    telemetry: Telemetry,
 ) -> tuple[Message, list[int], Meta]:
     if scope.inline:
         raise InlineUnsupported("inline_send_not_supported")
@@ -62,6 +61,7 @@ async def send(
             screen=screen,
             limits=limits,
             native=True,
+            telemetry=telemetry,
         )
         addition: Dict[str, object] = {}
         if effect is not None:
