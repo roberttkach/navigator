@@ -1,176 +1,177 @@
-import logging
-from typing import Any, Dict
+from __future__ import annotations
 
-from .common import markup, finalize
-from .retry import invoke
-from .util import targets as _targets
-from .. import media
-from .. import serializer
-from ..screen import screen
-from ....domain.constants import CaptionLimit, TextLimit
-from ....domain.error import EditForbidden, EmptyPayload, TextOverflow, CaptionOverflow
-from ....domain.log.emit import jlog
-from ....domain.port.markup import MarkupCodec
-from ....domain.port.message import Result
-from ....domain.service.rendering.helpers import classify as _classify
-from ....domain.service.scope import profile
-from ....domain.value.message import Scope
-from ....domain.log.code import LogCode
+import logging
+
+from aiogram import Bot
+from aiogram.types import InputMedia
+
+from domain.error import CaptionOverflow, TextOverflow
+from domain.log.code import LogCode
+from domain.log.emit import jlog
+from domain.port.extraschema import ExtraSchema
+from domain.port.limits import Limits
+from domain.port.markup import MarkupCodec
+from domain.port.pathpolicy import MediaPathPolicy
+from domain.service.rendering.helpers import classify
+from domain.service.scope import profile
+from domain.value.content import Payload
+from domain.value.message import Scope
+
+from ..media import compose
+from ..serializer import caption as caption_tools
+from ..serializer import text as text_tools
+from ..serializer.screen import SignatureScreen
+from . import util
 
 logger = logging.getLogger(__name__)
 
 
-async def rewrite(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *,
-                  truncate: bool = False) -> Result:
-    raw = "" if payload.text is None else str(payload.text)
-    if not raw.strip():
-        raise EmptyPayload()
-    if len(raw) > TextLimit:
+async def rewrite(
+    bot: Bot,
+    *,
+    codec: MarkupCodec,
+    schema: ExtraSchema,
+    screen: SignatureScreen,
+    limits: Limits,
+    scope: Scope,
+    message_id: int,
+    payload: Payload,
+    truncate: bool,
+):
+    text = payload.text or ""
+    if len(text) > limits.text_max():
         if truncate:
-            raw = raw[:TextLimit]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="rewrite")
+            text = text[: limits.text_max()]
+            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.text")
         else:
             raise TextOverflow()
-    extras = serializer.scrub(scope, payload.extra, editing=True)
-    cleaned = serializer.cleanse(
-        extras, captioning=False, target=bot.edit_message_text, length=len(raw)
+    extras = schema.for_edit(scope, payload.extra, caption_len=len(text), media=False)
+    markup = text_tools.decode(codec, payload.reply)
+    message = await bot.edit_message_text(
+        **util.targets(scope, message_id),
+        text=text,
+        reply_markup=markup,
+        **screen.filter(bot.edit_message_text, extras.get("text", {})),
     )
-    target = _targets(scope, message, topical=False)
-    try:
-        result = await invoke(
-            bot.edit_message_text,
-            text=raw,
-            reply_markup=markup(codec, payload.reply, edit=True),
-            link_preview_options=serializer.preview(payload.preview),
-            **target,
-            **cleaned,
-        )
-    except Exception as e:
-        jlog(
-            logger,
-            logging.WARNING,
-            LogCode.GATEWAY_EDIT_FAIL,
-            scope=profile(scope),
-            payload=_classify(payload),
-            note=type(e).__name__,
-        )
-        raise
-    return finalize(scope, payload, message, result)
-
-
-async def recast(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *,
-                 truncate: bool = False) -> Result:
-    if not payload.media:
-        raise ValueError("Cannot edit media without a media payload")
-    extras = serializer.scrub(scope, payload.extra, editing=True)
-    caption = serializer.caption(payload)
-    native = not bool(scope.inline)
-    try:
-        medium = media.compose(
-            payload.media, caption, extra=extras, native=native, truncate=truncate
-        )
-    except EditForbidden:
-        jlog(
-            logger,
-            logging.WARNING,
-            LogCode.GATEWAY_EDIT_FAIL,
-            scope=profile(scope),
-            payload=_classify(payload),
-            note="inline_upload_forbidden",
-        )
-        raise
-    target = _targets(scope, message, topical=False)
-    try:
-        result = await invoke(
-            bot.edit_message_media,
-            media=medium,
-            reply_markup=markup(codec, payload.reply, edit=True),
-            **target,
-        )
-    except Exception as e:
-        jlog(
-            logger,
-            logging.WARNING,
-            LogCode.GATEWAY_EDIT_FAIL,
-            scope=profile(scope),
-            payload=_classify(payload),
-            note=type(e).__name__,
-        )
-        raise
-    return finalize(scope, payload, message, result)
-
-
-async def retitle(bot, codec: MarkupCodec, scope: Scope, message: int, payload, *,
-                  truncate: bool = False) -> Result:
-    extras = serializer.scrub(scope, payload.extra, editing=True)
-    bundle = serializer.divide(extras)
-    caption = serializer.restate(payload)
-    length = len(caption) if caption is not None else 0
-    cleaned = serializer.cleanse(
-        bundle["caption"], captioning=True, target=bot.edit_message_caption, length=length
+    jlog(
+        logger,
+        logging.INFO,
+        LogCode.GATEWAY_EDIT_OK,
+        scope=profile(scope),
+        payload=classify(payload),
+        message={"id": message.message_id if hasattr(message, "message_id") else message_id, "extra_len": 0},
     )
-    target = _targets(scope, message, topical=False)
-    if caption is not None and len(caption) > CaptionLimit:
+    return message
+
+
+async def recast(
+    bot: Bot,
+    *,
+    codec: MarkupCodec,
+    schema: ExtraSchema,
+    screen: SignatureScreen,
+    policy: MediaPathPolicy,
+    limits: Limits,
+    scope: Scope,
+    message_id: int,
+    payload: Payload,
+    truncate: bool,
+):
+    caption_text = caption_tools.caption(payload)
+    if caption_text is not None and len(caption_text) > limits.caption_max():
         if truncate:
-            caption = caption[:CaptionLimit]
-            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="retitle")
+            caption_text = caption_text[: limits.caption_max()]
+            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.caption")
         else:
             raise CaptionOverflow()
-    try:
-        arguments: Dict[str, Any] = {
-            "reply_markup": markup(codec, payload.reply, edit=True),
-            **target,
-            **cleaned,
-        }
-        if caption is not None:
-            arguments["caption"] = caption
-        settings: Dict[str, Any] = {}
-        if (bundle["media"] or {}).get("show_caption_above_media") is not None:
-            settings["show_caption_above_media"] = bool((bundle["media"] or {}).get("show_caption_above_media"))
-        initial = dict(settings)
-        screened = screen(bot.edit_message_caption, settings)
-        if set(initial.keys()) != set(screened.keys()):
-            jlog(
-                logger,
-                logging.DEBUG,
-                LogCode.EXTRA_FILTERED_OUT,
-                scope=profile(scope),
-                stage="edit.caption.media",
-                before=sorted(initial.keys()),
-                after=sorted(screened.keys()),
-                filtered_keys=sorted(set(initial) - set(screened)),
-            )
-        arguments.update(screened)
-        result = await invoke(bot.edit_message_caption, **arguments)
-    except Exception as e:
-        jlog(
-            logger,
-            logging.WARNING,
-            LogCode.GATEWAY_EDIT_FAIL,
-            scope=profile(scope),
-            payload=_classify(payload),
-            note=type(e).__name__,
-        )
-        raise
-    return finalize(scope, payload, message, result)
+    extras = schema.for_edit(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+    media = compose(
+        payload.media,
+        caption=caption_text,
+        caption_extra=extras.get("caption", {}),
+        media_extra=extras.get("media", {}),
+        policy=policy,
+        screen=screen,
+        limits=limits,
+        native=not scope.inline,
+    )
+    markup = text_tools.decode(codec, payload.reply)
+    message = await bot.edit_message_media(
+        media=media,
+        reply_markup=markup,
+        **util.targets(scope, message_id),
+    )
+    jlog(
+        logger,
+        logging.INFO,
+        LogCode.GATEWAY_EDIT_OK,
+        scope=profile(scope),
+        payload=classify(payload),
+        message={"id": message.message_id if hasattr(message, "message_id") else message_id, "extra_len": 0},
+    )
+    return message
 
 
-async def remap(bot, codec: MarkupCodec, scope: Scope, message: int, payload) -> Result:
-    target = _targets(scope, message, topical=False)
-    try:
-        result = await invoke(
-            bot.edit_message_reply_markup,
-            reply_markup=markup(codec, payload.reply, edit=True),
-            **target,
-        )
-    except Exception as e:
-        jlog(
-            logger,
-            logging.WARNING,
-            LogCode.GATEWAY_EDIT_FAIL,
-            scope=profile(scope),
-            payload=_classify(payload),
-            note=type(e).__name__,
-        )
-        raise
-    return finalize(scope, payload, message, result)
+async def retitle(
+    bot: Bot,
+    *,
+    codec: MarkupCodec,
+    schema: ExtraSchema,
+    screen: SignatureScreen,
+    limits: Limits,
+    scope: Scope,
+    message_id: int,
+    payload: Payload,
+    truncate: bool,
+):
+    caption_text = caption_tools.restate(payload)
+    if caption_text is not None and len(caption_text) > limits.caption_max():
+        if truncate:
+            caption_text = caption_text[: limits.caption_max()]
+            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="edit.caption")
+        else:
+            raise CaptionOverflow()
+    extras = schema.for_edit(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+    markup = text_tools.decode(codec, payload.reply)
+    message = await bot.edit_message_caption(
+        **util.targets(scope, message_id),
+        caption=caption_text,
+        reply_markup=markup,
+        **screen.filter(bot.edit_message_caption, extras.get("caption", {})),
+    )
+    jlog(
+        logger,
+        logging.INFO,
+        LogCode.GATEWAY_EDIT_OK,
+        scope=profile(scope),
+        payload=classify(payload),
+        message={"id": message.message_id if hasattr(message, "message_id") else message_id, "extra_len": 0},
+    )
+    return message
+
+
+async def remap(
+    bot: Bot,
+    *,
+    codec: MarkupCodec,
+    scope: Scope,
+    message_id: int,
+    payload: Payload,
+):
+    markup = text_tools.decode(codec, payload.reply)
+    message = await bot.edit_message_reply_markup(
+        **util.targets(scope, message_id),
+        reply_markup=markup,
+    )
+    jlog(
+        logger,
+        logging.INFO,
+        LogCode.GATEWAY_EDIT_OK,
+        scope=profile(scope),
+        payload=classify(payload),
+        message={"id": message.message_id if hasattr(message, "message_id") else message_id, "extra_len": 0},
+    )
+    return message
+
+
+__all__ = ["rewrite", "recast", "retitle", "remap"]

@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from ..log.decorators import trace
 from ..log.emit import jlog
-from ..service.view.orchestrator import ViewOrchestrator
+from ..service.view.planner import ViewPlanner
 from ..service.view.restorer import ViewRestorer
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LatestRepository
@@ -24,14 +26,14 @@ class Setter:
             status: StateRepository,
             gateway: MessageGateway,
             restorer: ViewRestorer,
-            orchestrator: ViewOrchestrator,
+            planner: ViewPlanner,
             latest: LatestRepository,
     ):
         self._ledger = ledger
         self._status = status
         self._gateway = gateway
         self._restorer = restorer
-        self._orchestrator = orchestrator
+        self._planner = planner
         self._latest = latest
 
     @trace(None, None, None)
@@ -70,14 +72,14 @@ class Setter:
         restored = await self._restorer.revive(target, merged, inline=inline)
         resolved = [normalize(p) for p in restored]
         if not inline:
-            render = await self._orchestrator.render(
+            render = await self._planner.render(
                 scope,
                 resolved,
                 tail,
                 inline=False,
             )
         else:
-            render = await self._orchestrator.render(
+            render = await self._planner.render(
                 scope,
                 resolved,
                 tail,

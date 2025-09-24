@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import logging
 
 from ..log.decorators import trace
 from ..log.emit import jlog
+from ...domain.log.code import LogCode
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LatestRepository
-from ...domain.log.code import LogCode
 
 logger = logging.getLogger(__name__)
 

@@ -1,212 +1,185 @@
-import logging
-from inspect import signature
-from typing import Any, Dict
+from __future__ import annotations
 
-from .common import markup
-from .retry import invoke
-from .util import extract
-from .util import targets as _targets
-from .. import media
-from .. import serializer
-from ..screen import screen
-from ....domain.constants import CaptionLimit, TextLimit
-from ....domain.error import EmptyPayload, EditForbidden, TextOverflow, CaptionOverflow
-from ....domain.log.emit import jlog
-from ....domain.port.markup import MarkupCodec
-from ....domain.port.message import Result
-from ....domain.service.rendering.helpers import classify as _classify
-from ....domain.service.scope import profile
-from ....domain.value.message import Scope
-from ....domain.log.code import LogCode
+import logging
+from typing import Dict
+
+from aiogram import Bot
+from aiogram.types import Message
+
+from domain.error import CaptionOverflow, EmptyPayload, InlineUnsupported, TextOverflow
+from domain.log.code import LogCode
+from domain.log.emit import jlog
+from domain.port.extraschema import ExtraSchema
+from domain.port.limits import Limits
+from domain.port.markup import MarkupCodec
+from domain.port.pathpolicy import MediaPathPolicy
+from domain.service.rendering.helpers import classify
+from domain.service.scope import profile
+from domain.value.content import Payload
+from domain.value.message import Scope
+
+from ..media import assemble
+from ..serializer import caption as caption_tools
+from ..serializer import preview as preview_tools
+from ..serializer import text as text_tools
+from ..serializer.screen import SignatureScreen
+from . import util
 
 logger = logging.getLogger(__name__)
 
 
-async def dispatch(bot, codec: MarkupCodec, scope: Scope, payload, *, truncate: bool = False) -> Result:
-    context = _targets(scope)
-    inline = bool(scope.inline)
-    native = not inline
-    try:
-        if payload.group:
-            extras = serializer.scrub(scope, payload.extra, editing=False)
-            effect = None
-            if extras is not None:
-                effect = extras.pop("message_effect_id", None)
-                if not extras:
-                    extras = None
-            bundle = media.assemble(
-                payload.group, extra=extras, native=native, truncate=truncate
-            )
-            filtered = screen(bot.send_media_group, context)
-            if effect is not None:
-                addition = screen(
-                    bot.send_media_group, {"message_effect_id": effect}
-                )
-                if addition:
-                    filtered = {**filtered, **addition}
-            messages = await invoke(bot.send_media_group, media=bundle, **filtered)
-            items = []
-            for message in messages:
-                if message.photo:
-                    items.append({"medium": "photo", "file": message.photo[-1].file_id, "caption": message.caption})
-                elif message.video:
-                    items.append({"medium": "video", "file": message.video.file_id, "caption": message.caption})
-                elif message.animation:
-                    items.append({"medium": "animation", "file": message.animation.file_id, "caption": message.caption})
-                elif message.document:
-                    items.append({"medium": "document", "file": message.document.file_id, "caption": message.caption})
-                elif message.audio:
-                    items.append({"medium": "audio", "file": message.audio.file_id, "caption": message.caption})
-            jlog(
-                logger,
-                logging.INFO,
-                LogCode.GATEWAY_SEND_OK,
-                scope=profile(scope),
-                payload=_classify(payload),
-                message={"id": messages[0].message_id, "extra_len": len(messages) - 1},
-            )
-            meta = {"kind": "group", "clusters": items, "inline": scope.inline}
-            return Result(
-                id=messages[0].message_id,
-                extra=[message.message_id for message in messages[1:]],
-                **meta,
-            )
-        if payload.media:
-            try:
-                medium = media.convert(payload.media, native=native)
-            except EditForbidden:
-                jlog(
-                    logger,
-                    logging.WARNING,
-                    LogCode.GATEWAY_SEND_FAIL,
-                    scope=profile(scope),
-                    payload=_classify(payload),
-                    note="inline_upload_forbidden",
-                )
-                raise
-            sender = getattr(bot, f"send_{payload.media.type.value}")
-            caption = serializer.caption(payload)
-            if caption is not None and len(caption) > CaptionLimit:
-                if truncate:
-                    caption = caption[:CaptionLimit]
-                    jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.caption")
-                else:
-                    raise CaptionOverflow()
-            extras = serializer.scrub(scope, payload.extra, editing=False)
-            bundle = serializer.divide(extras)
-            length = len(caption) if caption is not None else 0
-            options: Dict[str, Any] = bundle["media"] or {}
-            settings: Dict[str, Any] = {}
-            kind = payload.media.type.value
-            if kind in ("photo", "video", "animation"):
-                if options.get("spoiler") is not None:
-                    settings["has_spoiler"] = bool(options.get("spoiler"))
-                if options.get("show_caption_above_media") is not None:
-                    settings["show_caption_above_media"] = bool(options.get("show_caption_above_media"))
-            if kind == "video":
-                if options.get("start") is not None:
-                    settings["start_timestamp"] = options.get("start")
-                if options.get("cover") is not None:
-                    settings["cover"] = media.adapt(
-                        options.get("cover"), native=native
-                    )
-                if options.get("supports_streaming") is not None:
-                    settings["supports_streaming"] = bool(
-                        options.get("supports_streaming")
-                    )
-            if kind in ("video", "animation", "audio", "document"):
-                if options.get("thumb") is not None:
-                    settings["thumbnail"] = media.adapt(
-                        options.get("thumb"), native=native
-                    )
-            if kind == "audio":
-                if options.get("title") is not None:
-                    settings["title"] = options.get("title")
-                if options.get("performer") is not None:
-                    settings["performer"] = options.get("performer")
-                if options.get("duration") is not None:
-                    settings["duration"] = options.get("duration")
-            if kind in ("video", "animation"):
-                if options.get("width") is not None:
-                    settings["width"] = options.get("width")
-                if options.get("height") is not None:
-                    settings["height"] = options.get("height")
-                if options.get("duration") is not None:
-                    settings["duration"] = options.get("duration")
+async def send(
+    bot: Bot,
+    *,
+    codec: MarkupCodec,
+    schema: ExtraSchema,
+    screen: SignatureScreen,
+    policy: MediaPathPolicy,
+    limits: Limits,
+    scope: Scope,
+    payload: Payload,
+    truncate: bool,
+) -> tuple[Message, list[int], dict]:
+    if scope.inline:
+        raise InlineUnsupported("inline_send_not_supported")
 
-            initial = dict(settings)
-            screened = screen(sender, settings)
-            if set(initial.keys()) != set(screened.keys()):
-                jlog(
-                    logger,
-                    logging.DEBUG,
-                    LogCode.EXTRA_FILTERED_OUT,
-                    scope=profile(scope),
-                    stage="send.media",
-                    before=sorted(initial.keys()),
-                    after=sorted(screened.keys()),
-                    filtered_keys=sorted(set(initial) - set(screened)),
-                )
-            settings = screened
-            arguments: Dict[str, Any] = {
-                **context,
-                **{payload.media.type.value: medium},
-                "reply_markup": markup(codec, payload.reply, edit=False),
-                **serializer.cleanse(
-                    bundle["caption"],
-                    captioning=True,
-                    target=sender,
-                    length=length,
-                ),
-                **settings,
-            }
-            if caption is not None and "caption" in signature(sender).parameters:
-                arguments["caption"] = caption
-            message = await invoke(sender, **arguments)
-        else:
-            text = "" if payload.text is None else str(payload.text)
-            if not text.strip():
-                raise EmptyPayload()
-            if len(text) > TextLimit:
-                if truncate:
-                    text = text[:TextLimit]
-                    jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.text")
-                else:
-                    raise TextOverflow()
-            extras = serializer.scrub(scope, payload.extra, editing=False)
-            message = await invoke(
-                bot.send_message,
-                **context,
-                text=text,
-                reply_markup=markup(codec, payload.reply, edit=False),
-                link_preview_options=serializer.preview(payload.preview),
-                **serializer.cleanse(
-                    extras,
-                    captioning=False,
-                    target=bot.send_message,
-                    length=len(text),
-                ),
+    reply_markup = text_tools.decode(codec, payload.reply)
+    options = preview_tools.to_options(payload.preview)
+    targets = util.targets(scope)
+
+    if payload.group:
+        caption_text = caption_tools.caption(payload)
+        extras = schema.for_send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+        effect = extras.get("effect")
+        bundle = assemble(
+            payload.group,
+            caption_extra=extras.get("caption", {}),
+            media_extra=extras.get("media", {}),
+            policy=policy,
+            screen=screen,
+            limits=limits,
+            native=True,
+        )
+        addition: Dict[str, object] = {}
+        if effect is not None:
+            addition = screen.filter(bot.send_media_group, {"message_effect_id": effect})
+        messages = await bot.send_media_group(
+            media=bundle,
+            **targets,
+            **addition,
+        )
+        head = messages[0]
+        clusters = []
+        for index, message in enumerate(messages):
+            payload_item = None
+            if payload.group and index < len(payload.group):
+                payload_item = payload.group[index]
+            medium = None
+            file_id = None
+            if message.photo:
+                medium = "photo"
+                file_id = message.photo[-1].file_id
+            elif message.video:
+                medium = "video"
+                file_id = message.video.file_id
+            elif message.animation:
+                medium = "animation"
+                file_id = message.animation.file_id
+            elif message.document:
+                medium = "document"
+                file_id = message.document.file_id
+            elif message.audio:
+                medium = "audio"
+                file_id = message.audio.file_id
+            elif message.voice:
+                medium = "voice"
+                file_id = message.voice.file_id
+            elif message.video_note:
+                medium = "video_note"
+                file_id = message.video_note.file_id
+            if medium is None and payload_item is not None:
+                medium = getattr(getattr(payload_item, "type", None), "value", None)
+            if file_id is None and payload_item is not None:
+                path = getattr(payload_item, "path", None)
+                if isinstance(path, str):
+                    file_id = path
+            clusters.append(
+                {
+                    "medium": medium,
+                    "file": file_id,
+                    "caption": message.caption if index == 0 else "",
+                }
             )
+        meta = {"kind": "group", "clusters": clusters, "inline": scope.inline}
         jlog(
             logger,
             logging.INFO,
             LogCode.GATEWAY_SEND_OK,
             scope=profile(scope),
-            payload=_classify(payload),
-            message={"id": message.message_id, "extra_len": 0},
+            payload=classify(payload),
+            message={"id": head.message_id, "extra_len": len(messages) - 1},
         )
-        meta = extract(message, payload, scope)
-        return Result(id=message.message_id, extra=[], **meta)
-    except EditForbidden:
-        raise
-    except Exception as e:
-        note = getattr(e, "message", None) or str(e)
+        extras = [message.message_id for message in messages[1:]]
+        return head, extras, meta
+
+    if payload.media:
+        caption_text = caption_tools.caption(payload)
+        if caption_text is not None and len(caption_text) > limits.caption_max():
+            if truncate:
+                caption_text = caption_text[: limits.caption_max()]
+                jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.caption")
+            else:
+                raise CaptionOverflow()
+        extras = schema.for_send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+        sender = getattr(bot, f"send_{payload.media.type.value}")
+        arguments = {
+            **targets,
+            payload.media.type.value: policy.adapt(payload.media.path, native=True),
+            "reply_markup": reply_markup,
+        }
+        if caption_text is not None:
+            arguments["caption"] = caption_text
+        arguments.update(screen.filter(sender, extras.get("caption", {})))
+        arguments.update(screen.filter(sender, extras.get("media", {})))
+        message = await sender(**arguments)
         jlog(
             logger,
-            logging.WARNING,
-            LogCode.GATEWAY_SEND_FAIL,
+            logging.INFO,
+            LogCode.GATEWAY_SEND_OK,
             scope=profile(scope),
-            payload=_classify(payload),
-            note=str(note)[:300],
+            payload=classify(payload),
+            message={"id": message.message_id, "extra_len": 0},
         )
-        raise
+        meta = util.extract(message, payload, scope)
+        return message, [], meta
+
+    text = payload.text or ""
+    if not text.strip():
+        raise EmptyPayload()
+    if len(text) > limits.text_max():
+        if truncate:
+            text = text[: limits.text_max()]
+            jlog(logger, logging.INFO, LogCode.TOO_LONG_TRUNCATED, scope=profile(scope), stage="send.text")
+        else:
+            raise TextOverflow()
+    extras = schema.for_send(scope, payload.extra, caption_len=len(text), media=False)
+    message = await bot.send_message(
+        **targets,
+        text=text,
+        reply_markup=reply_markup,
+        link_preview_options=options,
+        **screen.filter(bot.send_message, extras.get("text", {})),
+    )
+    jlog(
+        logger,
+        logging.INFO,
+        LogCode.GATEWAY_SEND_OK,
+        scope=profile(scope),
+        payload=classify(payload),
+        message={"id": message.message_id, "extra_len": 0},
+    )
+    meta = util.extract(message, payload, scope)
+    return message, [], meta
+
+
+__all__ = ["send"]

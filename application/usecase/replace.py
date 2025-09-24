@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import logging
 from typing import List
 
 from ..log.decorators import trace
 from ..log.emit import jlog
 from ..map.entry import EntryMapper, Outcome
-from ..service.view.orchestrator import ViewOrchestrator
+from ..service.view.planner import ViewPlanner
 from ..service.view.policy import adapt
 from ...domain.port.history import HistoryRepository
 from ...domain.port.last import LatestRepository
@@ -23,14 +25,14 @@ class Swapper:
             archive: HistoryRepository,
             state: StateRepository,
             tail: LatestRepository,
-            orchestrator: ViewOrchestrator,
+            planner: ViewPlanner,
             mapper: EntryMapper,
             limit: int,
     ):
         self._archive = archive
         self._state = state
         self._tail = tail
-        self._orchestrator = orchestrator
+        self._planner = planner
         self._mapper = mapper
         self._limit = limit
 
@@ -40,7 +42,7 @@ class Swapper:
         records = await self._archive.recall()
         jlog(logger, logging.DEBUG, LogCode.HISTORY_LOAD, op="replace", history={"len": len(records)})
         trail = records[-1] if records else None
-        render = await self._orchestrator.render(
+        render = await self._planner.render(
             scope,
             adjusted,
             trail,

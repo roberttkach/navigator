@@ -1,26 +1,28 @@
 from __future__ import annotations
+from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from typing import List
 
-from .retry import invoke
+from domain.log.code import LogCode
+from domain.log.emit import jlog
+from domain.service.scope import profile
+from domain.value.ids import order as _order
+from domain.value.message import Scope
+
 from ..errors import excusable
-from ....domain.log.emit import jlog
-from ....domain.service.scope import profile
-from ....domain.value.ids import order as _order
-from ....domain.value.message import Scope
-from ....domain.log.code import LogCode
+from .retry import invoke
 
 logger = logging.getLogger(__name__)
-_DELAY_SEC = max(0.0, float(int(os.getenv("NAV_DELETE_DELAY_MS", "50"))) / 1000.0)
 
 
 class DeleteBatch:
-    def __init__(self, bot, chunk: int):
+    def __init__(self, bot, *, chunk: int, delay: float) -> None:
         self._bot = bot
         self._chunk = min(int(chunk), 100)
+        self._delay = max(float(delay), 0.0)
 
     async def run(self, scope: Scope, identifiers: List[int]) -> None:
         if scope.inline and not scope.business:
@@ -75,7 +77,8 @@ class DeleteBatch:
                         message={"deleted": len(group)},
                         chunk={"index": index, "total": total},
                     )
-                    await asyncio.sleep(_DELAY_SEC)
+                    if self._delay:
+                        await asyncio.sleep(self._delay)
                 except Exception as error:
                     if excusable(error):
                         continue
