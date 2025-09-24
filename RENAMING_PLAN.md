@@ -16,6 +16,26 @@ work.
 * Apply the policy uniformly to modules, functions, methods, attributes and
   variables as they become part of the public surface.
 
+## File Name Plan
+
+The same rules now govern the file system layout. Packages keep their mandatory
+`__init__.py` markers, but every other module should be a single clear word.
+Auxiliary tooling such as IDE metadata is removed when it cannot follow the
+convention.
+
+### Completed
+
+| Old path | New path | Notes |
+| -------- | -------- | ----- |
+| `adapters/telemetry/python_logging.py` | `adapters/telemetry/logger.py` | Describes the telemetry adapter without underscores. |
+| `.idea/` (directory) | Removed | JetBrains metadata dropped so that no tracked file name violates the policy. |
+
+### Remaining
+
+* Audit future contributions to ensure new modules join the one-word scheme.
+* When configuration assets are necessary, prefer directory names that already
+  satisfy the rule so that internal files inherit compliant names.
+
 ## Completed Renames
 
 | Scope | Old name | New name | Notes |

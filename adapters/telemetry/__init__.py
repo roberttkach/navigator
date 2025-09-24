@@ -1,5 +1,5 @@
 """Telemetry adapter implementations."""
 
-from .python_logging import PythonLoggingTelemetry
+from .logger import PythonLoggingTelemetry
 
 __all__ = ["PythonLoggingTelemetry"]
