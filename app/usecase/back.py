@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
-from ..log import events
-from ..log.aspect import TraceAspect
 from ...core.telemetry import Telemetry
 from ...core.value.content import normalize
 from ...core.value.message import Scope
+from ..log import events
+from ..log.aspect import TraceAspect
 from .back_access import (
     RewindFinalizer,
-    RewindHistoryAccess,
+    RewindHistoryReader,
+    RewindHistoryWriter,
     RewindMutator,
     RewindRenderer,
 )
@@ -20,26 +21,27 @@ from .back_access import (
 class Rewinder:
     """Coordinate rewind operations for conversation history."""
 
-    def __init__(
-            self,
-            history: RewindHistoryAccess,
-            renderer: RewindRenderer,
-            mutator: RewindMutator,
-            telemetry: Telemetry,
-            finalizer: RewindFinalizer | None = None,
+    def __init__(  # noqa: PLR0913
+        self,
+        history: RewindHistoryReader,
+        writer: RewindHistoryWriter,
+        renderer: RewindRenderer,
+        mutator: RewindMutator,
+        telemetry: Telemetry,
+        finalizer: RewindFinalizer | None = None,
     ) -> None:
         self._history = history
         self._renderer = renderer
         self._mutator = mutator
-        self._finalizer = finalizer or RewindFinalizer(self._history, self._mutator, telemetry)
+        self._finalizer = finalizer or RewindFinalizer(writer, self._mutator, telemetry)
         self._trace = TraceAspect(telemetry)
 
-    async def execute(self, scope: Scope, context: Dict[str, Any]) -> None:
+    async def execute(self, scope: Scope, context: dict[str, Any]) -> None:
         """Rewind the history for ``scope`` using extra ``context`` hints."""
 
         await self._trace.run(events.BACK, self._perform, scope, context)
 
-    async def _perform(self, scope: Scope, context: Dict[str, Any]) -> None:
+    async def _perform(self, scope: Scope, context: dict[str, Any]) -> None:
         history = await self._history.snapshot(scope)
         origin, target = self._history.select(history)
         inline = bool(scope.inline)

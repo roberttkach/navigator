@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dependency_injector import containers, providers
+
+from navigator.app.internal.policy import shield as inline_shield
 from navigator.app.service import TailHistoryAccess, TailHistoryMutator
 from navigator.app.service.view.planner import (
     InlineRenderPlanner,
@@ -11,14 +13,14 @@ from navigator.app.service.view.planner import (
     ViewPlanner,
 )
 from navigator.app.service.view.policy import adapt as adapt_payload
-from navigator.app.internal.policy import shield as inline_shield
 from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.add import Appender
 from navigator.app.usecase.alarm import Alarm
 from navigator.app.usecase.back import Rewinder
 from navigator.app.usecase.back_access import (
     RewindFinalizer,
-    RewindHistoryAccess,
+    RewindHistoryReader,
+    RewindHistoryWriter,
     RewindMutator,
     RewindRenderer,
 )
@@ -50,7 +52,11 @@ class UseCaseContainer(containers.DeclarativeContainer):
         inline=view.inline,
         rendering=core.rendering,
     )
-    tail_operations = providers.Factory(TailOperations, executor=view.executor, rendering=core.rendering)
+    tail_operations = providers.Factory(
+        TailOperations,
+        executor=view.executor,
+        rendering=core.rendering,
+    )
     inline_planner = providers.Factory(InlineRenderPlanner, synchronizer=render_synchronizer)
     regular_planner = providers.Factory(
         RegularRenderPlanner,
@@ -106,8 +112,14 @@ class UseCaseContainer(containers.DeclarativeContainer):
         writer=replace_writer,
         telemetry=telemetry,
     )
-    rewind_history = providers.Factory(
-        RewindHistoryAccess,
+    rewind_reader = providers.Factory(
+        RewindHistoryReader,
+        ledger=storage.chronicle,
+        status=storage.status,
+        telemetry=telemetry,
+    )
+    rewind_writer = providers.Factory(
+        RewindHistoryWriter,
         ledger=storage.chronicle,
         status=storage.status,
         latest=storage.latest,
@@ -121,13 +133,14 @@ class UseCaseContainer(containers.DeclarativeContainer):
     rewind_mutator = providers.Factory(RewindMutator)
     rewind_finalizer = providers.Factory(
         RewindFinalizer,
-        history=rewind_history,
+        writer=rewind_writer,
         mutator=rewind_mutator,
         telemetry=telemetry,
     )
     rewinder = providers.Factory(
         Rewinder,
-        history=rewind_history,
+        history=rewind_reader,
+        writer=rewind_writer,
         renderer=rewind_renderer,
         mutator=rewind_mutator,
         finalizer=rewind_finalizer,

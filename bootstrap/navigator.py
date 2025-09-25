@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import Protocol
+
 from navigator.adapters.telemetry.logger import PythonLoggingTelemetry
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
 from navigator.core.port.factory import ViewForge, ViewLedger
@@ -12,7 +15,6 @@ from navigator.infra.di.container import AppContainer
 from navigator.presentation.alerts import missing
 from navigator.presentation.bootstrap.navigator import compose
 from navigator.presentation.navigator import Navigator
-from typing import Any, Iterable, Protocol, Sequence, cast
 
 
 class _LedgerAdapter(ViewLedger):
@@ -27,7 +29,7 @@ class _LedgerAdapter(ViewLedger):
         forge = self._ledger.get(key)
         if not callable(forge):
             raise TypeError(f"Ledger forge for '{key}' is not callable")
-        return cast(ViewForge, forge)
+        return forge
 
     def has(self, key: str) -> bool:
         """Return ``True`` when the underlying ledger exposes ``key``."""
@@ -53,8 +55,8 @@ def _scope(dto: ScopeDTO) -> Scope:
 class BootstrapContext:
     """Collect payloads required to assemble the navigator runtime."""
 
-    event: Any
-    state: Any
+    event: object
+    state: object
     ledger: ViewLedgerDTO
     scope: ScopeDTO
 
@@ -65,6 +67,19 @@ class TelemetryFactory:
     def create(self) -> Telemetry:
         port = PythonLoggingTelemetry()
         return Telemetry(port)
+
+
+@dataclass(frozen=True)
+class NavigatorRuntimeBundle:
+    """Aggregate runtime services exposed to bootstrap instrumentation."""
+
+    telemetry: Telemetry
+    container: AppContainer
+    navigator: Navigator
+
+
+class NavigatorFactory(Protocol):
+    async def create(self, context: BootstrapContext) -> NavigatorRuntimeBundle: ...
 
 
 class ContainerFactory:
@@ -83,18 +98,41 @@ class ContainerFactory:
         )
 
 
+class ContainerRuntimeFactory(NavigatorFactory):
+    """Create navigators backed by the dependency injection container."""
+
+    def __init__(
+        self,
+        telemetry_factory: TelemetryFactory | None = None,
+    ) -> None:
+        self._telemetry_factory = telemetry_factory or TelemetryFactory()
+
+    async def create(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
+        telemetry = self._telemetry_factory.create()
+        container = ContainerFactory(telemetry).create(context)
+        _calibrate_telemetry(telemetry, container)
+        navigator = compose(container, _scope(context.scope))
+        return NavigatorRuntimeBundle(telemetry=telemetry, container=container, navigator=navigator)
+
+
+def _calibrate_telemetry(telemetry: Telemetry, container: AppContainer) -> None:
+    settings = container.core().settings()
+    mode = getattr(settings, "redaction", "")
+    telemetry.calibrate(mode)
+
+
 class NavigatorAssembler:
     """Compose navigator instances from bootstrap context."""
 
     class _Instrument(Protocol):
-        def __call__(self, telemetry: Telemetry, container: AppContainer) -> None: ...
+        def __call__(self, bundle: NavigatorRuntimeBundle) -> None: ...
 
     def __init__(
-            self,
-            telemetry_factory: TelemetryFactory | None = None,
-            instrumentation: Sequence[_Instrument] | None = None,
+        self,
+        runtime_factory: NavigatorFactory | None = None,
+        instrumentation: Sequence[_Instrument] | None = None,
     ) -> None:
-        self._telemetry_factory = telemetry_factory or TelemetryFactory()
+        self._runtime_factory = runtime_factory or ContainerRuntimeFactory()
         self._instrumentation: tuple[NavigatorAssembler._Instrument, ...]
         if instrumentation:
             self._instrumentation = tuple(instrumentation)
@@ -102,23 +140,19 @@ class NavigatorAssembler:
             self._instrumentation = ()
 
     async def build(self, context: BootstrapContext) -> Navigator:
-        telemetry = self._telemetry_factory.create()
-        container = ContainerFactory(telemetry).create(context)
-        settings = container.core().settings()
-        mode = getattr(settings, "redaction", "")
-        telemetry.calibrate(mode)
+        bundle = await self._runtime_factory.create(context)
         for instrument in self._instrumentation:
-            instrument(telemetry, container)
-        return compose(container, _scope(context.scope))
+            instrument(bundle)
+        return bundle.navigator
 
 
 async def assemble(
-        *,
-        event: Any,
-        state: Any,
-        ledger: ViewLedgerDTO,
-        scope: ScopeDTO,
-        instrumentation: Iterable[NavigatorAssembler._Instrument] | None = None,
+    *,
+    event: object,
+    state: object,
+    ledger: ViewLedgerDTO,
+    scope: ScopeDTO,
+    instrumentation: Iterable[NavigatorAssembler._Instrument] | None = None,
 ) -> Navigator:
     """Construct a Navigator instance from entrypoint payloads."""
 
@@ -135,6 +169,7 @@ async def assemble(
 __all__ = [
     "BootstrapContext",
     "NavigatorAssembler",
+    "NavigatorRuntimeBundle",
     "TelemetryFactory",
     "assemble",
 ]
