@@ -1,4 +1,5 @@
-"""Reusable telemetry instrumentation helpers for application services."""
+"""Emit trace envelopes around asynchronous operations."""
+
 from __future__ import annotations
 
 import inspect
@@ -7,34 +8,32 @@ import time
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
 from .events import TraceSpec
+from ...core.service.rendering.helpers import classify
+from ...core.service.scope import profile
 from ...core.telemetry import Telemetry
 
+Capture = Tuple[Optional[dict], Optional[dict]]
 
-def _capture(
+
+def _capture_context(
         fn: Callable[..., Any],
         args: Tuple[Any, ...],
         kwargs: Dict[str, Any],
-) -> Tuple[Optional[dict], Optional[dict]]:
+) -> Capture:
+    """Extract stable telemetry context from ``fn`` call arguments."""
+
     signature = inspect.signature(fn)
     binding = signature.bind_partial(*args, **kwargs)
     scope = binding.arguments.get("scope")
     payload = binding.arguments.get("payload")
-    try:
-        from ...core.service.scope import profile
-
-        scope = profile(scope) if scope is not None else None
-    except (AttributeError, ImportError, TypeError, ValueError):  # pragma: no cover - defensive
-        scope = None
-    try:
-        from ...core.service.rendering.helpers import classify
-
-        payload = classify(payload) if payload is not None else None
-    except (AttributeError, ImportError, TypeError, ValueError):  # pragma: no cover - defensive
-        payload = None
-    return scope, payload
+    scoped = profile(scope) if scope is not None else None
+    classified = classify(payload) if payload is not None else None
+    return scoped, classified
 
 
 def _snapshot(result: Any) -> Optional[dict]:
+    """Return lightweight telemetry metadata extracted from ``result``."""
+
     identifier = getattr(result, "id", None)
     extra = getattr(result, "extra", None)
     if identifier is None and extra is None:
@@ -43,7 +42,7 @@ def _snapshot(result: Any) -> Optional[dict]:
 
 
 class TraceAspect:
-    """Helper responsible for emitting begin/success/failure telemetry envelopes."""
+    """Coordinate begin/success/failure telemetry around async calls."""
 
     def __init__(self, telemetry: Telemetry) -> None:
         self._telemetry = telemetry
@@ -56,8 +55,10 @@ class TraceAspect:
             augment: Callable[[Any], Optional[dict]] | None = None,
             **kwargs: Any,
     ) -> Any:
+        """Run ``call`` while reporting progress through ``spec`` telemetry."""
+
         channel = self._telemetry.channel(call.__module__)
-        scope, payload = _capture(call, args, kwargs)
+        scope, payload = _capture_context(call, args, kwargs)
         channel.emit(logging.INFO, spec.begin, scope=scope, payload=payload)
         started = time.monotonic()
         try:
