@@ -24,11 +24,12 @@ class TelegramLinkPreviewCodec(LinkPreviewCodec):
 
     def encode(self, preview: Preview) -> LinkPreviewOptions:
         payload = {
-            "url": preview.url,
             "prefer_small_media": bool(preview.small),
             "prefer_large_media": bool(preview.large),
             "show_above_text": bool(preview.above),
         }
+        if preview.url is not None:
+            payload["url"] = preview.url
         if preview.disabled is not None:
             payload["is_disabled"] = bool(preview.disabled)
         return LinkPreviewOptions(**payload)
