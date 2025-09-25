@@ -47,26 +47,26 @@ class DeleteBatch:
             chunks=total,
             chunk=self._chunk,
         )
-        scope_profile = profile(scope)
+        scopeview = profile(scope)
         if scope.business:
-            delete_action = self._bot.delete_business_messages
-            delete_kwargs = {"business_connection_id": scope.business}
+            eraser = self._bot.delete_business_messages
+            params = {"business_connection_id": scope.business}
         else:
-            delete_action = self._bot.delete_messages
-            delete_kwargs = {"chat_id": scope.chat}
+            eraser = self._bot.delete_messages
+            params = {"chat_id": scope.chat}
         try:
             for index, group in enumerate(groups, start=1):
                 try:
                     await invoke(
-                        delete_action,
+                        eraser,
                         message_ids=group,
-                        **delete_kwargs,
+                        **params,
                         channel=self._channel,
                     )
                     self._channel.emit(
                         logging.INFO,
                         LogCode.GATEWAY_DELETE_OK,
-                        scope=scope_profile,
+                        scope=scopeview,
                         message={"deleted": len(group)},
                         chunk={"index": index, "total": total},
                     )
@@ -80,7 +80,7 @@ class DeleteBatch:
             self._channel.emit(
                 logging.WARNING,
                 LogCode.GATEWAY_DELETE_FAIL,
-                scope=scope_profile,
+                scope=scopeview,
                 count=len(unique),
                 note=type(error).__name__,
             )

@@ -5,11 +5,11 @@ from typing import Mapping
 from ..core.value.message import Scope
 
 _Lexicon = {
-    "prev_not_found": {
+    "missing": {
         "en": "⚠️ Previous state not found.",
         "ru": "⚠️ Предыдущий экран не найден.",
     },
-    "inline_unsupported": {
+    "barred": {
         "en": "⚠️ This screen is not available in an inline message.",
         "ru": "⚠️ Этот экран недоступен в инлайн-сообщении.",
     },
@@ -28,11 +28,11 @@ def lexeme(key: str, locale: str | None = None) -> str:
 
 
 def missing(scope: Scope) -> str:
-    return lexeme("prev_not_found", scope.lang)
+    return lexeme("missing", scope.lang)
 
 
 def barred(scope: Scope) -> str:
-    return lexeme("inline_unsupported", scope.lang)
+    return lexeme("barred", scope.lang)
 
 
 def revert(locale: str | None) -> str:
