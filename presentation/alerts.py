@@ -4,7 +4,7 @@ from typing import Mapping
 
 from ..core.value.message import Scope
 
-_Lexicon = {
+LEXICON = {
     "missing": {
         "en": "⚠️ Previous state not found.",
         "ru": "⚠️ Предыдущий экран не найден.",
@@ -21,7 +21,7 @@ _Lexicon = {
 
 
 def lexeme(key: str, locale: str | None = None) -> str:
-    table: Mapping[str, Mapping[str, str]] = _Lexicon
+    table: Mapping[str, Mapping[str, str]] = LEXICON
     values = table.get(key, {})
     lang = (locale or "en").split("-")[0].lower()
     return values.get(lang) or values.get("en") or ""
