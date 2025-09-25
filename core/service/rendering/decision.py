@@ -1,15 +1,53 @@
-from dataclasses import dataclass
-from enum import Enum, auto
-from typing import Any, Optional
+"""Decide how to reconcile stored history with incoming payloads."""
 
-from .helpers import match
-from ...entity.media import MediaType
-from ...port.mediaid import MediaIdentityPolicy
-from ...value.content import Payload, caption
+from __future__ import annotations
+
+from collections.abc import Mapping as MappingView
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Any, Mapping, Optional
+
 from .config import RenderingConfig
+from .helpers import match
+from ...entity.markup import Markup
+from ...entity.media import MediaItem, MediaType
+from ...value.content import Payload, Preview, caption
+from ...port.mediaid import MediaIdentityPolicy
+
+
+@dataclass(frozen=True, slots=True)
+class NormalizedView:
+    """Capture the minimal surface we compare across history entries."""
+
+    text: str | None = None
+    media: MediaItem | None = None
+    group: tuple[MediaItem, ...] = ()
+    reply: Markup | None = None
+    extra: Mapping[str, Any] = field(default_factory=dict)
+    preview: Preview | None = None
+
+    @property
+    def has_group(self) -> bool:
+        """Report whether the view represents an album submission."""
+
+        return bool(self.group)
+
+    @property
+    def has_media(self) -> bool:
+        """Report whether the view carries a single media item."""
+
+        return self.media is not None
+
+    @property
+    def is_media_payload(self) -> bool:
+        """Report whether the view is backed by media rather than text."""
+
+        return self.has_group or self.has_media
 
 
 class Decision(Enum):
+    """Possible reconciliation outcomes for an updated entry."""
+
     RESEND = auto()
     EDIT_TEXT = auto()
     EDIT_MEDIA_CAPTION = auto()
@@ -19,21 +57,49 @@ class Decision(Enum):
     NO_CHANGE = auto()
 
 
-def _grouped(obj) -> bool:
-    if obj is None:
-        return False
-    pack = getattr(obj, "group", None)
-    return bool(pack)
+def _view_of(source: object | None) -> NormalizedView:
+    """Normalize supported message views into a comparison surface."""
+
+    if source is None:
+        return NormalizedView()
+
+    text = getattr(source, "text", None)
+    media = getattr(source, "media", None)
+    group = getattr(source, "group", None) or ()
+    if group and not isinstance(group, tuple):
+        group = tuple(group)
+
+    reply = getattr(source, "reply", getattr(source, "markup", None))
+
+    extra_value = getattr(source, "extra", None)
+    extra: Mapping[str, Any]
+    if isinstance(extra_value, MappingView):
+        extra = dict(extra_value)
+    else:
+        extra = {}
+
+    preview = getattr(source, "preview", None)
+
+    return NormalizedView(
+        text=text,
+        media=media,
+        group=group,
+        reply=reply,
+        extra=extra,
+        preview=preview,
+    )
 
 
-def _single(obj) -> bool:
-    if obj is None:
-        return False
-    return bool(getattr(obj, "media", None))
+def _extras(view: NormalizedView) -> dict[str, Any]:
+    """Preserve extra fields that influence text rendering semantics."""
 
-
-def _mediated(obj) -> bool:
-    return _grouped(obj) or _single(obj)
+    data = view.extra or {}
+    snapshot: dict[str, Any] = {}
+    if "mode" in data:
+        snapshot["mode"] = data["mode"]
+    if "entities" in data:
+        snapshot["entities"] = data["entities"]
+    return snapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,40 +120,10 @@ class _MediaProfile:
     edit: _MediaFlag
 
 
-class _BlankView:
-    text = None
-    media = None
-    group = None
-    reply = None
-    extra = None
+def _sketch(view: NormalizedView, config: RenderingConfig) -> _MediaProfile:
+    """Extract mutable media attributes that affect edit compatibility."""
 
-
-_BLANK_VIEW = _BlankView()
-
-
-def _view(obj: Any):
-    """Normalize to an object with attributes: text, media, group, reply, extra."""
-    if obj is None:
-        return _BLANK_VIEW
-    return obj
-
-
-def _extras(obj) -> dict:
-    """
-    Нормализация extra для текста/подписи:
-    учитываются только mode/entities. message_effect_id игнорируется.
-    """
-    value = getattr(_view(obj), "extra", None) or {}
-    out = {}
-    if "mode" in value:
-        out["mode"] = value["mode"]
-    if "entities" in value:
-        out["entities"] = value["entities"]
-    return out
-
-
-def _sketch(entry, config: RenderingConfig) -> _MediaProfile:
-    payload = getattr(_view(entry), "extra", {}) or {}
+    payload = dict(view.extra or {})
     caption = _CaptionFlag(above=bool(payload.get("show_caption_above_media")))
     start = payload.get("start")
     try:
@@ -103,32 +139,25 @@ def _sketch(entry, config: RenderingConfig) -> _MediaProfile:
     return _MediaProfile(caption=caption, edit=edit)
 
 
-def _text(obj) -> Optional[str]:
-    if obj is None or _mediated(obj):
+def _text(view: NormalizedView) -> Optional[str]:
+    """Return trimmed textual content when no media is present."""
+
+    if view.is_media_payload:
         return None
-    value = getattr(obj, "text", None)
+    value = view.text
     return str(value).strip() if value is not None else None
 
 
-def _reply(obj):
-    if obj is None:
-        return None
-    return getattr(obj, "reply", getattr(obj, "markup", None))
+def _preview(view: NormalizedView):
+    """Expose the preview payload so comparisons stay encapsulated."""
+
+    return view.preview
 
 
-def _preview(obj):
-    if obj is None:
-        return None
-    return getattr(obj, "preview", None)
+def _identical(old: NormalizedView, new: NormalizedView, policy: MediaIdentityPolicy) -> bool:
+    """Check whether two views refer to the same underlying media file."""
 
-
-def _identical(old, new, policy: MediaIdentityPolicy) -> bool:
-    """
-    Сравнение по Telegram file_id:
-    - в истории o.media.path — это file_id (str),
-    - «тот же файл» только если new.media.path — тоже str и равен старому file_id.
-    """
-    if not (old and getattr(old, "media", None) and new and getattr(new, "media", None)):
+    if not (old.media and new.media):
         return False
     if old.media.type != new.media.type:
         return False
@@ -138,50 +167,38 @@ def _identical(old, new, policy: MediaIdentityPolicy) -> bool:
 
 
 def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Decision:
-    """
-    Контракт:
-    - Любые группы в old/new ⇒ DELETE_SEND.
-    - Частичное редактирование альбомов выполняется вне decide: ранняя ветка в
-      ViewOrchestrator.render обрабатывает совместимые альбомы.
-    - Inline-ограничения и ремап DELETE_SEND применяются на уровне стратегий inline.
-    """
+    """Select an edit strategy that reconciles history with new content."""
+
     if not old:
         return Decision.RESEND
 
-    prior = _view(old)
-    fresh = _view(new)
+    prior = _view_of(old)
+    fresh = _view_of(new)
 
-    # Любые группы в old/new → DELETE_SEND
-    if _grouped(prior) or _grouped(fresh):
+    if prior.has_group or fresh.has_group:
         return Decision.DELETE_SEND
 
-    # Запрет VOICE/VIDEO_NOTE в редактировании: всегда DELETE_SEND
     if fresh.media and fresh.media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
         return Decision.DELETE_SEND
     if prior.media and prior.media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
         return Decision.DELETE_SEND
 
-    # Переход media↔text → DELETE_SEND
-    if _mediated(prior) != _mediated(fresh):
+    if prior.is_media_payload != fresh.is_media_payload:
         return Decision.DELETE_SEND
 
-    # Текст↔текст
-    if not _mediated(prior) and not _mediated(fresh):
+    if not prior.is_media_payload and not fresh.is_media_payload:
         if (_text(prior) or "") == (_text(fresh) or ""):
             if (_extras(prior) != _extras(fresh)) or (_preview(prior) != _preview(fresh)):
                 return Decision.EDIT_TEXT
-            aligned = match(_reply(prior), _reply(fresh))
+            aligned = match(prior.reply, fresh.reply)
             return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
         return Decision.EDIT_TEXT
 
-    # Медиа↔медиа
-    if _mediated(prior) and _mediated(fresh):
-        # Сравниваем только по file_id и типу
+    if prior.is_media_payload and fresh.is_media_payload:
         if _identical(prior, fresh, config.identity):
             before = _sketch(prior, config)
             after = _sketch(fresh, config)
 
-            # Любое изменение медиа-уровня (spoiler/start/thumb*) требует EDIT_MEDIA.
             if before.edit != after.edit:
                 return Decision.EDIT_MEDIA
 
@@ -190,7 +207,7 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
                 and _extras(prior) == _extras(fresh)
                 and before.caption == after.caption
             ):
-                aligned = match(_reply(prior), _reply(fresh))
+                aligned = match(prior.reply, fresh.reply)
                 return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
             return Decision.EDIT_MEDIA_CAPTION
         return Decision.EDIT_MEDIA
