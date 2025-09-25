@@ -37,7 +37,7 @@ _ENV_MAPPING: Dict[str, str] = {
 }
 
 
-def _environment_overrides() -> Dict[str, str]:
+def _environ() -> Dict[str, str]:
     values: Dict[str, str] = {}
     for field, env_key in _ENV_MAPPING.items():
         raw = os.getenv(env_key)
@@ -75,7 +75,7 @@ class Settings(BaseSettings):
 def load() -> Settings:
     if _HAS_SETTINGS:
         return Settings()
-    return Settings(**_environment_overrides())
+    return Settings(**_environ())
 
 
 __all__ = ["Settings", "load"]

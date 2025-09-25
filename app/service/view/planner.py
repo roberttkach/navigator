@@ -107,30 +107,30 @@ class ViewPlanner:
         origin = 0
 
         if not inline:
-            origin, changed = await self._apply_album_head(scope, ledger, fresh, state)
+            origin, changed = await self._header(scope, ledger, fresh, state)
             mutated = mutated or changed
 
         stored = len(ledger)
         incoming = len(fresh)
-        mutated = mutated or await self._sync_slots(
+        mutated = mutated or await self._align(
             scope,
             fresh,
             ledger,
             state,
             start=origin,
-            inline_mode=inline,
+            inlineflag=inline,
         )
 
         if not inline:
-            mutated = mutated or await self._trim_tail(scope, ledger, incoming)
-            mutated = mutated or await self._append_missing(scope, fresh, stored, state)
+            mutated = mutated or await self._prune(scope, ledger, incoming)
+            mutated = mutated or await self._append(scope, fresh, stored, state)
 
         if not state.ids:
             return None
 
         return RenderNode(ids=state.ids, extras=state.extras, metas=state.metas, changed=mutated)
 
-    async def _apply_album_head(
+    async def _header(
         self,
         scope: Scope,
         ledger: List[Message],
@@ -150,13 +150,13 @@ class ViewPlanner:
             self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_FALLBACK)
             return 0, False
 
-        head_id, extras, meta, changed = album
-        state.ids.append(head_id)
+        marker, extras, meta, changed = album
+        state.ids.append(marker)
         state.extras.append(extras)
         state.metas.append(meta)
         return 1, changed
 
-    async def _sync_slots(
+    async def _align(
         self,
         scope: Scope,
         fresh: List[Payload],
@@ -164,7 +164,7 @@ class ViewPlanner:
         state: _RenderState,
         *,
         start: int,
-        inline_mode: bool,
+        inlineflag: bool,
     ) -> bool:
         mutated = False
         limit = min(len(ledger), len(fresh))
@@ -177,21 +177,21 @@ class ViewPlanner:
                 state.retain(previous)
                 continue
 
-            if inline_mode:
-                changed = await self._apply_inline(scope, current, previous, state)
+            if inlineflag:
+                changed = await self._inset(scope, current, previous, state)
                 if not changed:
                     state.retain(previous)
                 mutated = mutated or changed
                 continue
 
-            changed = await self._apply_regular(scope, verdict, current, previous, state)
+            changed = await self._regular(scope, verdict, current, previous, state)
             if not changed:
                 state.retain(previous)
             mutated = mutated or changed
 
         return mutated
 
-    async def _apply_inline(
+    async def _inset(
         self,
         scope: Scope,
         payload: Payload,
@@ -207,14 +207,14 @@ class ViewPlanner:
         )
         if outcome is None:
             return False
-        return self._record_inline(outcome, state)
+        return self._record(outcome, state)
 
-    def _record_inline(self, outcome: InlineOutcome, state: _RenderState) -> bool:
+    def _record(self, outcome: InlineOutcome, state: _RenderState) -> bool:
         meta = self._executor.refine(outcome.execution, outcome.decision, outcome.payload)
         state.collect(outcome.execution, meta)
         return True
 
-    async def _apply_regular(
+    async def _regular(
         self,
         scope: Scope,
         verdict: decision.Decision,
@@ -229,7 +229,7 @@ class ViewPlanner:
         state.collect(execution, meta)
         return True
 
-    async def _trim_tail(self, scope: Scope, ledger: List[Message], incoming: int) -> bool:
+    async def _prune(self, scope: Scope, ledger: List[Message], incoming: int) -> bool:
         if len(ledger) <= incoming:
             return False
         targets: List[int] = []
@@ -241,7 +241,7 @@ class ViewPlanner:
         await self._executor.delete(scope, targets)
         return True
 
-    async def _append_missing(
+    async def _append(
         self,
         scope: Scope,
         fresh: List[Payload],

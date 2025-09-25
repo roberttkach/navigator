@@ -63,6 +63,14 @@ convention.
 | Album service | `_album_ids`, `_alter`, `_clone`, `_clusters` | `_lineup`, `_changed`, `_copy`, `_collect` | Private helpers now use one-word suffixes. |
 | Inline handler | `_handle_media`, `_handle_text`, `_fallback_markup` | `_mediate`, `_scribe`, `_fallback` | Inline helpers follow the single-word suffix rule. |
 | Tests | `trial.refine_meta` stub, `partial_update` stubs | `trial.refine` stub, `refresh` stubs | Synchronises test doubles with the runtime names. |
+| Bootstrap | `bootstrap.navigator._convert_scope` | `bootstrap.navigator._scope` | Scope adapter inlines the single-word helper. |
+| Tail workflow | `Tailer._render_result`, `Tailer._apply_inline` | `Tailer._result`, `Tailer._inlay` | Streamlines the edit pipeline internals. |
+| Setter workflow | `Setter._load_history`, `_revive_payloads`, `_apply_render`, `_patch_entry` | `Setter._history`, `_revive`, `_imprint`, `_patch` | Aligns the state restoration helpers with the policy. |
+| Preview codec | `TelegramLinkPreviewCodec._optional_flag` | `TelegramLinkPreviewCodec._maybe` | Shortens the optional flag decoder. |
+| Media adapter | `adapters.telegram.media._media_handler` | `adapters.telegram.media._creator` | Picks media constructors with a single noun. |
+| Settings | `infra.config.settings._environment_overrides` | `infra.config.settings._environ` | Keeps configuration loading compliant with the naming scheme. |
+| Inline guard | `app.service.view.inline.guard._primary_media` | `app.service.view.inline.guard._primary` | Refines the media probe helper. |
+| View planner | `_apply_album_head`, `_sync_slots`, `_apply_inline`, `_record_inline`, `_apply_regular`, `_trim_tail`, `_append_missing` | `_header`, `_align`, `_inset`, `_record`, `_regular`, `_prune`, `_append` | Brings the planning workflow verbs down to single words. |
 
 ## Scheduled Renames
 
