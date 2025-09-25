@@ -1,3 +1,5 @@
+"""Persist conversation history with telemetry instrumentation."""
+
 from __future__ import annotations
 
 import logging
@@ -12,7 +14,7 @@ from ...core.value.content import Payload
 
 
 def preserve(payload: Payload, entry: Message | None) -> Payload:
-    """Keep payload preview and extra in sync with latest entry."""
+    """Return ``payload`` with fallback preview and extra from ``entry``."""
 
     if entry is None:
         return payload
@@ -24,18 +26,27 @@ def preserve(payload: Payload, entry: Message | None) -> Payload:
     return replace(payload, preview=preview, extra=extra)
 
 
+def _channel_for(telemetry: Telemetry | None) -> TelemetryChannel | None:
+    """Return a telemetry channel dedicated to storage operations."""
+
+    return telemetry.channel(__name__) if telemetry else None
+
+
 def _emit(
         channel: TelemetryChannel | None,
         level: int,
         code: LogCode,
         **payload: object,
 ) -> None:
+    """Emit a telemetry envelope if ``channel`` is configured."""
     if channel is None:
         return
     channel.emit(level, code, **payload)
 
 
 def _latest_marker(history: Sequence[Entry]) -> int | None:
+    """Return the first message identifier for the most recent entry."""
+
     if not history:
         return None
     messages = history[-1].messages
@@ -54,11 +65,9 @@ async def persist(
         operation: str,
         telemetry: Telemetry | None = None,
 ) -> None:
-    """Persist updated history snapshots with telemetry support."""
+    """Persist the supplied ``history`` snapshot and update ``ledger``."""
 
-    channel: TelemetryChannel | None = (
-        telemetry.channel(__name__) if telemetry else None
-    )
+    channel = _channel_for(telemetry)
     snapshot = list(history)
     trimmed = prune_history(snapshot, limit)
     if len(trimmed) != len(snapshot):

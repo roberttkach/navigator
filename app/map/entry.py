@@ -1,3 +1,5 @@
+"""Convert rendering outcomes into persisted history entries."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -21,6 +23,8 @@ def _previous_extra(
         base: Optional[Entry],
         index: int,
 ) -> Optional[dict[str, Any]]:
+    """Return the previous message extra for ``index`` if available."""
+
     if base is None:
         return None
     messages = getattr(base, "messages", None) or []
@@ -30,6 +34,8 @@ def _previous_extra(
 
 
 def _media_item_from_meta(meta: MediaMeta, payload: Payload) -> MediaItem:
+    """Build a ``MediaItem`` using payload defaults when required."""
+
     variant = meta.medium
     if payload.media:
         return MediaItem(
@@ -47,6 +53,8 @@ def _media_item_from_meta(meta: MediaMeta, payload: Payload) -> MediaItem:
 
 
 def _group_items_from_meta(meta: GroupMeta) -> List[MediaItem]:
+    """Return media items representing grouped content metadata."""
+
     items: List[MediaItem] = []
     for cluster in meta.clusters:
         variant = cluster.medium
@@ -66,6 +74,8 @@ def _message_content(
         meta: Meta,
         payload: Payload,
 ) -> Tuple[Optional[str], Optional[MediaItem], Optional[List[MediaItem]]]:
+    """Return text, media, and group artefacts derived from ``meta``."""
+
     if isinstance(meta, TextMeta):
         return meta.text, None, None
     if isinstance(meta, MediaMeta):
@@ -80,6 +90,8 @@ def _caption_length(
         media: Optional[MediaItem],
         group: Optional[Iterable[MediaItem]],
 ) -> int:
+    """Return caption length for sanitising entity spans."""
+
     if group:
         first = next(iter(group), None)
         return len(getattr(first, "caption", None) or "") if first else 0
@@ -89,17 +101,23 @@ def _caption_length(
 
 
 def _resolve_inline(meta: Meta) -> Optional[bool]:
+    """Return inline flag derived from metadata if specified."""
+
     inline = getattr(meta, "inline", None)
     return bool(inline) if inline is not None else None
 
 
 def _view_if_known(ledger: ViewLedger, view: Optional[str]) -> Optional[str]:
+    """Return ``view`` only when the ledger recognises the identifier."""
+
     if view and ledger.has(view):
         return view
     return None
 
 
 class EntryMapper:
+    """Translate rendering outcomes into persisted history entries."""
+
     def __init__(self, ledger: ViewLedger):
         self._ledger = ledger
 
@@ -151,6 +169,8 @@ class EntryMapper:
 
 
 class Outcome:
+    """Provide convenient accessors around rendering outcome metadata."""
+
     def __init__(
             self,
             ids: Sequence[int],
