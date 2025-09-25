@@ -1,7 +1,10 @@
+"""Coordinate inline-specific reconciliation between payloads and history."""
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+
 from navigator.core.entity.history import Message
 from navigator.core.service.rendering import decision as D
 from navigator.core.service.rendering.config import RenderingConfig
@@ -19,6 +22,8 @@ from ...store import preserve
 
 @dataclass(slots=True)
 class InlineHandler:
+    """Mediate inline edits, remapping fallbacks when required."""
+
     guard: InlineGuard
     remapper: InlineRemapper
     editor: InlineEditor
@@ -37,6 +42,8 @@ class InlineHandler:
             executor: EditExecutor,
             config: RenderingConfig,
     ) -> InlineOutcome | None:
+        """Plan inline reconciliation for the provided ``payload``."""
+
         entry = self._prepare_candidate(payload, tail)
         base = tail
         media = getattr(entry, "media", None)
@@ -65,26 +72,13 @@ class InlineHandler:
             base: Message | None,
             executor: EditExecutor,
     ) -> InlineOutcome | None:
+        """Apply verdict-specific inline reconciliation logic."""
+
         if verdict is D.Decision.DELETE_SEND:
             return await self._handle_delete_send(scope, entry, base, executor=executor)
 
-        if verdict is D.Decision.EDIT_MEDIA_CAPTION:
-            return await self._apply_edit(
-                scope,
-                verdict,
-                entry,
-                base,
-                executor=executor,
-            )
-
-        if verdict is D.Decision.EDIT_MARKUP:
-            return await self._apply_edit(
-                scope,
-                verdict,
-                entry,
-                base,
-                executor=executor,
-            )
+        if verdict in (D.Decision.EDIT_MEDIA_CAPTION, D.Decision.EDIT_MARKUP):
+            return await self._apply_edit(scope, verdict, entry, base, executor=executor)
 
         return await self._apply_edit(
             scope,
@@ -101,6 +95,8 @@ class InlineHandler:
             base: Message | None,
             executor: EditExecutor,
     ) -> InlineOutcome | None:
+        """Handle inline updates when the preserved payload is textual."""
+
         if base and getattr(base, "media", None):
             adjusted = entry.morph(media=base.media, group=None)
             if self._requires_caption_refresh(adjusted):
@@ -136,6 +132,8 @@ class InlineHandler:
             base: Message | None,
             executor: EditExecutor,
     ) -> InlineOutcome | None:
+        """Attempt graceful inline fallback when guard rejects the payload."""
+
         if base and not match(getattr(base, "markup", None), getattr(entry, "reply", None)):
             adjusted = entry.morph(media=base.media if base else None, group=None)
             outcome = await self._apply_edit(

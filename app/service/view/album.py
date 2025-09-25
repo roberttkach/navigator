@@ -1,7 +1,11 @@
+"""Coordinate album refreshes during history reconciliation."""
+
 from __future__ import annotations
 
 import json
 import logging
+from typing import Optional
+
 from navigator.core.entity.history import Message
 from navigator.core.entity.media import MediaItem
 from navigator.core.port.limits import Limits
@@ -12,16 +16,19 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
-from typing import Optional
 
 from .executor import EditExecutor
 
 
 def _lineup(message: Message) -> list[int]:
-    return [int(message.id)] + [int(x) for x in (message.extras or [])]
+    """Return identifiers associated with the stored album head."""
+
+    return [int(message.id)] + [int(extra) for extra in (message.extras or [])]
 
 
 def _changed(old: MediaItem, new: MediaItem) -> bool:
+    """Report whether the replacement media changed type or identity."""
+
     if old.type != new.type:
         return True
     prior = getattr(old, "path", None)
@@ -30,6 +37,8 @@ def _changed(old: MediaItem, new: MediaItem) -> bool:
 
 
 def _copy(message: Message, identifier: int, media: MediaItem) -> Message:
+    """Clone ``message`` while replacing media identity and identifier."""
+
     return Message(
         id=identifier,
         text=None,
@@ -45,17 +54,48 @@ def _copy(message: Message, identifier: int, media: MediaItem) -> Message:
     )
 
 
-def _collect(latter: list[MediaItem], album: list[int]) -> list[Cluster]:
-    result: list[Cluster] = []
+def _collect(latter: list[MediaItem]) -> list[Cluster]:
+    """Return cluster descriptors for the refreshed album payload."""
+
+    clusters: list[Cluster] = []
     for index, item in enumerate(latter):
-        result.append(
+        clusters.append(
             Cluster(
                 medium=item.type.value,
                 file=item.path,
                 caption=item.caption if index == 0 else "",
             )
         )
-    return result
+    return clusters
+
+
+def _caption_fields(extra: dict | None) -> dict:
+    """Extract caption-related metadata influencing render decisions."""
+
+    extra = extra or {}
+    view: dict = {}
+    if "mode" in extra:
+        view["mode"] = extra["mode"]
+    if "entities" in extra:
+        view["entities"] = extra["entities"]
+    return view
+
+
+def _encode_dict(value: dict | None) -> Optional[str]:
+    """Return a canonical JSON representation used for comparisons."""
+
+    if not isinstance(value, dict):
+        return None
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _ensure_int(value):
+    """Attempt to coerce ``value`` to ``int`` when feasible."""
+
+    try:
+        return int(value) if value is not None else None
+    except Exception:  # pragma: no cover - defensive
+        return value
 
 
 class AlbumService:
@@ -75,6 +115,8 @@ class AlbumService:
     async def refresh(
             self, scope: Scope, former: Message, latter: Payload
     ) -> Optional[tuple[int, list[int], GroupMeta, bool]]:
+        """Refresh album state and emit edits when existing nodes diverge."""
+
         formerband = former.group or []
         latterband = latter.group or []
 
@@ -91,36 +133,18 @@ class AlbumService:
         formerinfo = former.extra or {}
         latterinfo = latter.extra or {}
 
-        def _excerpt(data: dict | None) -> dict:
-            data = data or {}
-            view: dict = {}
-            if "mode" in data:
-                view["mode"] = data["mode"]
-            if "entities" in data:
-                view["entities"] = data["entities"]
-            return view
-
-        def _encode(value: dict | None) -> Optional[str]:
-            if not isinstance(value, dict):
-                return None
-            return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-        def _integer(value):
-            try:
-                return int(value) if value is not None else None
-            except Exception:  # pragma: no cover - defensive
-                return value
-
         retitled = (
                 (formerband[0].caption or "") != (latterband[0].caption or "")
-                or _encode(_excerpt(formerinfo)) != _encode(_excerpt(latterinfo))
+                or _encode_dict(_caption_fields(formerinfo))
+                != _encode_dict(_caption_fields(latterinfo))
                 or bool(formerinfo.get("show_caption_above_media"))
                 != bool(latterinfo.get("show_caption_above_media"))
         )
 
         reshaped = (
                 bool(formerinfo.get("spoiler")) != bool(latterinfo.get("spoiler"))
-                or _integer(formerinfo.get("start")) != _integer(latterinfo.get("start"))
+                or _ensure_int(formerinfo.get("start"))
+                != _ensure_int(latterinfo.get("start"))
         )
 
         if self._thumbguard:
@@ -172,7 +196,7 @@ class AlbumService:
                 )
                 mutated = mutated or bool(execution)
 
-        clusters = _collect(latterband, album)
+        clusters = _collect(latterband)
 
         self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_OK, count=len(album))
 

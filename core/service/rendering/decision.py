@@ -90,7 +90,7 @@ def _view_of(source: object | None) -> NormalizedView:
     )
 
 
-def _extras(view: NormalizedView) -> dict[str, Any]:
+def _textual_extras(view: NormalizedView) -> dict[str, Any]:
     """Preserve extra fields that influence text rendering semantics."""
 
     data = view.extra or {}
@@ -104,11 +104,15 @@ def _extras(view: NormalizedView) -> dict[str, Any]:
 
 @dataclass(frozen=True, slots=True)
 class _CaptionFlag:
+    """Capture caption-level options relevant for edits."""
+
     above: bool
 
 
 @dataclass(frozen=True, slots=True)
 class _MediaFlag:
+    """Describe media edit options that require resend safeguards."""
+
     spoiler: bool
     start: object
     thumb: bool
@@ -116,11 +120,13 @@ class _MediaFlag:
 
 @dataclass(frozen=True, slots=True)
 class _MediaProfile:
+    """Bundle caption and media attributes for comparison."""
+
     caption: _CaptionFlag
     edit: _MediaFlag
 
 
-def _sketch(view: NormalizedView, config: RenderingConfig) -> _MediaProfile:
+def _profile_media(view: NormalizedView, config: RenderingConfig) -> _MediaProfile:
     """Extract mutable media attributes that affect edit compatibility."""
 
     payload = dict(view.extra or {})
@@ -166,6 +172,65 @@ def _identical(old: NormalizedView, new: NormalizedView, policy: MediaIdentityPo
     return policy.same(former, latter, type=getattr(old.media.type, "value", ""))
 
 
+def _requires_delete_send(prior: NormalizedView, fresh: NormalizedView) -> bool:
+    """Return ``True`` when reconciliation requires send+delete fallback."""
+
+    if prior.has_group or fresh.has_group:
+        return True
+
+    restricted = (MediaType.VOICE, MediaType.VIDEO_NOTE)
+    if fresh.media and fresh.media.type in restricted:
+        return True
+    if prior.media and prior.media.type in restricted:
+        return True
+
+    if prior.is_media_payload != fresh.is_media_payload:
+        return True
+
+    return False
+
+
+def _decide_textual(prior: NormalizedView, fresh: NormalizedView) -> Decision:
+    """Resolve reconciliation for purely textual payloads."""
+
+    if (_text(prior) or "") == (_text(fresh) or ""):
+        if (
+                (_textual_extras(prior) != _textual_extras(fresh))
+                or (_preview(prior) != _preview(fresh))
+        ):
+            return Decision.EDIT_TEXT
+        aligned = match(prior.reply, fresh.reply)
+        return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
+
+    return Decision.EDIT_TEXT
+
+
+def _decide_media(
+        prior: NormalizedView,
+        fresh: NormalizedView,
+        config: RenderingConfig,
+) -> Decision:
+    """Resolve reconciliation for payloads carrying media objects."""
+
+    if _identical(prior, fresh, config.identity):
+        before = _profile_media(prior, config)
+        after = _profile_media(fresh, config)
+
+        if before.edit != after.edit:
+            return Decision.EDIT_MEDIA
+
+        if (
+                (caption(prior) or "") == (caption(fresh) or "")
+                and _textual_extras(prior) == _textual_extras(fresh)
+                and before.caption == after.caption
+        ):
+            aligned = match(prior.reply, fresh.reply)
+            return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
+        return Decision.EDIT_MEDIA_CAPTION
+
+    return Decision.EDIT_MEDIA
+
+
 def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Decision:
     """Select an edit strategy that reconciles history with new content."""
 
@@ -175,41 +240,13 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
     prior = _view_of(old)
     fresh = _view_of(new)
 
-    if prior.has_group or fresh.has_group:
-        return Decision.DELETE_SEND
-
-    if fresh.media and fresh.media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
-        return Decision.DELETE_SEND
-    if prior.media and prior.media.type in (MediaType.VOICE, MediaType.VIDEO_NOTE):
-        return Decision.DELETE_SEND
-
-    if prior.is_media_payload != fresh.is_media_payload:
+    if _requires_delete_send(prior, fresh):
         return Decision.DELETE_SEND
 
     if not prior.is_media_payload and not fresh.is_media_payload:
-        if (_text(prior) or "") == (_text(fresh) or ""):
-            if (_extras(prior) != _extras(fresh)) or (_preview(prior) != _preview(fresh)):
-                return Decision.EDIT_TEXT
-            aligned = match(prior.reply, fresh.reply)
-            return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
-        return Decision.EDIT_TEXT
+        return _decide_textual(prior, fresh)
 
     if prior.is_media_payload and fresh.is_media_payload:
-        if _identical(prior, fresh, config.identity):
-            before = _sketch(prior, config)
-            after = _sketch(fresh, config)
-
-            if before.edit != after.edit:
-                return Decision.EDIT_MEDIA
-
-            if (
-                    (caption(prior) or "") == (caption(fresh) or "")
-                    and _extras(prior) == _extras(fresh)
-                    and before.caption == after.caption
-            ):
-                aligned = match(prior.reply, fresh.reply)
-                return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP
-            return Decision.EDIT_MEDIA_CAPTION
-        return Decision.EDIT_MEDIA
+        return _decide_media(prior, fresh, config)
 
     return Decision.NO_CHANGE
