@@ -11,6 +11,8 @@ This iteration covers the Telegram gateway deletion workflow.
 - Local list name `groups` → `batches` (single word that matches the semantics of chunked message groups).
 - Telegram gateway attribute `_delete` → `_purge` and its usage within `TelegramGateway.delete` (aligns with the new class name while keeping the private attribute prefix).
 - Trial helper instantiation `DeleteBatch` → `PurgeTask` within `trial.py` (keeps test coverage aligned with the rename).
+- Local helper reference `eraser` → `purger` inside `PurgeTask.execute` (aligns the temporary callable with the new purge terminology).
+- Trial module alias `eraser` → `purger` for consistent naming during retry monkeypatching.
 
 ## Follow-up
 Further iterations can extend this naming pass to the rest of the adapters package and the remaining application layers.

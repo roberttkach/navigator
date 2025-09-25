@@ -50,17 +50,17 @@ class PurgeTask:
         )
         scopeview = profile(scope)
         if scope.business:
-            eraser = getattr(self._bot, "delete_business_messages", None)
+            purger = getattr(self._bot, "delete_business_messages", None)
             params = {"business_connection_id": scope.business}
         else:
-            eraser = getattr(self._bot, "delete_messages", None)
+            purger = getattr(self._bot, "delete_messages", None)
             params = {"chat_id": scope.chat}
         try:
             for index, batch in enumerate(batches, start=1):
                 try:
-                    if eraser is not None:
+                    if purger is not None:
                         await invoke(
-                            eraser,
+                            purger,
                             message_ids=batch,
                             **params,
                             channel=self._channel,
