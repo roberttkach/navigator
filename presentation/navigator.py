@@ -80,7 +80,7 @@ from ..core.value.content import Payload
 from ..core.value.message import Scope
 
 
-class _Tail:
+class _TailView:
     """Expose tail operations guarded by telemetry and locking."""
 
     def __init__(
@@ -95,7 +95,7 @@ class _Tail:
         self._scope = scope
         self._guard = guard
         self._channel: TelemetryChannel = telemetry.channel(__name__)
-        self._scopeview = profile(scope)
+        self._profile = profile(scope)
 
     async def get(self) -> Optional[Dict[str, Any]]:
         self._emit("last.get")
@@ -132,7 +132,7 @@ class _Tail:
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method=method,
-            scope=self._scopeview,
+            scope=self._profile,
             **fields,
         )
 
@@ -165,12 +165,12 @@ class Navigator:
         self._scope = scope
         self._guard = guard
         self._channel: TelemetryChannel = telemetry.channel(__name__)
-        self._scopeview = profile(scope)
-        self.last = _Tail(flow=tailer, scope=scope, guard=guard, telemetry=telemetry)
+        self._profile = profile(scope)
+        self.last = _TailView(flow=tailer, scope=scope, guard=guard, telemetry=telemetry)
 
     async def add(self, content: Union[Content, Node], *, key: Optional[str] = None, root: bool = False) -> None:
-        payloads = self._prepare_payloads(content)
-        self._emit_api(
+        payloads = self._bundle(content)
+        self._report(
             "add",
             key=key,
             root=root,
@@ -180,8 +180,8 @@ class Navigator:
             await self._appender.execute(self._scope, payloads, key, root=root)
 
     async def replace(self, content: Union[Content, Node]) -> None:
-        payloads = self._prepare_payloads(content)
-        self._emit_api(
+        payloads = self._bundle(content)
+        self._report(
             "replace",
             payload={"count": len(payloads)},
         )
@@ -190,19 +190,19 @@ class Navigator:
 
     async def rebase(self, message: int | SupportsInt) -> None:
         identifier = getattr(message, "id", message)
-        self._emit_api("rebase", message={"id": int(identifier)})
+        self._report("rebase", message={"id": int(identifier)})
         async with self._guard(self._scope):
             await self._shifter.execute(int(identifier))
 
     async def back(self, context: Dict[str, Any]) -> None:
         handlers = sorted(list(context.keys())) if isinstance(context, dict) else None
-        self._emit_api("back", handlers=handlers)
+        self._report("back", handlers=handlers)
         async with self._guard(self._scope):
             await self._rewinder.execute(self._scope, context)
 
     async def set(self, state: Union[str, StateLike], context: Dict[str, Any] | None = None) -> None:
         status = getattr(state, "state", state)
-        self._emit_api("set", state=status)
+        self._report("set", state=status)
         async with self._guard(self._scope):
             try:
                 await self._setter.execute(self._scope, status, context or {})
@@ -210,24 +210,24 @@ class Navigator:
                 await self._alarm.execute(self._scope, text=missing(self._scope))
 
     async def pop(self, count: int = 1) -> None:
-        self._emit_api("pop", count=count)
+        self._report("pop", count=count)
         async with self._guard(self._scope):
             await self._trimmer.execute(count)
 
     async def alert(self) -> None:
-        self._emit_api("alert")
+        self._report("alert")
         async with self._guard(self._scope):
             await self._alarm.execute(self._scope)
 
-    def _prepare_payloads(self, content: Union[Content, Node]) -> List[Payload]:
+    def _bundle(self, content: Union[Content, Node]) -> List[Payload]:
         node = content if isinstance(content, Node) else Node(messages=[content])
         return collect(node)
 
-    def _emit_api(self, method: str, **fields: Any) -> None:
+    def _report(self, method: str, **fields: Any) -> None:
         self._channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,
             method=method,
-            scope=self._scopeview,
+            scope=self._profile,
             **fields,
         )
