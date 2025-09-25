@@ -13,7 +13,6 @@ from ....core.port.factory import ViewLedger
 from ....core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ....core.value.content import Payload
 
-
 _Forge = Callable[..., Awaitable[Optional[Payload | List[Payload]]]]
 
 

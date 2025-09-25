@@ -1,8 +1,8 @@
 import asyncio
+import navigator.adapters.telegram.gateway.purge as purger
 from contextlib import asynccontextmanager
 from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
-import navigator.adapters.telegram.gateway.purge as purger
 from navigator.adapters.telegram.gateway.purge import PurgeTask
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
 from navigator.app.service.view.planner import ViewPlanner

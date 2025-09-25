@@ -8,7 +8,6 @@ from typing import Any, Dict, MutableMapping, Optional, Protocol
 from ...telemetry import LogCode, Telemetry, TelemetryChannel
 from ...util.entities import sanitize
 
-
 MutableExtra = MutableMapping[str, Any]
 
 
@@ -16,23 +15,23 @@ class ExtraHandler(Protocol):
     """Describe a callable that knows how to filter history extras."""
 
     def __call__(
-        self,
-        filtered: MutableExtra,
-        key: str,
-        value: Any,
-        *,
-        length: int,
-        telemetry: Telemetry | None,
-        channel: TelemetryChannel | None,
+            self,
+            filtered: MutableExtra,
+            key: str,
+            value: Any,
+            *,
+            length: int,
+            telemetry: Telemetry | None,
+            channel: TelemetryChannel | None,
     ) -> None:
         ...
 
 
 def cleanse(
-    extra: Any,
-    *,
-    length: int,
-    telemetry: Telemetry | None = None,
+        extra: Any,
+        *,
+        length: int,
+        telemetry: Telemetry | None = None,
 ) -> Optional[Dict[str, Any]]:
     """Return sanitized metadata extracted from a history extra mapping."""
 
@@ -57,13 +56,13 @@ def _derive_channel(telemetry: Telemetry | None) -> TelemetryChannel | None:
 
 
 def _keep_unknown(
-    filtered: MutableExtra,
-    key: str,
-    value: Any,
-    *,
-    length: int,
-    telemetry: Telemetry | None,
-    channel: TelemetryChannel | None,
+        filtered: MutableExtra,
+        key: str,
+        value: Any,
+        *,
+        length: int,
+        telemetry: Telemetry | None,
+        channel: TelemetryChannel | None,
 ) -> None:
     """Propagate an unrecognised extra value without modification."""
 
@@ -72,13 +71,13 @@ def _keep_unknown(
 
 
 def _handle_entities(
-    filtered: MutableExtra,
-    key: str,
-    value: Any,
-    *,
-    length: int,
-    telemetry: Telemetry | None,
-    channel: TelemetryChannel | None,
+        filtered: MutableExtra,
+        key: str,
+        value: Any,
+        *,
+        length: int,
+        telemetry: Telemetry | None,
+        channel: TelemetryChannel | None,
 ) -> None:
     """Sanitize text entities, emitting telemetry when they are discarded."""
 
@@ -94,13 +93,13 @@ def _handle_entities(
 
 
 def _handle_thumb(
-    filtered: MutableExtra,
-    key: str,
-    value: Any,
-    *,
-    length: int,
-    telemetry: Telemetry | None,
-    channel: TelemetryChannel | None,
+        filtered: MutableExtra,
+        key: str,
+        value: Any,
+        *,
+        length: int,
+        telemetry: Telemetry | None,
+        channel: TelemetryChannel | None,
 ) -> None:
     """Record the presence of a thumbnail without persisting raw data."""
 
@@ -113,6 +112,5 @@ _EXTRA_HANDLERS: Dict[str, ExtraHandler] = {
     "entities": _handle_entities,
     "thumb": _handle_thumb,
 }
-
 
 __all__ = ["cleanse"]

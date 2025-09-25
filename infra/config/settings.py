@@ -3,10 +3,8 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, Iterable, Mapping, Set
-
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
-
+from typing import Dict, Iterable, Mapping, Set
 
 _ENV_FILE = Path(".env")
 

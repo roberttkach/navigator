@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Dict, List, Mapping, Tuple, cast
 
-from ..telemetry import LogCode, Telemetry, TelemetryChannel
+from ..telemetry import LogCode, Telemetry
 
 EntityDict = Dict[str, Any]
 EntityMapping = Mapping[str, Any]
@@ -22,6 +22,7 @@ def _is_present(value: Any) -> bool:
     """Return ``True`` when ``value`` is present (not ``None``)."""
 
     return value is not None
+
 
 _ALLOWED_ENTITY_TYPES = frozenset(
     {
@@ -56,10 +57,10 @@ _OPTIONAL_FIELD_RULES: Dict[str, Tuple[OptionalFieldRule, ...]] = {
 
 
 def sanitize(
-    entities: Any,
-    length: int,
-    *,
-    telemetry: Telemetry | None = None,
+        entities: Any,
+        length: int,
+        *,
+        telemetry: Telemetry | None = None,
 ) -> List[EntityDict]:
     """Return sanitized message entities limited by the given length."""
 
