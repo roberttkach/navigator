@@ -34,7 +34,7 @@ class _Guard:
             self.lock.release()
 
 
-class GuardFactory:
+class Guardian:
     def __init__(self, provider: LockProvider) -> None:
         self._provider = provider
 
@@ -43,4 +43,4 @@ class GuardFactory:
         return _Guard(lock=latch)
 
 
-__all__ = ["GuardFactory"]
+__all__ = ["Guardian"]

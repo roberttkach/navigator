@@ -53,7 +53,7 @@ from ..app.usecase.pop import Trimmer
 from ..app.usecase.rebase import Shifter
 from ..app.usecase.replace import Swapper
 from ..app.usecase.set import Setter
-from ..app.locks.guard import GuardFactory
+from ..app.locks.guard import Guardian
 from ..core.error import StateNotFound
 from ..core.service.scope import profile
 from ..core.telemetry import LogCode, Telemetry, TelemetryChannel
@@ -67,7 +67,7 @@ class _Tail:
         self,
         flow: Tailer,
         scope: Scope,
-        guard: GuardFactory,
+        guard: Guardian,
         telemetry: Telemetry,
     ):
         self._tailer = flow
@@ -128,7 +128,7 @@ class Navigator:
             tailer: Tailer,
             alarm: Alarm,
             scope: Scope,
-            guard: GuardFactory,
+            guard: Guardian,
             telemetry: Telemetry,
     ):
         self._appender = appender

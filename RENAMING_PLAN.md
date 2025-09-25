@@ -53,6 +53,7 @@ convention.
 | Core limits | `ConfigLimits` constructor `floor`, `ceiling`, `blend` | `minimum`, `maximum`, `mix` | Keeps the configuration wiring aligned with the new protocol. |
 | Settings | `text_limit`, `caption_limit`, `album_floor`, `album_ceiling`, `album_blend`, `album_blend_set`, `delete_delay`, `delete_delay_ms` | `textlimit`, `captionlimit`, `groupmin`, `groupmax`, `mixcodes`, `mixset`, `deletepause`, `deletepausems` | Updated environment mapping and dependency injection bindings. |
 | Telegram gateway | `delete_delay` argument | `deletepause` | Matches the configuration name and emphasises the pacing behaviour. |
+| Locks | `app.locks.guard.GuardFactory` | `app.locks.guard.Guardian` | Lock guard provider now carries a single-word class name. |
 | Extra schema | `ExtraSchema.for_send`, `for_edit`, `for_history` | `send`, `edit`, `history` | Reflected in the Telegram serializer and gateway usage. |
 | Gateway util | `result_from_message` | `derive` | Shortens the helper that builds message results. |
 | Presentation | `presentation.markup.sanitize_caption` | `presentation.markup.purify` | Keeps the markup helper compliant even though it is currently unused. |
@@ -95,6 +96,8 @@ be addressed incrementally. Proposed target names are provided for future work:
 * Continue auditing dependency-injector containers for nested provider
   attributes that still rely on compound snake_case placeholders (for instance
   HTTP bindings) and schedule concise replacements as they appear.
+* Review remaining `*Factory` helper classes across adapters and services so
+  that they eventually converge on single-word nouns similar to `Guardian`.
 
 Each future step should follow the same approach as this update: choose the
 shortest precise word, refactor call sites, and update exports (`__all__`,
