@@ -137,6 +137,125 @@ class _TailView:
         )
 
 
+class PayloadBundler:
+    """Transform DTO content into payload bundles."""
+
+    def bundle(self, content: Union[Content, Node]) -> List[Payload]:
+        node = content if isinstance(content, Node) else Node(messages=[content])
+        return collect(node)
+
+
+class NavigatorReporter:
+    """Emit telemetry for navigator operations."""
+
+    def __init__(self, telemetry: Telemetry, scope: Scope) -> None:
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+        self._profile = profile(scope)
+
+    def emit(self, method: str, **fields: Any) -> None:
+        self._channel.emit(
+            logging.INFO,
+            LogCode.NAVIGATOR_API,
+            method=method,
+            scope=self._profile,
+            **fields,
+        )
+
+
+class NavigatorHistoryFlow:
+    """Coordinate history-centric operations behind guard locking."""
+
+    def __init__(
+            self,
+            *,
+            appender: Appender,
+            swapper: Swapper,
+            rewinder: Rewinder,
+            trimmer: Trimmer,
+            shifter: Shifter,
+            guard: Guardian,
+            scope: Scope,
+            reporter: NavigatorReporter,
+            bundler: PayloadBundler,
+    ) -> None:
+        self._appender = appender
+        self._swapper = swapper
+        self._rewinder = rewinder
+        self._trimmer = trimmer
+        self._shifter = shifter
+        self._guard = guard
+        self._scope = scope
+        self._reporter = reporter
+        self._bundler = bundler
+
+    async def add(self, content: Union[Content, Node], *, key: Optional[str] = None, root: bool = False) -> None:
+        payloads = self._bundler.bundle(content)
+        self._reporter.emit(
+            "add",
+            key=key,
+            root=root,
+            payload={"count": len(payloads)},
+        )
+        async with self._guard(self._scope):
+            await self._appender.execute(self._scope, payloads, key, root=root)
+
+    async def replace(self, content: Union[Content, Node]) -> None:
+        payloads = self._bundler.bundle(content)
+        self._reporter.emit("replace", payload={"count": len(payloads)})
+        async with self._guard(self._scope):
+            await self._swapper.execute(self._scope, payloads)
+
+    async def rebase(self, message: int | SupportsInt) -> None:
+        identifier = getattr(message, "id", message)
+        self._reporter.emit("rebase", message={"id": int(identifier)})
+        async with self._guard(self._scope):
+            await self._shifter.execute(int(identifier))
+
+    async def back(self, context: Dict[str, Any]) -> None:
+        handlers = sorted(list(context.keys())) if isinstance(context, dict) else None
+        self._reporter.emit("back", handlers=handlers)
+        async with self._guard(self._scope):
+            await self._rewinder.execute(self._scope, context)
+
+    async def pop(self, count: int = 1) -> None:
+        self._reporter.emit("pop", count=count)
+        async with self._guard(self._scope):
+            await self._trimmer.execute(count)
+
+
+class NavigatorStateFlow:
+    """Coordinate state assignments and alerts."""
+
+    def __init__(
+            self,
+            *,
+            setter: Setter,
+            alarm: Alarm,
+            guard: Guardian,
+            scope: Scope,
+            reporter: NavigatorReporter,
+    ) -> None:
+        self._setter = setter
+        self._alarm = alarm
+        self._guard = guard
+        self._scope = scope
+        self._reporter = reporter
+
+    async def set(self, state: Union[str, StateLike], context: Dict[str, Any] | None = None) -> None:
+        status = getattr(state, "state", state)
+        self._reporter.emit("set", state=status)
+        async with self._guard(self._scope):
+            try:
+                await self._setter.execute(self._scope, status, context or {})
+            except StateNotFound:
+                await self._alarm.execute(self._scope, text=missing(self._scope))
+
+    async def alert(self) -> None:
+        self._reporter.emit("alert")
+        async with self._guard(self._scope):
+            await self._alarm.execute(self._scope)
+
+
 class Navigator:
     def __init__(
             self,
@@ -153,80 +272,45 @@ class Navigator:
             guard: Guardian,
             telemetry: Telemetry,
     ):
-        self._appender = appender
-        self._swapper = swapper
-        self._rewinder = rewinder
-        self._setter = setter
-        self._trimmer = trimmer
-        self._shifter = shifter
-        self._tailer = tailer
-        self._alarm = alarm
-        self._scope = scope
-        self._guard = guard
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
-        self._profile = profile(scope)
+        bundler = PayloadBundler()
+        reporter = NavigatorReporter(telemetry, scope)
+        self._history = NavigatorHistoryFlow(
+            appender=appender,
+            swapper=swapper,
+            rewinder=rewinder,
+            trimmer=trimmer,
+            shifter=shifter,
+            guard=guard,
+            scope=scope,
+            reporter=reporter,
+            bundler=bundler,
+        )
+        self._state = NavigatorStateFlow(
+            setter=setter,
+            alarm=alarm,
+            guard=guard,
+            scope=scope,
+            reporter=reporter,
+        )
         self.last = _TailView(flow=tailer, scope=scope, guard=guard, telemetry=telemetry)
 
     async def add(self, content: Union[Content, Node], *, key: Optional[str] = None, root: bool = False) -> None:
-        payloads = self._bundle(content)
-        self._report(
-            "add",
-            key=key,
-            root=root,
-            payload={"count": len(payloads)},
-        )
-        async with self._guard(self._scope):
-            await self._appender.execute(self._scope, payloads, key, root=root)
+        await self._history.add(content, key=key, root=root)
 
     async def replace(self, content: Union[Content, Node]) -> None:
-        payloads = self._bundle(content)
-        self._report(
-            "replace",
-            payload={"count": len(payloads)},
-        )
-        async with self._guard(self._scope):
-            await self._swapper.execute(self._scope, payloads)
+        await self._history.replace(content)
 
     async def rebase(self, message: int | SupportsInt) -> None:
-        identifier = getattr(message, "id", message)
-        self._report("rebase", message={"id": int(identifier)})
-        async with self._guard(self._scope):
-            await self._shifter.execute(int(identifier))
+        await self._history.rebase(message)
 
     async def back(self, context: Dict[str, Any]) -> None:
-        handlers = sorted(list(context.keys())) if isinstance(context, dict) else None
-        self._report("back", handlers=handlers)
-        async with self._guard(self._scope):
-            await self._rewinder.execute(self._scope, context)
+        await self._history.back(context)
 
     async def set(self, state: Union[str, StateLike], context: Dict[str, Any] | None = None) -> None:
-        status = getattr(state, "state", state)
-        self._report("set", state=status)
-        async with self._guard(self._scope):
-            try:
-                await self._setter.execute(self._scope, status, context or {})
-            except StateNotFound:
-                await self._alarm.execute(self._scope, text=missing(self._scope))
+        await self._state.set(state, context)
 
     async def pop(self, count: int = 1) -> None:
-        self._report("pop", count=count)
-        async with self._guard(self._scope):
-            await self._trimmer.execute(count)
+        await self._history.pop(count)
 
     async def alert(self) -> None:
-        self._report("alert")
-        async with self._guard(self._scope):
-            await self._alarm.execute(self._scope)
-
-    def _bundle(self, content: Union[Content, Node]) -> List[Payload]:
-        node = content if isinstance(content, Node) else Node(messages=[content])
-        return collect(node)
-
-    def _report(self, method: str, **fields: Any) -> None:
-        self._channel.emit(
-            logging.INFO,
-            LogCode.NAVIGATOR_API,
-            method=method,
-            scope=self._profile,
-            **fields,
-        )
+        await self._state.alert()

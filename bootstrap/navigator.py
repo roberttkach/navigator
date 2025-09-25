@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from navigator.adapters.telemetry.logger import PythonLoggingTelemetry
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
 from navigator.core.port.factory import ViewForge, ViewLedger
@@ -11,7 +12,6 @@ from navigator.infra.di.container import AppContainer
 from navigator.presentation.alerts import missing
 from navigator.presentation.bootstrap.navigator import compose
 from navigator.presentation.navigator import Navigator
-from navigator.presentation.telegram import instrument
 from typing import Any, cast
 
 
@@ -49,6 +49,58 @@ def _scope(dto: ScopeDTO) -> Scope:
     )
 
 
+@dataclass(frozen=True)
+class BootstrapContext:
+    """Collect payloads required to assemble the navigator runtime."""
+
+    event: Any
+    state: Any
+    ledger: ViewLedgerDTO
+    scope: ScopeDTO
+
+
+class TelemetryFactory:
+    """Build calibrated telemetry instances for the runtime."""
+
+    def create(self) -> Telemetry:
+        port = PythonLoggingTelemetry()
+        return Telemetry(port)
+
+
+class ContainerFactory:
+    """Construct application containers for the navigator runtime."""
+
+    def __init__(self, telemetry: Telemetry) -> None:
+        self._telemetry = telemetry
+
+    def create(self, context: BootstrapContext) -> AppContainer:
+        return AppContainer(
+            event=context.event,
+            state=context.state,
+            ledger=_LedgerAdapter(context.ledger),
+            alert=missing,
+            telemetry=self._telemetry,
+        )
+
+
+class NavigatorAssembler:
+    """Compose navigator instances from bootstrap context."""
+
+    def __init__(self, telemetry_factory: TelemetryFactory | None = None) -> None:
+        self._telemetry_factory = telemetry_factory or TelemetryFactory()
+
+    async def build(self, context: BootstrapContext) -> Navigator:
+        telemetry = self._telemetry_factory.create()
+        container = ContainerFactory(telemetry).create(context)
+        settings = container.core().settings()
+        mode = getattr(settings, "redaction", "")
+        telemetry.calibrate(mode)
+        from navigator.presentation.telegram import instrument
+
+        instrument(telemetry)
+        return compose(container, _scope(context.scope))
+
+
 async def assemble(
         *,
         event: Any,
@@ -58,20 +110,14 @@ async def assemble(
 ) -> Navigator:
     """Construct a Navigator instance from entrypoint payloads."""
 
-    port = PythonLoggingTelemetry()
-    telemetry = Telemetry(port)
-    container = AppContainer(
-        event=event,
-        state=state,
-        ledger=_LedgerAdapter(ledger),
-        alert=missing,
-        telemetry=telemetry,
-    )
-    settings = container.core().settings()
-    mode = getattr(settings, "redaction", "")
-    telemetry.calibrate(mode)
-    instrument(telemetry)
-    return compose(container, _scope(scope))
+    context = BootstrapContext(event=event, state=state, ledger=ledger, scope=scope)
+    assembler = NavigatorAssembler()
+    return await assembler.build(context)
 
 
-__all__ = ["assemble"]
+__all__ = [
+    "BootstrapContext",
+    "NavigatorAssembler",
+    "TelemetryFactory",
+    "assemble",
+]

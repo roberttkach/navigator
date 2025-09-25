@@ -87,60 +87,148 @@ def _meta(node: Message) -> Meta:
     return TextMeta(text=node.text, inline=node.inline)
 
 
-class ViewPlanner:
-    """Plan edits, deletions, and sends for a desired payload state."""
+class _RenderSynchronizer:
+    """Synchronize stored ledger messages with desired payloads."""
 
     def __init__(
             self,
             executor: EditExecutor,
             inline: InlineHandler,
-            album: AlbumService,
             rendering: RenderingConfig,
-            telemetry: Telemetry,
     ) -> None:
         self._executor = executor
         self._inline = inline
-        self._album = album
         self._rendering = rendering
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
-    async def render(
+    async def reconcile(
             self,
             scope: Scope,
-            payloads: Sequence[Payload],
-            trail: Optional[Entry],
+            fresh: List[Payload],
+            ledger: List[Message],
+            state: _RenderState,
             *,
-            inline: bool,
-    ) -> Optional[RenderNode]:
-        """Plan rendering actions for ``payloads`` within ``scope``."""
+            start: int,
+            inline_mode: bool,
+    ) -> bool:
+        mutated = False
+        limit = min(len(ledger), len(fresh))
+        for index in range(start, limit):
+            previous = ledger[index]
+            current = fresh[index]
+            verdict = decision.decide(previous, current, self._rendering)
 
-        if inline:
-            shield(scope, payloads, inline=True)
+            if verdict is decision.Decision.NO_CHANGE:
+                state.retain(previous)
+                continue
 
-        fresh = [adapt(scope, p) for p in payloads]
-        ledger = list(trail.messages) if trail else []
+            if inline_mode:
+                changed = await self._mediate(scope, current, previous, state)
+            else:
+                changed = await self._regular(scope, verdict, current, previous, state)
 
-        state = _RenderState()
-        if inline:
-            mutated = await self._render_inline(scope, fresh, ledger, state)
-        else:
-            mutated = await self._render_regular(scope, fresh, ledger, state)
+            mutated = mutated or self._retain_if_unchanged(changed, previous, state)
 
-        if not state.ids:
-            return None
+        return mutated
 
-        return RenderNode(ids=state.ids, extras=state.extras, metas=state.metas, changed=mutated)
+    async def _mediate(
+            self,
+            scope: Scope,
+            payload: Payload,
+            previous: Message,
+            state: _RenderState,
+    ) -> bool:
+        outcome = await self._inline.handle(
+            scope=scope,
+            payload=payload,
+            tail=previous,
+            executor=self._executor,
+            config=self._rendering,
+        )
+        if outcome is None:
+            return False
+        return self._record(outcome, state)
 
-    async def _render_inline(
+    async def _regular(
+            self,
+            scope: Scope,
+            verdict: decision.Decision,
+            payload: Payload,
+            previous: Message,
+            state: _RenderState,
+    ) -> bool:
+        execution = await self._executor.execute(scope, verdict, payload, previous)
+        if execution is None:
+            return False
+        meta = self._executor.refine(execution, verdict, payload)
+        state.collect(execution, meta)
+        return True
+
+    def _record(self, outcome: InlineOutcome, state: _RenderState) -> bool:
+        meta = self._executor.refine(outcome.execution, outcome.decision, outcome.payload)
+        state.collect(outcome.execution, meta)
+        return True
+
+    @staticmethod
+    def _retain_if_unchanged(changed: bool, previous: Message, state: _RenderState) -> bool:
+        if not changed:
+            state.retain(previous)
+        return changed
+
+
+class _TailOperations:
+    """Handle tail trimming and appending of history nodes."""
+
+    def __init__(self, executor: EditExecutor, rendering: RenderingConfig) -> None:
+        self._executor = executor
+        self._rendering = rendering
+
+    async def trim(self, scope: Scope, ledger: List[Message], incoming: int) -> bool:
+        if len(ledger) <= incoming:
+            return False
+        targets: List[int] = []
+        for message in ledger[incoming:]:
+            targets.append(message.id)
+            targets.extend(list(message.extras or []))
+        if not targets:
+            return False
+        await self._executor.delete(scope, targets)
+        return True
+
+    async def append(
+            self,
+            scope: Scope,
+            fresh: List[Payload],
+            stored: int,
+            state: _RenderState,
+    ) -> bool:
+        if len(fresh) <= stored:
+            return False
+        mutated = False
+        for payload in fresh[stored:]:
+            verdict = decision.decide(None, payload, self._rendering)
+            execution = await self._executor.execute(scope, verdict, payload, None)
+            if not execution:
+                continue
+            meta = self._executor.refine(execution, verdict, payload)
+            state.collect(execution, meta)
+            mutated = True
+        return mutated
+
+
+class _InlinePlanner:
+    """Resolve inline rendering sequences."""
+
+    def __init__(self, synchronizer: _RenderSynchronizer) -> None:
+        self._synchronizer = synchronizer
+
+    async def plan(
             self,
             scope: Scope,
             fresh: List[Payload],
             ledger: List[Message],
             state: _RenderState,
     ) -> bool:
-        """Reconcile inline payloads with the existing ledger."""
-
-        return await self._sync(
+        return await self._synchronizer.reconcile(
             scope,
             fresh,
             ledger,
@@ -149,34 +237,48 @@ class ViewPlanner:
             inline_mode=True,
         )
 
-    async def _render_regular(
+
+class _RegularPlanner:
+    """Plan regular rendering flows that may mutate history."""
+
+    def __init__(
+            self,
+            album: AlbumService,
+            synchronizer: _RenderSynchronizer,
+            tails: _TailOperations,
+            channel: TelemetryChannel,
+    ) -> None:
+        self._album = album
+        self._synchronizer = synchronizer
+        self._tails = tails
+        self._channel = channel
+
+    async def plan(
             self,
             scope: Scope,
             fresh: List[Payload],
             ledger: List[Message],
             state: _RenderState,
     ) -> bool:
-        """Handle regular rendering that may edit, append, or trim history."""
-
         origin, head_changed = await self._head(scope, ledger, fresh, state)
         mutated = head_changed
 
         mutated = (
-                mutated
-                or await self._sync(
-            scope,
-            fresh,
-            ledger,
-            state,
-            start=origin,
-            inline_mode=False,
-        )
+            mutated
+            or await self._synchronizer.reconcile(
+                scope,
+                fresh,
+                ledger,
+                state,
+                start=origin,
+                inline_mode=False,
+            )
         )
 
         stored = len(ledger)
         incoming = len(fresh)
-        mutated = mutated or await self._trim(scope, ledger, incoming)
-        mutated = mutated or await self._append(scope, fresh, stored, state)
+        mutated = mutated or await self._tails.trim(scope, ledger, incoming)
+        mutated = mutated or await self._tails.append(scope, fresh, stored, state)
         return mutated
 
     async def _head(
@@ -186,8 +288,6 @@ class ViewPlanner:
             fresh: List[Payload],
             state: _RenderState,
     ) -> tuple[int, bool]:
-        """Attempt to refresh the leading album message when applicable."""
-
         if not (
                 ledger
                 and fresh
@@ -207,124 +307,51 @@ class ViewPlanner:
         state.metas.append(meta)
         return 1, changed
 
-    async def _sync(
+
+class ViewPlanner:
+    """Plan edits, deletions, and sends for a desired payload state."""
+
+    def __init__(
+            self,
+            executor: EditExecutor,
+            inline: InlineHandler,
+            album: AlbumService,
+            rendering: RenderingConfig,
+            telemetry: Telemetry,
+    ) -> None:
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+        synchronizer = _RenderSynchronizer(executor, inline, rendering)
+        tails = _TailOperations(executor, rendering)
+        self._inline_planner = _InlinePlanner(synchronizer)
+        self._regular_planner = _RegularPlanner(album, synchronizer, tails, self._channel)
+
+    async def render(
             self,
             scope: Scope,
-            fresh: List[Payload],
-            ledger: List[Message],
-            state: _RenderState,
+            payloads: Sequence[Payload],
+            trail: Optional[Entry],
             *,
-            start: int,
-            inline_mode: bool,
-    ) -> bool:
-        """Synchronize overlapping history and payload slices."""
+            inline: bool,
+    ) -> Optional[RenderNode]:
+        """Plan rendering actions for ``payloads`` within ``scope``."""
 
-        mutated = False
-        limit = min(len(ledger), len(fresh))
-        for index in range(start, limit):
-            previous = ledger[index]
-            current = fresh[index]
-            verdict = decision.decide(previous, current, self._rendering)
+        if inline:
+            shield(scope, payloads, inline=True)
 
-            if verdict is decision.Decision.NO_CHANGE:
-                state.retain(previous)
-                continue
+        fresh = [adapt(scope, p) for p in payloads]
+        ledger = list(trail.messages) if trail else []
 
-            if inline_mode:
-                changed = await self._mediate(scope, current, previous, state)
-                mutated = mutated or self._retain_if_unchanged(changed, previous, state)
-                continue
+        state = _RenderState()
+        if inline:
+            mutated = await self._inline_planner.plan(scope, fresh, ledger, state)
+        else:
+            mutated = await self._regular_planner.plan(scope, fresh, ledger, state)
 
-            changed = await self._regular(scope, verdict, current, previous, state)
-            mutated = mutated or self._retain_if_unchanged(changed, previous, state)
+        if not state.ids:
+            return None
 
-        return mutated
+        return RenderNode(ids=state.ids, extras=state.extras, metas=state.metas, changed=mutated)
 
-    async def _mediate(
-            self,
-            scope: Scope,
-            payload: Payload,
-            previous: Message,
-            state: _RenderState,
-    ) -> bool:
-        """Apply inline reconciliation using the inline handler pipeline."""
-
-        outcome = await self._inline.handle(
-            scope=scope,
-            payload=payload,
-            tail=previous,
-            executor=self._executor,
-            config=self._rendering,
-        )
-        if outcome is None:
-            return False
-        return self._record(outcome, state)
-
-    @staticmethod
-    def _retain_if_unchanged(changed: bool, previous: Message, state: _RenderState) -> bool:
-        """Retain ``previous`` when no mutation occurred and propagate flag."""
-
-        if not changed:
-            state.retain(previous)
-        return changed
-
-    def _record(self, outcome: InlineOutcome, state: _RenderState) -> bool:
-        meta = self._executor.refine(outcome.execution, outcome.decision, outcome.payload)
-        state.collect(outcome.execution, meta)
-        return True
-
-    async def _regular(
-            self,
-            scope: Scope,
-            verdict: decision.Decision,
-            payload: Payload,
-            previous: Message,
-            state: _RenderState,
-    ) -> bool:
-        """Execute standard reconciliation against the message gateway."""
-
-        execution = await self._executor.execute(scope, verdict, payload, previous)
-        if execution is None:
-            return False
-        meta = self._executor.refine(execution, verdict, payload)
-        state.collect(execution, meta)
-        return True
-
-    async def _trim(self, scope: Scope, ledger: List[Message], incoming: int) -> bool:
-        """Prune stored messages beyond the planned payload length."""
-
-        if len(ledger) <= incoming:
-            return False
-        targets: List[int] = []
-        for message in ledger[incoming:]:
-            targets.append(message.id)
-            targets.extend(list(message.extras or []))
-        if not targets:
-            return False
-        await self._executor.delete(scope, targets)
-        return True
-
-    async def _append(
-            self,
-            scope: Scope,
-            fresh: List[Payload],
-            stored: int,
-            state: _RenderState,
-    ) -> bool:
-        """Append new payloads beyond existing history."""
-
-        if len(fresh) <= stored:
-            return False
-        mutated = False
-        for payload in fresh[stored:]:
-            verdict = decision.decide(None, payload, self._rendering)
-            execution = await self._executor.execute(scope, verdict, payload, None)
-            if not execution:
-                continue
-            meta = self._executor.refine(execution, verdict, payload)
-            state.collect(execution, meta)
-            mutated = True
-        return mutated
 
 
 __all__ = ["RenderResult", "RenderNode", "ViewPlanner"]
