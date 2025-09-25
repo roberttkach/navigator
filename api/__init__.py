@@ -1,10 +1,10 @@
 """Public entry points for embedding Navigator."""
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, Iterable, cast
 
 from .contracts import NavigatorLike, ScopeDTO, ViewLedgerDTO
-from ..bootstrap.navigator import assemble as _bootstrap
+from ..bootstrap.navigator import NavigatorAssembler, assemble as _bootstrap
 
 
 async def assemble(
@@ -12,10 +12,17 @@ async def assemble(
         state: Any,
         ledger: ViewLedgerDTO,
         scope: ScopeDTO,
+        instrumentation: Iterable[NavigatorAssembler._Instrument] | None = None,
 ) -> NavigatorLike:
     """Assemble and return a Navigator facade instance."""
 
-    navigator = await _bootstrap(event=event, state=state, ledger=ledger, scope=scope)
+    navigator = await _bootstrap(
+        event=event,
+        state=state,
+        ledger=ledger,
+        scope=scope,
+        instrumentation=instrumentation,
+    )
     return cast(NavigatorLike, navigator)
 
 

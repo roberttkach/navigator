@@ -5,6 +5,7 @@ from navigator.core.port.factory import ViewLedger
 from typing import Any, TYPE_CHECKING
 
 from .scope import outline
+from navigator.presentation.telegram import instrument
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from navigator.presentation.navigator import Navigator
@@ -12,7 +13,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 async def assemble(event: Any, state: Any, ledger: ViewLedger) -> "Navigator":
     scope = outline(event)
-    return await invoke(event=event, state=state, ledger=ledger, scope=scope)
+    return await invoke(
+        event=event,
+        state=state,
+        ledger=ledger,
+        scope=scope,
+        instrumentation=(instrument,),
+    )
 
 
 __all__ = ["assemble"]

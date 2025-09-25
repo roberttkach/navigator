@@ -40,6 +40,16 @@ def monitor() -> Telemetry:
     return Telemetry(_StubTelemetryPort())
 
 
+class _InlineStub:
+    async def plan(self, scope, fresh, ledger, state):
+        return False
+
+
+class _RegularStub:
+    async def plan(self, scope, fresh, ledger, state):
+        return False
+
+
 @asynccontextmanager
 async def sentinel():
     yield
@@ -189,13 +199,7 @@ def surface() -> None:
 
 def rebuff() -> None:
     scope = Scope(chat=7, lang="en", inline="token")
-    planner = ViewPlanner(
-        executor=SimpleNamespace(),
-        inline=SimpleNamespace(handle=AsyncMock()),
-        album=SimpleNamespace(refresh=AsyncMock()),
-        rendering=RenderingConfig(),
-        telemetry=monitor(),
-    )
+    planner = ViewPlanner(inline=_InlineStub(), regular=_RegularStub())
 
     try:
         asyncio.run(
@@ -214,13 +218,7 @@ def rebuff() -> None:
 
 def refuse() -> None:
     scope = Scope(chat=8, lang="en", inline="token")
-    planner = ViewPlanner(
-        executor=SimpleNamespace(),
-        inline=SimpleNamespace(handle=AsyncMock()),
-        album=SimpleNamespace(refresh=AsyncMock()),
-        rendering=RenderingConfig(),
-        telemetry=monitor(),
-    )
+    planner = ViewPlanner(inline=_InlineStub(), regular=_RegularStub())
     album = [
         MediaItem(type=MediaType.PHOTO, path="file-a", caption="a"),
         MediaItem(type=MediaType.PHOTO, path="file-b", caption="b"),

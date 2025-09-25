@@ -12,7 +12,7 @@ from ..service.view.planner import ViewPlanner
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload
 from ...core.value.message import Scope
-from .add_components import AppendHistoryAccess, AppendPreparation
+from .add_components import AppendHistoryAccess, AppendHistoryWriter, AppendPreparation
 
 
 class Appender:
@@ -29,9 +29,11 @@ class Appender:
             telemetry: Telemetry,
             history: AppendHistoryAccess | None = None,
             preparation: AppendPreparation | None = None,
+            writer: AppendHistoryWriter | None = None,
     ):
-        self._history = history or AppendHistoryAccess(archive, state, tail, limit, telemetry)
+        self._history = history or AppendHistoryAccess(archive, state, telemetry)
         self._prepare = preparation or AppendPreparation(planner, mapper)
+        self._writer = writer or AppendHistoryWriter(archive, tail, limit, telemetry)
         self._channel: TelemetryChannel = telemetry.channel(__name__)
         self._trace = TraceAspect(telemetry)
 
@@ -72,4 +74,4 @@ class Appender:
 
         entry = self._prepare.entry(adjusted, render, status, view, root)
         timeline = self._prepare.timeline(records, entry, root)
-        await self._history.persist(timeline)
+        await self._writer.persist(timeline)

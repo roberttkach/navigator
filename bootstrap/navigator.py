@@ -12,7 +12,7 @@ from navigator.infra.di.container import AppContainer
 from navigator.presentation.alerts import missing
 from navigator.presentation.bootstrap.navigator import compose
 from navigator.presentation.navigator import Navigator
-from typing import Any, cast
+from typing import Any, Iterable, Protocol, Sequence, cast
 
 
 class _LedgerAdapter(ViewLedger):
@@ -86,8 +86,20 @@ class ContainerFactory:
 class NavigatorAssembler:
     """Compose navigator instances from bootstrap context."""
 
-    def __init__(self, telemetry_factory: TelemetryFactory | None = None) -> None:
+    class _Instrument(Protocol):
+        def __call__(self, telemetry: Telemetry, container: AppContainer) -> None: ...
+
+    def __init__(
+            self,
+            telemetry_factory: TelemetryFactory | None = None,
+            instrumentation: Sequence[_Instrument] | None = None,
+    ) -> None:
         self._telemetry_factory = telemetry_factory or TelemetryFactory()
+        self._instrumentation: tuple[NavigatorAssembler._Instrument, ...]
+        if instrumentation:
+            self._instrumentation = tuple(instrumentation)
+        else:
+            self._instrumentation = ()
 
     async def build(self, context: BootstrapContext) -> Navigator:
         telemetry = self._telemetry_factory.create()
@@ -95,9 +107,8 @@ class NavigatorAssembler:
         settings = container.core().settings()
         mode = getattr(settings, "redaction", "")
         telemetry.calibrate(mode)
-        from navigator.presentation.telegram import instrument
-
-        instrument(telemetry)
+        for instrument in self._instrumentation:
+            instrument(telemetry, container)
         return compose(container, _scope(context.scope))
 
 
@@ -107,11 +118,17 @@ async def assemble(
         state: Any,
         ledger: ViewLedgerDTO,
         scope: ScopeDTO,
+        instrumentation: Iterable[NavigatorAssembler._Instrument] | None = None,
 ) -> Navigator:
     """Construct a Navigator instance from entrypoint payloads."""
 
     context = BootstrapContext(event=event, state=state, ledger=ledger, scope=scope)
-    assembler = NavigatorAssembler()
+    instruments: Sequence[NavigatorAssembler._Instrument]
+    if instrumentation:
+        instruments = tuple(instrumentation)
+    else:
+        instruments = ()
+    assembler = NavigatorAssembler(instrumentation=instruments)
     return await assembler.build(context)
 
 

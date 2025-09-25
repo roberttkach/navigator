@@ -19,7 +19,7 @@ router = Router(name="navigator_handlers")
 BACK_CALLBACK_DATA: Final[str] = "back"
 
 
-def instrument(telemetry: Telemetry) -> None:
+def instrument(telemetry: Telemetry, _container=None) -> None:
     """Attach a telemetry hub to the router runtime data."""
 
     router.data["telemetry"] = telemetry
