@@ -391,12 +391,12 @@ def commerce() -> None:
         captured.append((action, args, kwargs))
         return await action(*args, **kwargs)
 
-    original_invoke = eraser.invoke
+    baseline = eraser.invoke
     eraser.invoke = capture
     try:
         asyncio.run(runner.run(scope, [9, 1, 2]))
     finally:
-        eraser.invoke = original_invoke
+        eraser.invoke = baseline
 
     assert bot.delete_messages.await_count == 0
     assert bot.delete_business_messages.await_count == 2

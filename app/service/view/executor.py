@@ -178,21 +178,21 @@ class EditExecutor:
                 elif stem and stem.media and isinstance(getattr(stem.media, "path", None), str):
                     file = stem.media.path
 
-            caption_value = meta.caption
-            if caption_value is None:
+            captioncopy = meta.caption
+            if captioncopy is None:
                 fresh = caption(payload)
                 if fresh is not None:
-                    caption_value = fresh
+                    captioncopy = fresh
                 elif getattr(payload, "erase", False):
-                    caption_value = ""
+                    captioncopy = ""
                 elif stem and stem.media:
-                    caption_value = stem.media.caption
+                    captioncopy = stem.media.caption
 
-            return replace(meta, medium=medium, file=file, caption=caption_value)
+            return replace(meta, medium=medium, file=file, caption=captioncopy)
 
         if isinstance(meta, TextMeta) and stem and stem.text is not None:
-            text_value = meta.text if meta.text is not None else stem.text
-            return replace(meta, text=text_value)
+            textcopy = meta.text if meta.text is not None else stem.text
+            return replace(meta, text=textcopy)
 
         if isinstance(meta, (GroupMeta, TextMeta, MediaMeta)):
             return meta
