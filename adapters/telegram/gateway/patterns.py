@@ -1,6 +1,6 @@
 """Canonical Bot API error message fragments used by the Telegram gateway.
 
-The official cloud Bot API (v9.2) responds with English descriptions only, and
+The official cloud Bot API (7.x) responds with English descriptions only, and
 aiogram 3.22.0 surfaces these descriptions verbatim. We therefore keep a small
 set of English fragments that are known to precede the explanatory part of the
 errors. See https://core.telegram.org/bots/api#making-requests and

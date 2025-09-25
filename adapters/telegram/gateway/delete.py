@@ -50,20 +50,32 @@ class DeleteBatch:
         )
         scopeview = profile(scope)
         if scope.business:
-            eraser = self._bot.delete_business_messages
+            eraser = getattr(self._bot, "delete_business_messages", None)
             params = {"business_connection_id": scope.business}
         else:
-            eraser = self._bot.delete_messages
+            eraser = getattr(self._bot, "delete_messages", None)
             params = {"chat_id": scope.chat}
         try:
             for index, group in enumerate(groups, start=1):
                 try:
-                    await invoke(
-                        eraser,
-                        message_ids=group,
-                        **params,
-                        channel=self._channel,
-                    )
+                    if eraser is not None:
+                        await invoke(
+                            eraser,
+                            message_ids=group,
+                            **params,
+                            channel=self._channel,
+                        )
+                    else:
+                        # Fallback to singles (non-business only)
+                        if scope.business:
+                            raise RuntimeError("bulk_business_delete_unsupported")
+                        for mid in group:
+                            await invoke(
+                                self._bot.delete_message,
+                                chat_id=scope.chat,
+                                message_id=mid,
+                                channel=self._channel,
+                            )
                     self._channel.emit(
                         logging.INFO,
                         LogCode.GATEWAY_DELETE_OK,

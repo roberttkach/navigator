@@ -51,7 +51,11 @@ class AiogramCodec(MarkupCodec):
         target = self._MAP.get(stored.kind)
         if target:
             try:
-                obj = target(**stored.data)
+                # Prefer Pydantic v2 path when available
+                if hasattr(target, "model_validate"):
+                    obj = target.model_validate(stored.data)  # type: ignore[attr-defined]
+                else:
+                    obj = target(**stored.data)
                 self._channel.emit(
                     logging.DEBUG,
                     LogCode.MARKUP_DECODE,
@@ -59,7 +63,7 @@ class AiogramCodec(MarkupCodec):
                     kind=stored.kind,
                 )
                 return obj
-            except TypeError:
+            except Exception:
                 self._channel.emit(
                     logging.WARNING,
                     LogCode.MARKUP_DECODE,
