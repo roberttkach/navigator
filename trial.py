@@ -5,10 +5,14 @@ from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway.purge import PurgeTask
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
+from navigator.app.service import TailHistoryAccess, TailHistoryMutator
 from navigator.app.service.view.planner import ViewPlanner
 from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.alarm import Alarm
 from navigator.app.usecase.last import Tailer
+from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
+from navigator.app.usecase.last.inline import InlineEditCoordinator
+from navigator.app.usecase.last.mutation import MessageEditCoordinator
 from navigator.app.usecase.set import Setter
 from navigator.core.entity.history import Entry
 from navigator.core.entity.media import MediaItem, MediaType
@@ -248,14 +252,26 @@ def decline() -> None:
         refine=Mock(return_value=TextMeta(text="noop", inline=True)),
     )
     inline = SimpleNamespace(handle=AsyncMock())
-    tailer = Tailer(
-        latest=latest,
-        ledger=ledger,
-        planner=planner,
+    telemetry = monitor()
+    history = TailHistoryAccess(ledger=ledger, latest=latest, telemetry=telemetry)
+    mutator = TailHistoryMutator()
+    decision = TailDecisionService(rendering=RenderingConfig())
+    inline_coord = InlineEditCoordinator(
+        handler=inline,
         executor=executor,
-        inline=inline,
         rendering=RenderingConfig(),
-        telemetry=monitor(),
+    )
+    mutation = MessageEditCoordinator(
+        executor=executor,
+        history=history,
+        mutator=mutator,
+    )
+    tailer = Tailer(
+        history=history,
+        decision=decision,
+        inline=inline_coord,
+        mutation=mutation,
+        telemetry=TailTelemetry(telemetry),
     )
     payload = Payload(
         group=[
