@@ -37,9 +37,7 @@ class InlineHandler:
             executor: EditExecutor,
             config: RenderingConfig,
     ) -> InlineOutcome | None:
-        entry = preserve(payload, tail)
-        if getattr(entry, "group", None):
-            entry = entry.morph(media=entry.group[0], group=None)
+        entry = self._prepare_candidate(payload, tail)
         base = tail
         media = getattr(entry, "media", None)
 
@@ -51,6 +49,14 @@ class InlineHandler:
 
         return await self._scribe(scope, entry, base, executor)
 
+    def _prepare_candidate(self, payload: Payload, tail: Message | None) -> Payload:
+        """Derive preserved inline payload ready for inline editing."""
+
+        entry = preserve(payload, tail)
+        if getattr(entry, "group", None):
+            return entry.morph(media=entry.group[0], group=None)
+        return entry
+
     async def _mediate(
             self,
             scope: Scope,
@@ -60,30 +66,33 @@ class InlineHandler:
             executor: EditExecutor,
     ) -> InlineOutcome | None:
         if verdict is D.Decision.DELETE_SEND:
-            remapped = self.remapper.remap(base, entry)
-            self._channel.emit(
-                logging.INFO,
-                LogCode.INLINE_REMAP_DELETE_SEND,
-                origin="DELETE_SEND",
-                target=remapped.name,
-            )
-            if remapped is D.Decision.EDIT_MARKUP:
-                adjusted = entry.morph(media=base.media if base else None, group=None)
-                return await self.editor.apply(scope, remapped, adjusted, base, executor=executor)
-            if remapped in (D.Decision.EDIT_TEXT, D.Decision.EDIT_MEDIA):
-                outcome = await self.editor.apply(scope, remapped, entry, base, executor=executor)
-                if outcome:
-                    return outcome
-            self._channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
-            return None
+            return await self._handle_delete_send(scope, entry, base, executor=executor)
 
         if verdict is D.Decision.EDIT_MEDIA_CAPTION:
-            return await self.editor.apply(scope, verdict, entry, base, executor=executor)
+            return await self._apply_edit(
+                scope,
+                verdict,
+                entry,
+                base,
+                executor=executor,
+            )
 
         if verdict is D.Decision.EDIT_MARKUP:
-            return await self.editor.apply(scope, verdict, entry, base, executor=executor)
+            return await self._apply_edit(
+                scope,
+                verdict,
+                entry,
+                base,
+                executor=executor,
+            )
 
-        return await self.editor.apply(scope, D.Decision.EDIT_MEDIA, entry, base, executor=executor)
+        return await self._apply_edit(
+            scope,
+            D.Decision.EDIT_MEDIA,
+            entry,
+            base,
+            executor=executor,
+        )
 
     async def _scribe(
             self,
@@ -94,14 +103,8 @@ class InlineHandler:
     ) -> InlineOutcome | None:
         if base and getattr(base, "media", None):
             adjusted = entry.morph(media=base.media, group=None)
-            extra = adjusted.extra or {}
-            if (
-                    entry.text is not None
-                    or extra.get("mode") is not None
-                    or extra.get("entities") is not None
-                    or extra.get("show_caption_above_media") is not None
-            ):
-                return await self.editor.apply(
+            if self._requires_caption_refresh(adjusted):
+                return await self._apply_edit(
                     scope,
                     D.Decision.EDIT_MEDIA_CAPTION,
                     adjusted,
@@ -109,17 +112,22 @@ class InlineHandler:
                     executor=executor,
                 )
             if not match(getattr(base, "markup", None), getattr(entry, "reply", None)):
-                return await self.editor.apply(
+                return await self._apply_edit(
                     scope,
                     D.Decision.EDIT_MARKUP,
                     adjusted,
                     base,
                     executor=executor,
                 )
-            self._channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
-            return None
+            return self._deny_switch()
 
-        return await self.editor.apply(scope, D.Decision.EDIT_TEXT, entry, base, executor=executor)
+        return await self._apply_edit(
+            scope,
+            D.Decision.EDIT_TEXT,
+            entry,
+            base,
+            executor=executor,
+        )
 
     async def _fallback(
             self,
@@ -130,7 +138,7 @@ class InlineHandler:
     ) -> InlineOutcome | None:
         if base and not match(getattr(base, "markup", None), getattr(entry, "reply", None)):
             adjusted = entry.morph(media=base.media if base else None, group=None)
-            outcome = await self.editor.apply(
+            outcome = await self._apply_edit(
                 scope,
                 D.Decision.EDIT_MARKUP,
                 adjusted,
@@ -139,8 +147,79 @@ class InlineHandler:
             )
             if outcome:
                 return outcome
+        return self._deny_switch()
+
+    async def _apply_edit(
+            self,
+            scope: Scope,
+            verdict: D.Decision,
+            payload: Payload,
+            base: Message | None,
+            executor: EditExecutor,
+    ) -> InlineOutcome | None:
+        """Delegate inline edits to the executor with consistent wiring."""
+
+        return await self.editor.apply(
+            scope,
+            verdict,
+            payload,
+            base,
+            executor=executor,
+        )
+
+    async def _handle_delete_send(
+            self,
+            scope: Scope,
+            entry: Payload,
+            base: Message | None,
+            executor: EditExecutor,
+    ) -> InlineOutcome | None:
+        """Resolve delete-send verdicts through inline remapping."""
+
+        remapped = self.remapper.remap(base, entry)
+        self._channel.emit(
+            logging.INFO,
+            LogCode.INLINE_REMAP_DELETE_SEND,
+            origin="DELETE_SEND",
+            target=remapped.name,
+        )
+        if remapped is D.Decision.EDIT_MARKUP:
+            adjusted = entry.morph(media=base.media if base else None, group=None)
+            return await self._apply_edit(
+                scope,
+                remapped,
+                adjusted,
+                base,
+                executor=executor,
+            )
+        if remapped in (D.Decision.EDIT_TEXT, D.Decision.EDIT_MEDIA):
+            outcome = await self._apply_edit(
+                scope,
+                remapped,
+                entry,
+                base,
+                executor=executor,
+            )
+            if outcome:
+                return outcome
+        return self._deny_switch()
+
+    def _deny_switch(self) -> None:
+        """Emit telemetry for forbidden inline content switches."""
+
         self._channel.emit(logging.INFO, LogCode.INLINE_CONTENT_SWITCH_FORBIDDEN)
         return None
+
+    def _requires_caption_refresh(self, payload: Payload) -> bool:
+        """Report whether inline payload changes caption semantics."""
+
+        extra = payload.extra or {}
+        return bool(
+            payload.text is not None
+            or extra.get("mode") is not None
+            or extra.get("entities") is not None
+            or extra.get("show_caption_above_media") is not None
+        )
 
 
 __all__ = ["InlineHandler", "InlineOutcome", "InlineEditor", "InlineGuard", "InlineRemapper"]
