@@ -12,16 +12,19 @@ from navigator.core.value.message import Scope
 
 
 def targets(scope: Scope, message: Optional[int] = None, *, topical: bool = True) -> Dict[str, Any]:
+    data: Dict[str, Any] = {}
     if scope.inline:
-        data: Dict[str, Any] = {"inline_message_id": scope.inline}
-    else:
-        data = {"chat_id": scope.chat}
+        data["inline_message_id"] = scope.inline
+    elif scope.business:
+        data["business_connection_id"] = scope.business
         if message is not None:
             data["message_id"] = message
-    if scope.business:
-        data["business_connection_id"] = scope.business
-    if topical and scope.topic is not None:
-        data["direct_messages_topic_id"] = scope.topic
+    else:
+        data["chat_id"] = scope.chat
+        if message is not None:
+            data["message_id"] = message
+    if topical and scope.topic is not None and not scope.inline:
+        data["message_thread_id"] = scope.topic
     return data
 
 
