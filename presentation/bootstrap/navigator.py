@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from ...app.locks.guard import GuardFactory
+from ...app.locks.guard import Guardian
 from ...app.usecase.add import Appender
 from ...app.usecase.alarm import Alarm
 from ...app.usecase.back import Rewinder
@@ -18,7 +18,7 @@ from ..navigator import Navigator
 
 
 class _Core(Protocol):
-    def guard(self) -> GuardFactory: ...
+    def guard(self) -> Guardian: ...
     def telemetry(self) -> Telemetry: ...
 
 
@@ -42,7 +42,7 @@ def compose(
     container: NavigatorContainer,
     scope: Scope,
     *,
-    guard: GuardFactory | None = None,
+    guard: Guardian | None = None,
 ) -> Navigator:
     """Construct a Navigator facade from a DI container."""
 
