@@ -39,8 +39,8 @@ _ENV_MAPPING: Dict[str, str] = {
 
 def _overrides() -> Dict[str, str]:
     values: Dict[str, str] = {}
-    for field, env_key in _ENV_MAPPING.items():
-        raw = os.getenv(env_key)
+    for field, variable in _ENV_MAPPING.items():
+        raw = os.getenv(variable)
         if raw is not None:
             values[field] = raw
     return values

@@ -37,14 +37,14 @@ class TelegramContainer(containers.DeclarativeContainer):
         deletepause=core.settings.provided.deletepause,
         telemetry=telemetry,
     )
-    inline_guard = providers.Factory(InlineGuard, policy=policy)
-    inline_remapper = providers.Factory(InlineRemapper)
-    inline_editor = providers.Factory(InlineEditor)
+    sentinel = providers.Factory(InlineGuard, policy=policy)
+    mapper = providers.Factory(InlineRemapper)
+    scribe = providers.Factory(InlineEditor)
     inline = providers.Factory(
         InlineHandler,
-        guard=inline_guard,
-        remapper=inline_remapper,
-        editor=inline_editor,
+        guard=sentinel,
+        remapper=mapper,
+        editor=scribe,
         telemetry=telemetry,
     )
     executor = providers.Factory(EditExecutor, gateway=gateway, telemetry=telemetry)
