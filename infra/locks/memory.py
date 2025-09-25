@@ -25,7 +25,7 @@ class _LockWrapper(Lock):
         return self._lock.locked()
 
 
-class MemoryLockProvider(LockProvider):
+class MemoryLatch(LockProvider):
     def __init__(self) -> None:
         self._locks: Dict[Tuple[object, object | None], _LockWrapper] = {}
 
@@ -35,4 +35,4 @@ class MemoryLockProvider(LockProvider):
         return self._locks[key]
 
 
-__all__ = ["MemoryLockProvider"]
+__all__ = ["MemoryLatch"]

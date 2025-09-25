@@ -10,7 +10,7 @@ from navigator.core.telemetry import Telemetry
 from navigator.infra.clock.system import SystemClock
 from navigator.infra.config.settings import load as ingest
 from navigator.infra.limits.config import ConfigLimits
-from navigator.infra.locks.memory import MemoryLockProvider
+from navigator.infra.locks.memory import MemoryLatch
 
 
 class CoreContainer(containers.DeclarativeContainer):
@@ -30,7 +30,7 @@ class CoreContainer(containers.DeclarativeContainer):
         maximum=settings.provided.groupmax,
         mix=settings.provided.mixset,
     )
-    locker = providers.Singleton(MemoryLockProvider)
+    locker = providers.Singleton(MemoryLatch)
     guard = providers.Factory(GuardFactory, provider=locker)
     rendering = providers.Factory(RenderingConfig, thumbguard=settings.provided.thumbguard)
 

@@ -14,7 +14,7 @@ from navigator.core.port.locks import Lock, LockProvider
 logger = logging.getLogger(__name__)
 
 
-class _RedisLock(Lock):
+class _Latch(Lock):
     def __init__(self, redis: Any, name: str, ttl: float, blocking: float) -> None:
         self._redis = redis
         self._name = name
@@ -51,7 +51,7 @@ class _RedisLock(Lock):
         return self._held
 
 
-class RedisLockProvider(LockProvider):
+class RedisLatch(LockProvider):
     def __init__(self, url: str, *, ttl: float, blocking: float) -> None:
         if Redis is None:
             raise RuntimeError("redis package not installed")
@@ -61,7 +61,7 @@ class RedisLockProvider(LockProvider):
 
     def latch(self, key: tuple[object, object | None]) -> Lock:
         name = f"nav:lock:{key[0]}:{key[1]}"
-        return _RedisLock(self._redis, name, self._ttl, self._blocking)
+        return _Latch(self._redis, name, self._ttl, self._blocking)
 
 
-__all__ = ["RedisLockProvider"]
+__all__ = ["RedisLatch"]
