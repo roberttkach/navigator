@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, SupportsInt
+from typing import Any, Callable, Protocol, SupportsInt
 
 from navigator.app.dto.content import Content, Node
 from navigator.app.locks.guard import Guardian
@@ -27,8 +27,15 @@ from navigator.core.service.scope import profile
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
-from navigator.presentation.alerts import missing
-from navigator.presentation.types import StateLike
+
+
+class _StateDescriptor(Protocol):
+    """Minimal protocol describing state holders used by the runtime."""
+
+    state: str
+
+
+MissingAlert = Callable[[Scope], str]
 
 
 class PayloadBundler:
@@ -191,16 +198,18 @@ class NavigatorStateService:
         guard: Guardian,
         scope: Scope,
         reporter: NavigatorReporter,
+        missing_alert: MissingAlert | None = None,
     ) -> None:
         self._setter = setter
         self._alarm = alarm
         self._guard = guard
         self._scope = scope
         self._reporter = reporter
+        self._missing_alert = missing_alert
 
     async def set(
         self,
-        state: str | StateLike,
+        state: str | _StateDescriptor,
         context: dict[str, Any] | None = None,
     ) -> None:
         status = getattr(state, "state", state)
@@ -209,12 +218,27 @@ class NavigatorStateService:
             try:
                 await self._setter.execute(self._scope, status, context or {})
             except StateNotFound:
-                await self._alarm.execute(self._scope, text=missing(self._scope))
+                payload = self._missing_alert(self._scope) if self._missing_alert else None
+                await self._alarm.execute(self._scope, text=payload)
 
     async def alert(self) -> None:
         self._reporter.emit("alert")
         async with self._guard(self._scope):
             await self._alarm.execute(self._scope)
+
+
+@dataclass(frozen=True)
+class NavigatorUseCases:
+    """Bundle of use cases required to assemble the navigator runtime."""
+
+    appender: Appender
+    swapper: Swapper
+    rewinder: Rewinder
+    setter: Setter
+    trimmer: Trimmer
+    shifter: Shifter
+    tailer: Tailer
+    alarm: Alarm
 
 
 @dataclass(frozen=True)
@@ -226,49 +250,50 @@ class NavigatorRuntime:
     tail: NavigatorTail
 
 
-def build_navigator_runtime(  # noqa: PLR0913
+def build_navigator_runtime(
     *,
-    appender: Appender,
-    swapper: Swapper,
-    rewinder: Rewinder,
-    setter: Setter,
-    trimmer: Trimmer,
-    shifter: Shifter,
-    tailer: Tailer,
-    alarm: Alarm,
+    usecases: NavigatorUseCases,
     scope: Scope,
     guard: Guardian,
     telemetry: Telemetry,
     bundler: PayloadBundler | None = None,
     reporter: NavigatorReporter | None = None,
+    missing_alert: MissingAlert | None = None,
 ) -> NavigatorRuntime:
     """Create a navigator runtime wiring use cases with cross-cutting tools."""
 
     bundler = bundler or PayloadBundler()
     reporter = reporter or NavigatorReporter(telemetry, scope)
     history = NavigatorHistoryService(
-        appender=appender,
-        swapper=swapper,
-        rewinder=rewinder,
-        trimmer=trimmer,
-        shifter=shifter,
+        appender=usecases.appender,
+        swapper=usecases.swapper,
+        rewinder=usecases.rewinder,
+        trimmer=usecases.trimmer,
+        shifter=usecases.shifter,
         guard=guard,
         scope=scope,
         reporter=reporter,
         bundler=bundler,
     )
     state = NavigatorStateService(
-        setter=setter,
-        alarm=alarm,
+        setter=usecases.setter,
+        alarm=usecases.alarm,
         guard=guard,
         scope=scope,
         reporter=reporter,
+        missing_alert=missing_alert,
     )
-    tail = NavigatorTail(flow=tailer, scope=scope, guard=guard, telemetry=telemetry)
+    tail = NavigatorTail(
+        flow=usecases.tailer,
+        scope=scope,
+        guard=guard,
+        telemetry=telemetry,
+    )
     return NavigatorRuntime(history=history, state=state, tail=tail)
 
 
 __all__ = [
+    "NavigatorUseCases",
     "NavigatorRuntime",
     "NavigatorHistoryService",
     "NavigatorStateService",

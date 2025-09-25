@@ -12,7 +12,7 @@ async def assemble(
         state: Any,
         ledger: ViewLedgerDTO,
         scope: ScopeDTO,
-        instrumentation: Iterable[NavigatorAssembler._Instrument] | None = None,
+        instrumentation: Iterable[NavigatorAssembler.Instrument] | None = None,
 ) -> NavigatorLike:
     """Assemble and return a Navigator facade instance."""
 
