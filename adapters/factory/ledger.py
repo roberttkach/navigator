@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
-
 from navigator.core.port.factory import ViewForge, ViewLedger as ViewLedgerProtocol
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Dict
 
 
 def _stamp(forger: ViewForge) -> str:
@@ -52,4 +51,3 @@ class ViewLedger(ViewLedgerProtocol):
 
 
 __all__ = ["ViewLedger"]
-

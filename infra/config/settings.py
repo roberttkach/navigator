@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Set
-
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Set
 
 
 def _alias(field: str, env: str) -> AliasChoices:

@@ -29,10 +29,10 @@ _ALLOWED_ENTITY_TYPES = {
 
 
 def sanitize(
-    entities: Any,
-    length: int,
-    *,
-    telemetry: Telemetry | None = None,
+        entities: Any,
+        length: int,
+        *,
+        telemetry: Telemetry | None = None,
 ) -> List[Dict[str, Any]]:
     channel: TelemetryChannel | None = (
         telemetry.channel(__name__) if telemetry else None

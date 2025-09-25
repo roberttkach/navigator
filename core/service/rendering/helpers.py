@@ -37,7 +37,7 @@ def match(first: Markup | None, second: Markup | None) -> bool:
     if (first is None) != (second is None):
         return False
     return (
-        getattr(first, "kind", None) == getattr(second, "kind", None)
-        and _canonicalize(getattr(first, "data", None))
-        == _canonicalize(getattr(second, "data", None))
+            getattr(first, "kind", None) == getattr(second, "kind", None)
+            and _canonicalize(getattr(first, "data", None))
+            == _canonicalize(getattr(second, "data", None))
     )

@@ -8,10 +8,10 @@ from ...core.value.message import Scope
 
 class Alarm:
     def __init__(
-        self,
-        gateway: MessageGateway,
-        alert: Callable[[Scope], str],
-        telemetry: Telemetry,
+            self,
+            gateway: MessageGateway,
+            alert: Callable[[Scope], str],
+            telemetry: Telemetry,
     ) -> None:
         self._gateway = gateway
         self._alert = alert

@@ -4,7 +4,6 @@ from typing import Iterator
 
 from .gateway.patterns import ErrorPatterns
 
-
 _DISMISSIBLE_ERRORS = ErrorPatterns.collect(
     "message to delete not found",
     "message can't be deleted",

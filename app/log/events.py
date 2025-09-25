@@ -22,7 +22,6 @@ BACK = TraceSpec(LogCode.RENDER_START, LogCode.RENDER_OK, LogCode.RENDER_SKIP)
 REBASE = TraceSpec(LogCode.RENDER_START, LogCode.REBASE_SUCCESS, LogCode.RENDER_SKIP)
 POP = TraceSpec(LogCode.RENDER_START, LogCode.POP_SUCCESS, LogCode.RENDER_SKIP)
 
-
 __all__ = [
     "TraceSpec",
     "APPEND",

@@ -5,13 +5,13 @@ from navigator.core.port.limits import Limits
 
 class ConfigLimits(Limits):
     def __init__(
-        self,
-        *,
-        text: int,
-        caption: int,
-        minimum: int,
-        maximum: int,
-        mix: set[str],
+            self,
+            *,
+            text: int,
+            caption: int,
+            minimum: int,
+            maximum: int,
+            mix: set[str],
     ) -> None:
         self._text = int(text)
         self._caption = int(caption)

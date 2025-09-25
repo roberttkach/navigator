@@ -5,7 +5,6 @@ from typing import List
 
 from ..log import events
 from ..log.aspect import TraceAspect
-from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..map.entry import EntryMapper, Outcome
 from ..service.view.planner import ViewPlanner
 from ..service.view.policy import adapt
@@ -13,8 +12,10 @@ from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
 from ...core.port.state import StateRepository
 from ...core.service.history.policy import prune as prune_history
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload, normalize
 from ...core.value.message import Scope
+
 
 class Swapper:
     def __init__(

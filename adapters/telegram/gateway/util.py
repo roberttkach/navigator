@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Any, Dict, Optional
-
 from aiogram.types import Message
-
+from dataclasses import replace
 from navigator.core.port.message import Result
 from navigator.core.typing.result import MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from typing import Any, Dict, Optional
 
 
 def targets(scope: Scope, message: Optional[int] = None, *, topical: bool = True) -> Dict[str, Any]:
@@ -35,7 +33,7 @@ def _digest(message: Message) -> Meta:
     if getattr(message, "media_group_id", None):
         raise ValueError("grouped messages must be handled separately")
     if message.text is not None and not any(
-        [message.photo, message.document, message.video, message.audio, message.animation]
+            [message.photo, message.document, message.video, message.audio, message.animation]
     ):
         return TextMeta(text=message.text)
     if message.photo:

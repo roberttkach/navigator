@@ -1,13 +1,11 @@
 import logging
-from typing import Optional, Any
-
 from aiogram.types import (
     InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
 )
-
 from navigator.core.entity.markup import Markup
 from navigator.core.port.markup import MarkupCodec
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Optional, Any
 
 
 class AiogramCodec(MarkupCodec):

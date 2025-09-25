@@ -45,5 +45,4 @@ class GroupMeta:
 
 Meta = TextMeta | MediaMeta | GroupMeta
 
-
 __all__ = ["Cluster", "GroupMeta", "MediaMeta", "Meta", "TextMeta"]

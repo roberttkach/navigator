@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
 from navigator.core.value.content import Preview
+from typing import Any, Dict, Optional
 
 
 class PreviewCodec:

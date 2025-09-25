@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Final, Protocol
-
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
-
 from navigator.core.error import HistoryEmpty, InlineUnsupported, StateNotFound
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Any, Dict, Final, Protocol
 
 from ..alerts import lexeme
 

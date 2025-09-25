@@ -43,7 +43,10 @@ from __future__ import annotations
 import logging
 from typing import Optional, Dict, Any, Union, SupportsInt
 
+from .alerts import missing
+from .types import StateLike
 from ..app.dto.content import Content, Node
+from ..app.locks.guard import Guardian
 from ..app.map.payload import collect, convert
 from ..app.usecase.add import Appender
 from ..app.usecase.alarm import Alarm
@@ -53,22 +56,19 @@ from ..app.usecase.pop import Trimmer
 from ..app.usecase.rebase import Shifter
 from ..app.usecase.replace import Swapper
 from ..app.usecase.set import Setter
-from ..app.locks.guard import Guardian
 from ..core.error import StateNotFound
 from ..core.service.scope import profile
 from ..core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..core.value.message import Scope
-from .alerts import missing
-from .types import StateLike
 
 
 class _Tail:
     def __init__(
-        self,
-        flow: Tailer,
-        scope: Scope,
-        guard: Guardian,
-        telemetry: Telemetry,
+            self,
+            flow: Tailer,
+            scope: Scope,
+            guard: Guardian,
+            telemetry: Telemetry,
     ):
         self._tailer = flow
         self._scope = scope
@@ -230,4 +230,3 @@ class Navigator:
         )
         async with self._guard(self._scope):
             await self._alarm.execute(self._scope)
-

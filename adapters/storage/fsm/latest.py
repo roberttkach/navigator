@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
-
 from aiogram.fsm.context import FSMContext
-
 from navigator.core.port.last import LatestRepository
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Optional
 
 from .keys import FSM_LAST_ID_FIELD, FSM_NAMESPACE_KEY
+
 
 class Latest(LatestRepository):
     def __init__(self, state: FSMContext, telemetry: Telemetry | None = None):

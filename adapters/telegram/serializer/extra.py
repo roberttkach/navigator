@@ -1,31 +1,30 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-
 from navigator.core.port.extraschema import ExtraSchema
 from navigator.core.service.history.extra import cleanse as history_cleanse
 from navigator.core.util.entities import sanitize
 from navigator.core.value.message import Scope
+from typing import Any, Dict
 
 
 class TelegramExtraSchema(ExtraSchema):
     def send(
-        self,
-        scope: Scope,
-        extra: dict | None,
-        *,
-        span: int,
-        media: bool,
+            self,
+            scope: Scope,
+            extra: dict | None,
+            *,
+            span: int,
+            media: bool,
     ) -> dict:
         return self._compose(scope, extra, span, media, editing=False)
 
     def edit(
-        self,
-        scope: Scope,
-        extra: dict | None,
-        *,
-        span: int,
-        media: bool,
+            self,
+            scope: Scope,
+            extra: dict | None,
+            *,
+            span: int,
+            media: bool,
     ) -> dict:
         return self._compose(scope, extra, span, media, editing=True)
 
@@ -33,13 +32,13 @@ class TelegramExtraSchema(ExtraSchema):
         return history_cleanse(extra, length=length)
 
     def _compose(
-        self,
-        scope: Scope,
-        extra: dict | None,
-        span: int,
-        media: bool,
-        *,
-        editing: bool,
+            self,
+            scope: Scope,
+            extra: dict | None,
+            span: int,
+            media: bool,
+            *,
+            editing: bool,
     ) -> dict:
         mapping = dict(extra or {})
         effect = self._effect(scope, mapping, editing=editing)

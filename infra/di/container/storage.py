@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dependency_injector import containers, providers
-
 from navigator.adapters.storage.fsm import Chronicle, Latest, Status
 from navigator.app.map.entry import EntryMapper
 from navigator.core.telemetry import Telemetry

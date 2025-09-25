@@ -6,14 +6,14 @@ import logging
 import time
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
-from ...core.telemetry import Telemetry
 from .events import TraceSpec
+from ...core.telemetry import Telemetry
 
 
 def _capture(
-    fn: Callable[..., Any],
-    args: Tuple[Any, ...],
-    kwargs: Dict[str, Any],
+        fn: Callable[..., Any],
+        args: Tuple[Any, ...],
+        kwargs: Dict[str, Any],
 ) -> Tuple[Optional[dict], Optional[dict]]:
     signature = inspect.signature(fn)
     binding = signature.bind_partial(*args, **kwargs)
@@ -49,12 +49,12 @@ class TraceAspect:
         self._telemetry = telemetry
 
     async def run(
-        self,
-        spec: TraceSpec,
-        call: Callable[..., Awaitable[Any]],
-        *args: Any,
-        augment: Callable[[Any], Optional[dict]] | None = None,
-        **kwargs: Any,
+            self,
+            spec: TraceSpec,
+            call: Callable[..., Awaitable[Any]],
+            *args: Any,
+            augment: Callable[[Any], Optional[dict]] | None = None,
+            **kwargs: Any,
     ) -> Any:
         channel = self._telemetry.channel(call.__module__)
         scope, payload = _capture(call, args, kwargs)

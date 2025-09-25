@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Optional
-
 from aiogram.client.default import Default
 from aiogram.types import LinkPreviewOptions
-
 from navigator.core.port.preview import LinkPreviewCodec
 from navigator.core.value.content import Preview
+from typing import Any, Optional
 
 
 class TelegramLinkPreviewCodec(LinkPreviewCodec):
@@ -59,4 +57,3 @@ class TelegramLinkPreviewCodec(LinkPreviewCodec):
 
 
 __all__ = ["TelegramLinkPreviewCodec"]
-

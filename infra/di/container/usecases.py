@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dependency_injector import containers, providers
-
 from navigator.app.service.view.planner import ViewPlanner
 from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.add import Appender
@@ -12,8 +11,6 @@ from navigator.app.usecase.pop import Trimmer
 from navigator.app.usecase.rebase import Shifter
 from navigator.app.usecase.replace import Swapper
 from navigator.app.usecase.set import Setter
-
-
 from navigator.core.telemetry import Telemetry
 
 

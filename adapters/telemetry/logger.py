@@ -8,7 +8,6 @@ from typing import Any, Dict
 
 from ...core.port.telemetry import LogCode, TelemetryPort
 
-
 REDACT_KEYS = {"path", "inline", "business", "url", "caption", "thumb"}
 DEFAULT_MODE = "safe"
 
@@ -26,12 +25,12 @@ class PythonLoggingTelemetry(TelemetryPort):
         self._mode = normal
 
     def emit(
-        self,
-        code: LogCode,
-        level: int,
-        *,
-        origin: str | None = None,
-        **fields: Any,
+            self,
+            code: LogCode,
+            level: int,
+            *,
+            origin: str | None = None,
+            **fields: Any,
     ) -> None:
         name = origin or "navigator"
         logger = logging.getLogger(name)

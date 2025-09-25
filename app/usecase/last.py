@@ -4,7 +4,6 @@ import logging
 from typing import List, Optional
 
 from ..internal.policy import prime, shield
-from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..service.view.executor import EditExecutor
 from ..service.view.inline import InlineHandler
 from ..service.view.planner import RenderResult, ViewPlanner
@@ -12,19 +11,21 @@ from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
 from ...core.service.rendering import decision
 from ...core.service.rendering.config import RenderingConfig
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload, normalize
 from ...core.value.message import Scope
 
+
 class Tailer:
     def __init__(
-        self,
-        latest: LatestRepository,
-        ledger: HistoryRepository,
-        planner: ViewPlanner,
-        executor: EditExecutor,
-        inline: InlineHandler,
-        rendering: RenderingConfig,
-        telemetry: Telemetry,
+            self,
+            latest: LatestRepository,
+            ledger: HistoryRepository,
+            planner: ViewPlanner,
+            executor: EditExecutor,
+            inline: InlineHandler,
+            rendering: RenderingConfig,
+            telemetry: Telemetry,
     ) -> None:
         self._latest = latest
         self._ledger = ledger
@@ -97,11 +98,11 @@ class Tailer:
         )
 
     async def _apply(
-        self,
-        scope: Scope,
-        verdict: decision.Decision,
-        payload: Payload,
-        base,
+            self,
+            scope: Scope,
+            verdict: decision.Decision,
+            payload: Payload,
+            base,
     ) -> Optional[RenderResult]:
         execution = await self._executor.execute(scope, verdict, payload, base)
         if not execution:
@@ -109,10 +110,10 @@ class Tailer:
         return self._result(execution, verdict, payload)
 
     async def _mediate(
-        self,
-        scope: Scope,
-        payload: Payload,
-        head,
+            self,
+            scope: Scope,
+            payload: Payload,
+            head,
     ) -> Optional[RenderResult]:
         outcome = await self._inline.handle(
             scope=scope,
@@ -197,14 +198,15 @@ class Tailer:
 
         if choice is decision.Decision.EDIT_TEXT and not (normal.text and str(normal.text).strip()):
             return None
-        if choice in (decision.Decision.EDIT_MEDIA, decision.Decision.EDIT_MEDIA_CAPTION) and not (normal.media or normal.group):
+        if choice in (decision.Decision.EDIT_MEDIA, decision.Decision.EDIT_MEDIA_CAPTION) and not (
+                normal.media or normal.group):
             return None
 
         if (not scope.inline) and choice in (
-            decision.Decision.EDIT_TEXT,
-            decision.Decision.EDIT_MEDIA,
-            decision.Decision.EDIT_MEDIA_CAPTION,
-            decision.Decision.DELETE_SEND,
+                decision.Decision.EDIT_TEXT,
+                decision.Decision.EDIT_MEDIA,
+                decision.Decision.EDIT_MEDIA_CAPTION,
+                decision.Decision.DELETE_SEND,
         ):
             targets = [marker]
             if anchor and anchor.messages:

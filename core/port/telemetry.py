@@ -77,12 +77,12 @@ class TelemetryPort(Protocol):
     def calibrate(self, mode: str) -> None: ...
 
     def emit(
-        self,
-        code: LogCode,
-        level: int,
-        *,
-        origin: str | None = None,
-        **fields: Any,
+            self,
+            code: LogCode,
+            level: int,
+            *,
+            origin: str | None = None,
+            **fields: Any,
     ) -> None: ...
 
 

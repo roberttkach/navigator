@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
-
 from navigator.core.port.locks import Lock, LockProvider
+from typing import Protocol
 
 
 class ScopeForm(Protocol):

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from aiogram.fsm.context import FSMContext
 from dependency_injector import containers, providers
-
 from navigator.core.port.factory import ViewLedger
 from navigator.core.telemetry import Telemetry
+
 from .core import CoreContainer
 from .storage import StorageContainer
 from .telegram import TelegramContainer

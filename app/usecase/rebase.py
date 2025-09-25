@@ -5,10 +5,11 @@ from typing import List
 
 from ..log import events
 from ..log.aspect import TraceAspect
-from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.entity.history import Entry, Message
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
+
 
 class Shifter:
     def __init__(self, ledger: HistoryRepository, latest: LatestRepository, telemetry: Telemetry):

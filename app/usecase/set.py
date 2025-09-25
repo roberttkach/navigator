@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 
 from ..log import events
 from ..log.aspect import TraceAspect
+from ..service.view.planner import RenderNode, ViewPlanner
+from ..service.view.restorer import ViewRestorer
 from ...core.error import StateNotFound
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
@@ -13,20 +15,18 @@ from ...core.port.state import StateRepository
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload, normalize
 from ...core.value.message import Scope
-from ..service.view.planner import RenderNode, ViewPlanner
-from ..service.view.restorer import ViewRestorer
 
 
 class Setter:
     def __init__(
-        self,
-        ledger: HistoryRepository,
-        status: StateRepository,
-        gateway: MessageGateway,
-        restorer: ViewRestorer,
-        planner: ViewPlanner,
-        latest: LatestRepository,
-        telemetry: Telemetry,
+            self,
+            ledger: HistoryRepository,
+            status: StateRepository,
+            gateway: MessageGateway,
+            restorer: ViewRestorer,
+            planner: ViewPlanner,
+            latest: LatestRepository,
+            telemetry: Telemetry,
     ):
         self._ledger = ledger
         self._status = status
@@ -38,18 +38,18 @@ class Setter:
         self._trace = TraceAspect(telemetry)
 
     async def execute(
-        self,
-        scope: Scope,
-        goal: str,
-        context: Dict[str, Any],
+            self,
+            scope: Scope,
+            goal: str,
+            context: Dict[str, Any],
     ) -> None:
         await self._trace.run(events.SET, self._perform, scope, goal, context)
 
     async def _perform(
-        self,
-        scope: Scope,
-        goal: str,
-        context: Dict[str, Any],
+            self,
+            scope: Scope,
+            goal: str,
+            context: Dict[str, Any],
     ) -> None:
         history = await self._recall(scope)
         cursor = self._locate(history, goal)
@@ -99,10 +99,10 @@ class Setter:
         )
 
     async def _revive(
-        self,
-        target,
-        context: Dict[str, Any],
-        inline: bool,
+            self,
+            target,
+            context: Dict[str, Any],
+            inline: bool,
     ) -> List[Payload]:
         memory = await self._status.payload()
         if memory is None:
@@ -112,11 +112,11 @@ class Setter:
         return [normalize(p) for p in restored]
 
     async def _render(
-        self,
-        scope: Scope,
-        resolved: List[Payload],
-        tail,
-        inline: bool,
+            self,
+            scope: Scope,
+            resolved: List[Payload],
+            tail,
+            inline: bool,
     ) -> Optional[RenderNode]:
         return await self._planner.render(
             scope,

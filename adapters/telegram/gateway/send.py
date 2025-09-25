@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
-
 from aiogram import Bot
 from aiogram.types import Message
-
 from navigator.core.error import CaptionOverflow, EmptyPayload, InlineUnsupported, TextOverflow
 from navigator.core.port.extraschema import ExtraSchema
 from navigator.core.port.limits import Limits
@@ -18,27 +15,29 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, Meta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from typing import Dict
 
+from . import util
 from ..media import assemble
 from ..serializer import caption as captionkit
 from ..serializer import text as textkit
 from ..serializer.screen import SignatureScreen
-from . import util
+
 
 async def send(
-    bot: Bot,
-    *,
-    codec: MarkupCodec,
-    schema: ExtraSchema,
-    screen: SignatureScreen,
-    policy: MediaPathPolicy,
-    limits: Limits,
-    preview: LinkPreviewCodec | None,
-    scope: Scope,
-    payload: Payload,
-    truncate: bool,
-    channel: TelemetryChannel,
-    telemetry: Telemetry,
+        bot: Bot,
+        *,
+        codec: MarkupCodec,
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        policy: MediaPathPolicy,
+        limits: Limits,
+        preview: LinkPreviewCodec | None,
+        scope: Scope,
+        payload: Payload,
+        truncate: bool,
+        channel: TelemetryChannel,
+        telemetry: Telemetry,
 ) -> tuple[Message, list[int], Meta]:
     if scope.inline:
         raise InlineUnsupported("inline_send_not_supported")

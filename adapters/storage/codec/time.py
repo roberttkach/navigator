@@ -3,9 +3,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
-
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Any
 
 
 @dataclass(slots=True)

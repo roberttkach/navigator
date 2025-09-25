@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
-
 from aiogram.fsm.context import FSMContext
-
 from navigator.core.entity.history import Entry, Message
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Any, Dict, List, Optional
 
-from ..codec import GroupCodec, MediaCodec, PreviewCodec, ReplyCodec, TimeCodec
 from .keys import FSM_HISTORY_FIELD, FSM_NAMESPACE_KEY
+from ..codec import GroupCodec, MediaCodec, PreviewCodec, ReplyCodec, TimeCodec
+
 
 class Chronicle:
     def __init__(self, state: FSMContext, telemetry: Telemetry | None = None):

@@ -11,8 +11,8 @@ from .config import RenderingConfig
 from .helpers import match
 from ...entity.markup import Markup
 from ...entity.media import MediaItem, MediaType
-from ...value.content import Payload, Preview, caption
 from ...port.mediaid import MediaIdentityPolicy
+from ...value.content import Payload, Preview, caption
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,9 +203,9 @@ def decide(old: Optional[object], new: Payload, config: RenderingConfig) -> Deci
                 return Decision.EDIT_MEDIA
 
             if (
-                (caption(prior) or "") == (caption(fresh) or "")
-                and _extras(prior) == _extras(fresh)
-                and before.caption == after.caption
+                    (caption(prior) or "") == (caption(fresh) or "")
+                    and _extras(prior) == _extras(fresh)
+                    and before.caption == after.caption
             ):
                 aligned = match(prior.reply, fresh.reply)
                 return Decision.NO_CHANGE if aligned else Decision.EDIT_MARKUP

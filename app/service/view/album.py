@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional
-
 from navigator.core.entity.history import Message
 from navigator.core.entity.media import MediaItem
 from navigator.core.port.limits import Limits
@@ -14,8 +12,9 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from typing import Optional
 
-from .executor import EditExecutor, Execution
+from .executor import EditExecutor
 
 
 def _lineup(message: Message) -> list[int]:
@@ -61,12 +60,12 @@ def _collect(latter: list[MediaItem], album: list[int]) -> list[Cluster]:
 
 class AlbumService:
     def __init__(
-        self,
-        executor: EditExecutor,
-        *,
-        limits: Limits,
-        thumbguard: bool,
-        telemetry: Telemetry,
+            self,
+            executor: EditExecutor,
+            *,
+            limits: Limits,
+            thumbguard: bool,
+            telemetry: Telemetry,
     ) -> None:
         self._executor = executor
         self._limits = limits
@@ -74,15 +73,15 @@ class AlbumService:
         self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def refresh(
-        self, scope: Scope, former: Message, latter: Payload
+            self, scope: Scope, former: Message, latter: Payload
     ) -> Optional[tuple[int, list[int], GroupMeta, bool]]:
         formerband = former.group or []
         latterband = latter.group or []
 
         if not (
-            formerband
-            and latterband
-            and aligned(formerband, latterband, limits=self._limits)
+                formerband
+                and latterband
+                and aligned(formerband, latterband, limits=self._limits)
         ):
             return None
 
@@ -113,15 +112,15 @@ class AlbumService:
                 return value
 
         retitled = (
-            (formerband[0].caption or "") != (latterband[0].caption or "")
-            or _encode(_excerpt(formerinfo)) != _encode(_excerpt(latterinfo))
-            or bool(formerinfo.get("show_caption_above_media"))
-            != bool(latterinfo.get("show_caption_above_media"))
+                (formerband[0].caption or "") != (latterband[0].caption or "")
+                or _encode(_excerpt(formerinfo)) != _encode(_excerpt(latterinfo))
+                or bool(formerinfo.get("show_caption_above_media"))
+                != bool(latterinfo.get("show_caption_above_media"))
         )
 
         reshaped = (
-            bool(formerinfo.get("spoiler")) != bool(latterinfo.get("spoiler"))
-            or _integer(formerinfo.get("start")) != _integer(latterinfo.get("start"))
+                bool(formerinfo.get("spoiler")) != bool(latterinfo.get("spoiler"))
+                or _integer(formerinfo.get("start")) != _integer(latterinfo.get("start"))
         )
 
         if self._thumbguard:
@@ -158,9 +157,9 @@ class AlbumService:
             target = album[0] if index == 0 else album[index]
             altered = _changed(past, latest)
             pathmatch = (
-                isinstance(getattr(past, "path", None), str)
-                and isinstance(getattr(latest, "path", None), str)
-                and getattr(past, "path") == getattr(latest, "path")
+                    isinstance(getattr(past, "path", None), str)
+                    and isinstance(getattr(latest, "path", None), str)
+                    and getattr(past, "path") == getattr(latest, "path")
             )
             if altered or ((not altered) and reshaped and pathmatch):
                 head = former if index == 0 else _copy(former, target, past)

@@ -10,10 +10,10 @@ from ...util.entities import sanitize
 
 
 def cleanse(
-    extra: Any,
-    *,
-    length: int,
-    telemetry: Telemetry | None = None,
+        extra: Any,
+        *,
+        length: int,
+        telemetry: Telemetry | None = None,
 ) -> Optional[Dict[str, Any]]:
     """Normalize a history ``extra`` payload into a JSON-friendly mapping."""
 

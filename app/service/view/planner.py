@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
-
 from navigator.core.entity.history import Entry, Message
 from navigator.core.service.rendering import decision
 from navigator.core.service.rendering.config import RenderingConfig
@@ -11,12 +9,14 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from typing import List, Optional, Sequence
 
-from ...internal.policy import shield
 from .album import AlbumService
 from .executor import EditExecutor, Execution
 from .inline import InlineHandler, InlineOutcome
 from .policy import adapt
+from ...internal.policy import shield
+
 
 @dataclass(frozen=True, slots=True)
 class RenderResult:
@@ -75,12 +75,12 @@ def _meta(node: Message) -> Meta:
 
 class ViewPlanner:
     def __init__(
-        self,
-        executor: EditExecutor,
-        inline: InlineHandler,
-        album: AlbumService,
-        rendering: RenderingConfig,
-        telemetry: Telemetry,
+            self,
+            executor: EditExecutor,
+            inline: InlineHandler,
+            album: AlbumService,
+            rendering: RenderingConfig,
+            telemetry: Telemetry,
     ) -> None:
         self._executor = executor
         self._inline = inline
@@ -89,12 +89,12 @@ class ViewPlanner:
         self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def render(
-        self,
-        scope: Scope,
-        payloads: Sequence[Payload],
-        trail: Optional[Entry],
-        *,
-        inline: bool,
+            self,
+            scope: Scope,
+            payloads: Sequence[Payload],
+            trail: Optional[Entry],
+            *,
+            inline: bool,
     ) -> Optional[RenderNode]:
         if inline:
             shield(scope, payloads, inline=True)
@@ -131,17 +131,17 @@ class ViewPlanner:
         return RenderNode(ids=state.ids, extras=state.extras, metas=state.metas, changed=mutated)
 
     async def _head(
-        self,
-        scope: Scope,
-        ledger: List[Message],
-        fresh: List[Payload],
-        state: _RenderState,
+            self,
+            scope: Scope,
+            ledger: List[Message],
+            fresh: List[Payload],
+            state: _RenderState,
     ) -> tuple[int, bool]:
         if not (
-            ledger
-            and fresh
-            and getattr(ledger[0], "group", None)
-            and getattr(fresh[0], "group", None)
+                ledger
+                and fresh
+                and getattr(ledger[0], "group", None)
+                and getattr(fresh[0], "group", None)
         ):
             return 0, False
 
@@ -157,14 +157,14 @@ class ViewPlanner:
         return 1, changed
 
     async def _sync(
-        self,
-        scope: Scope,
-        fresh: List[Payload],
-        ledger: List[Message],
-        state: _RenderState,
-        *,
-        start: int,
-        mode: bool,
+            self,
+            scope: Scope,
+            fresh: List[Payload],
+            ledger: List[Message],
+            state: _RenderState,
+            *,
+            start: int,
+            mode: bool,
     ) -> bool:
         mutated = False
         limit = min(len(ledger), len(fresh))
@@ -192,11 +192,11 @@ class ViewPlanner:
         return mutated
 
     async def _mediate(
-        self,
-        scope: Scope,
-        payload: Payload,
-        previous: Message,
-        state: _RenderState,
+            self,
+            scope: Scope,
+            payload: Payload,
+            previous: Message,
+            state: _RenderState,
     ) -> bool:
         outcome = await self._inline.handle(
             scope=scope,
@@ -215,12 +215,12 @@ class ViewPlanner:
         return True
 
     async def _regular(
-        self,
-        scope: Scope,
-        verdict: decision.Decision,
-        payload: Payload,
-        previous: Message,
-        state: _RenderState,
+            self,
+            scope: Scope,
+            verdict: decision.Decision,
+            payload: Payload,
+            previous: Message,
+            state: _RenderState,
     ) -> bool:
         execution = await self._executor.execute(scope, verdict, payload, previous)
         if execution is None:
@@ -242,11 +242,11 @@ class ViewPlanner:
         return True
 
     async def _append(
-        self,
-        scope: Scope,
-        fresh: List[Payload],
-        stored: int,
-        state: _RenderState,
+            self,
+            scope: Scope,
+            fresh: List[Payload],
+            stored: int,
+            state: _RenderState,
     ) -> bool:
         if len(fresh) <= stored:
             return False

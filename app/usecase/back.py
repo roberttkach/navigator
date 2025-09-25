@@ -5,7 +5,6 @@ from typing import Any, Dict
 
 from ..log import events
 from ..log.aspect import TraceAspect
-from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ..service.view.planner import ViewPlanner
 from ..service.view.restorer import ViewRestorer
 from ...core.error import HistoryEmpty
@@ -13,8 +12,10 @@ from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
 from ...core.port.message import MessageGateway
 from ...core.port.state import StateRepository
+from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import normalize
 from ...core.value.message import Scope
+
 
 class Rewinder:
     def __init__(

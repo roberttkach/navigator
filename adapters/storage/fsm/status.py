@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
-
 from aiogram.fsm.context import FSMContext
-
 from navigator.core.port.state import StateRepository
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Any, Dict, Optional
+
 from .keys import FSM_NAMESPACE_KEY
+
 
 class Status(StateRepository):
     def __init__(self, state: FSMContext, telemetry: Telemetry | None = None):

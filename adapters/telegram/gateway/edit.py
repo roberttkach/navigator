@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-
 from aiogram import Bot
 from navigator.core.error import CaptionOverflow, TextOverflow
 from navigator.core.port.extraschema import ExtraSchema
@@ -15,25 +14,26 @@ from navigator.core.telemetry import LogCode, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
+from . import util
 from ..media import compose
 from ..serializer import caption as captionkit
 from ..serializer import text as textkit
 from ..serializer.screen import SignatureScreen
-from . import util
+
 
 async def rewrite(
-    bot: Bot,
-    *,
-    codec: MarkupCodec,
-    schema: ExtraSchema,
-    screen: SignatureScreen,
-    limits: Limits,
-    preview: LinkPreviewCodec | None,
-    scope: Scope,
-    identifier: int,
-    payload: Payload,
-    truncate: bool,
-    channel: TelemetryChannel,
+        bot: Bot,
+        *,
+        codec: MarkupCodec,
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        limits: Limits,
+        preview: LinkPreviewCodec | None,
+        scope: Scope,
+        identifier: int,
+        payload: Payload,
+        truncate: bool,
+        channel: TelemetryChannel,
 ):
     text = payload.text or ""
     if len(text) > limits.textlimit():
@@ -70,18 +70,18 @@ async def rewrite(
 
 
 async def recast(
-    bot: Bot,
-    *,
-    codec: MarkupCodec,
-    schema: ExtraSchema,
-    screen: SignatureScreen,
-    policy: MediaPathPolicy,
-    limits: Limits,
-    scope: Scope,
-    identifier: int,
-    payload: Payload,
-    truncate: bool,
-    channel: TelemetryChannel,
+        bot: Bot,
+        *,
+        codec: MarkupCodec,
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        policy: MediaPathPolicy,
+        limits: Limits,
+        scope: Scope,
+        identifier: int,
+        payload: Payload,
+        truncate: bool,
+        channel: TelemetryChannel,
 ):
     caption = captionkit.caption(payload)
     if caption is not None and len(caption) > limits.captionlimit():
@@ -123,17 +123,17 @@ async def recast(
 
 
 async def retitle(
-    bot: Bot,
-    *,
-    codec: MarkupCodec,
-    schema: ExtraSchema,
-    screen: SignatureScreen,
-    limits: Limits,
-    scope: Scope,
-    identifier: int,
-    payload: Payload,
-    truncate: bool,
-    channel: TelemetryChannel,
+        bot: Bot,
+        *,
+        codec: MarkupCodec,
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        limits: Limits,
+        scope: Scope,
+        identifier: int,
+        payload: Payload,
+        truncate: bool,
+        channel: TelemetryChannel,
 ):
     caption = captionkit.restate(payload)
     if caption is not None and len(caption) > limits.captionlimit():
@@ -166,13 +166,13 @@ async def retitle(
 
 
 async def remap(
-    bot: Bot,
-    *,
-    codec: MarkupCodec,
-    scope: Scope,
-    identifier: int,
-    payload: Payload,
-    channel: TelemetryChannel,
+        bot: Bot,
+        *,
+        codec: MarkupCodec,
+        scope: Scope,
+        identifier: int,
+        payload: Payload,
+        channel: TelemetryChannel,
 ):
     markup = textkit.decode(codec, payload.reply)
     message = await bot.edit_message_reply_markup(

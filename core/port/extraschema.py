@@ -9,22 +9,22 @@ from ..value.message import Scope
 @typing.runtime_checkable
 class ExtraSchema(Protocol):
     def send(
-        self,
-        scope: Scope,
-        extra: dict | None,
-        *,
-        span: int,
-        media: bool,
+            self,
+            scope: Scope,
+            extra: dict | None,
+            *,
+            span: int,
+            media: bool,
     ) -> dict:
         ...
 
     def edit(
-        self,
-        scope: Scope,
-        extra: dict | None,
-        *,
-        span: int,
-        media: bool,
+            self,
+            scope: Scope,
+            extra: dict | None,
+            *,
+            span: int,
+            media: bool,
     ) -> dict:
         ...
 

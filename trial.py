@@ -1,8 +1,5 @@
 import asyncio
 from contextlib import asynccontextmanager
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
-
 from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway import delete as eraser
@@ -23,6 +20,8 @@ from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 from navigator.presentation.alerts import missing
 from navigator.presentation.navigator import Navigator
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 
 class _StubTelemetryPort:
@@ -305,7 +304,7 @@ def siren() -> None:
 
 def wording() -> None:
     bot = SimpleNamespace(send_message=AsyncMock())
-    
+
     class DummyCodec:
         def decode(self, markup):
             return markup

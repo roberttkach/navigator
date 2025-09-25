@@ -1,8 +1,8 @@
 """FSM storage codecs."""
-from .media import MediaCodec
 from .group import GroupCodec
-from .reply import ReplyCodec
+from .media import MediaCodec
 from .preview import PreviewCodec
+from .reply import ReplyCodec
 from .time import TimeCodec
 
 __all__ = [

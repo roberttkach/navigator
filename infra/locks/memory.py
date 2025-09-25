@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Dict, Tuple
-
 from navigator.core.port.locks import Lock, LockProvider
+from typing import Dict, Tuple
 
 
 class _LockWrapper(Lock):

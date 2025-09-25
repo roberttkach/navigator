@@ -20,14 +20,14 @@ from ...core.value.message import Scope
 
 class Appender:
     def __init__(
-        self,
-        archive: HistoryRepository,
-        state: StateRepository,
-        tail: LatestRepository,
-        planner: ViewPlanner,
-        mapper: EntryMapper,
-        limit: int,
-        telemetry: Telemetry,
+            self,
+            archive: HistoryRepository,
+            state: StateRepository,
+            tail: LatestRepository,
+            planner: ViewPlanner,
+            mapper: EntryMapper,
+            limit: int,
+            telemetry: Telemetry,
     ):
         self._archive = archive
         self._state = state
@@ -40,11 +40,11 @@ class Appender:
         self._trace = TraceAspect(telemetry)
 
     async def execute(
-        self,
-        scope: Scope,
-        bundle: List[Payload],
-        view: Optional[str],
-        root: bool = False,
+            self,
+            scope: Scope,
+            bundle: List[Payload],
+            view: Optional[str],
+            root: bool = False,
     ) -> None:
         await self._trace.run(
             events.APPEND,
@@ -56,12 +56,12 @@ class Appender:
         )
 
     async def _perform(
-        self,
-        scope: Scope,
-        bundle: List[Payload],
-        view: Optional[str],
-        *,
-        root: bool = False,
+            self,
+            scope: Scope,
+            bundle: List[Payload],
+            view: Optional[str],
+            *,
+            root: bool = False,
     ) -> None:
         adjusted = [adapt(scope, normalize(p)) for p in bundle]
         records = await self._archive.recall()

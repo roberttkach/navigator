@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import logging
-
 from dataclasses import dataclass, replace
-from typing import Optional
-
 from navigator.core.entity.history import Entry, Message
 from navigator.core.error import (
     CaptionOverflow,
@@ -21,6 +18,8 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload, caption
 from navigator.core.value.message import Scope
+from typing import Optional
+
 
 def _head(entity: Entry | Message | None) -> Optional[Message]:
     if entity is None:
@@ -55,11 +54,11 @@ class EditExecutor:
         self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def execute(
-        self,
-        scope: Scope,
-        verdict: decision.Decision,
-        payload: Payload,
-        last: Entry | Message | None,
+            self,
+            scope: Scope,
+            verdict: decision.Decision,
+            payload: Payload,
+            last: Entry | Message | None,
     ) -> Optional[Execution]:
         stem = _head(last)
 
@@ -158,10 +157,10 @@ class EditExecutor:
             await self._gateway.delete(scope, identifiers)
 
     def refine(
-        self,
-        execution: Execution,
-        verdict: decision.Decision,
-        payload: Payload,
+            self,
+            execution: Execution,
+            verdict: decision.Decision,
+            payload: Payload,
     ) -> Meta:
         meta = execution.result.meta
         stem = execution.stem

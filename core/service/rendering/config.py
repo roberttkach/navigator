@@ -12,4 +12,3 @@ class _FileIdIdentity(MediaIdentityPolicy):
 class RenderingConfig:
     thumbguard: bool = False
     identity: MediaIdentityPolicy = field(default_factory=_FileIdIdentity)
-

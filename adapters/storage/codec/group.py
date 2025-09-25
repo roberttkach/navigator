@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
 from navigator.core.entity.media import MediaItem
+from typing import Any, Dict, List, Optional
 
 from .media import MediaCodec
 

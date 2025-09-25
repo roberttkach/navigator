@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
-
 from navigator.api import assemble as invoke
 from navigator.core.port.factory import ViewLedger
+from typing import Any, TYPE_CHECKING
 
 from .scope import outline
 

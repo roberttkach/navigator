@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List, Union
-
 from aiogram.types import (
     BufferedInputFile,
     FSInputFile,
@@ -14,7 +12,6 @@ from aiogram.types import (
     InputMediaVideo,
     URLInputFile,
 )
-
 from navigator.core.entity.media import MediaItem, MediaType
 from navigator.core.error import CaptionOverflow, EditForbidden, NavigatorError
 from navigator.core.port.limits import Limits
@@ -22,6 +19,7 @@ from navigator.core.port.pathpolicy import MediaPathPolicy
 from navigator.core.service.rendering.album import validate
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.util.path import local, remote
+from typing import Dict, List, Union
 
 from .serializer.screen import SignatureScreen
 
@@ -95,15 +93,15 @@ def _select(item: MediaItem):
 
 
 def compose(
-    item: MediaItem,
-    *,
-    caption: str | None,
-    captionmeta: Dict[str, object],
-    mediameta: Dict[str, object],
-    policy: MediaPathPolicy,
-    screen: SignatureScreen,
-    limits: Limits,
-    native: bool,
+        item: MediaItem,
+        *,
+        caption: str | None,
+        captionmeta: Dict[str, object],
+        mediameta: Dict[str, object],
+        policy: MediaPathPolicy,
+        screen: SignatureScreen,
+        limits: Limits,
+        native: bool,
 ) -> InputMedia:
     handler = _select(item)
     mapping: Dict[str, object] = {}
@@ -151,15 +149,15 @@ def compose(
 
 
 def assemble(
-    items: List[MediaItem],
-    *,
-    captionmeta: Dict[str, object],
-    mediameta: Dict[str, object],
-    policy: MediaPathPolicy,
-    screen: SignatureScreen,
-    limits: Limits,
-    native: bool,
-    telemetry: Telemetry | None = None,
+        items: List[MediaItem],
+        *,
+        captionmeta: Dict[str, object],
+        mediameta: Dict[str, object],
+        policy: MediaPathPolicy,
+        screen: SignatureScreen,
+        limits: Limits,
+        native: bool,
+        telemetry: Telemetry | None = None,
 ) -> List[InputMedia]:
     channel: TelemetryChannel | None = (
         telemetry.channel(__name__) if telemetry else None

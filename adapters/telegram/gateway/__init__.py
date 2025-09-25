@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List
-
 from aiogram import Bot
-
 from navigator.core.port.extraschema import ExtraSchema
 from navigator.core.port.limits import Limits
 from navigator.core.port.markup import MarkupCodec
@@ -15,28 +12,29 @@ from navigator.core.service.scope import profile
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from typing import List
 
-from ..serializer.screen import SignatureScreen
 from . import util
 from .edit import recast, remap, retitle, rewrite
 from .send import send
+from ..serializer.screen import SignatureScreen
 
 
 class TelegramGateway(MessageGateway):
     def __init__(
-        self,
-        bot: Bot,
-        *,
-        codec: MarkupCodec,
-        limits: Limits,
-        schema: ExtraSchema,
-        policy: MediaPathPolicy,
-        screen: SignatureScreen,
-        preview: LinkPreviewCodec | None = None,
-        chunk: int = 100,
-        truncate: bool = False,
-        deletepause: float = 0.05,
-        telemetry: Telemetry,
+            self,
+            bot: Bot,
+            *,
+            codec: MarkupCodec,
+            limits: Limits,
+            schema: ExtraSchema,
+            policy: MediaPathPolicy,
+            screen: SignatureScreen,
+            preview: LinkPreviewCodec | None = None,
+            chunk: int = 100,
+            truncate: bool = False,
+            deletepause: float = 0.05,
+            telemetry: Telemetry,
     ) -> None:
         self._bot = bot
         self._codec = codec

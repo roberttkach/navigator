@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import List
-
 from navigator.core.service.scope import profile
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.ids import order as _order
 from navigator.core.value.message import Scope
+from typing import List
 
-from ..errors import excusable
 from .retry import invoke
+from ..errors import excusable
+
 
 class DeleteBatch:
     def __init__(self, bot, *, chunk: int, delay: float, telemetry: Telemetry) -> None:

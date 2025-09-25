@@ -8,10 +8,10 @@ from ..bootstrap.navigator import assemble as _bootstrap
 
 
 async def assemble(
-    event: Any,
-    state: Any,
-    ledger: ViewLedgerDTO,
-    scope: ScopeDTO,
+        event: Any,
+        state: Any,
+        ledger: ViewLedgerDTO,
+        scope: ScopeDTO,
 ) -> NavigatorLike:
     """Assemble and return a Navigator facade instance."""
 

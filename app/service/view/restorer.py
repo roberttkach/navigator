@@ -10,6 +10,7 @@ from ....core.port.factory import ViewLedger
 from ....core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ....core.value.content import Payload
 
+
 class ViewRestorer:
     def __init__(self, ledger: ViewLedger, telemetry: Telemetry):
         self._ledger = ledger
@@ -28,9 +29,9 @@ class ViewRestorer:
         return [self._static(m) for m in entry.messages]
 
     async def _dynamic(
-        self,
-        key: str,
-        context: Dict[str, Any],
+            self,
+            key: str,
+            context: Dict[str, Any],
     ) -> Optional[Payload | List[Payload]]:
         try:
             forge = self._ledger.get(key)

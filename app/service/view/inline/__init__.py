@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-
 from navigator.core.entity.history import Message
 from navigator.core.service.rendering import decision as D
 from navigator.core.service.rendering.config import RenderingConfig
@@ -11,11 +10,12 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from ..executor import EditExecutor
-from ...store import preserve
 from .editor import InlineEditor, InlineOutcome
 from .guard import InlineGuard
 from .remap import InlineRemapper
+from ..executor import EditExecutor
+from ...store import preserve
+
 
 @dataclass(slots=True)
 class InlineHandler:
@@ -29,13 +29,13 @@ class InlineHandler:
         self._channel = self.telemetry.channel(__name__)
 
     async def handle(
-        self,
-        *,
-        scope: Scope,
-        payload: Payload,
-        tail: Message | None,
-        executor: EditExecutor,
-        config: RenderingConfig,
+            self,
+            *,
+            scope: Scope,
+            payload: Payload,
+            tail: Message | None,
+            executor: EditExecutor,
+            config: RenderingConfig,
     ) -> InlineOutcome | None:
         entry = preserve(payload, tail)
         if getattr(entry, "group", None):
@@ -52,12 +52,12 @@ class InlineHandler:
         return await self._scribe(scope, entry, base, executor)
 
     async def _mediate(
-        self,
-        scope: Scope,
-        verdict: D.Decision,
-        entry: Payload,
-        base: Message | None,
-        executor: EditExecutor,
+            self,
+            scope: Scope,
+            verdict: D.Decision,
+            entry: Payload,
+            base: Message | None,
+            executor: EditExecutor,
     ) -> InlineOutcome | None:
         if verdict is D.Decision.DELETE_SEND:
             remapped = self.remapper.remap(base, entry)
@@ -86,20 +86,20 @@ class InlineHandler:
         return await self.editor.apply(scope, D.Decision.EDIT_MEDIA, entry, base, executor=executor)
 
     async def _scribe(
-        self,
-        scope: Scope,
-        entry: Payload,
-        base: Message | None,
-        executor: EditExecutor,
+            self,
+            scope: Scope,
+            entry: Payload,
+            base: Message | None,
+            executor: EditExecutor,
     ) -> InlineOutcome | None:
         if base and getattr(base, "media", None):
             adjusted = entry.morph(media=base.media, group=None)
             extra = adjusted.extra or {}
             if (
-                entry.text is not None
-                or extra.get("mode") is not None
-                or extra.get("entities") is not None
-                or extra.get("show_caption_above_media") is not None
+                    entry.text is not None
+                    or extra.get("mode") is not None
+                    or extra.get("entities") is not None
+                    or extra.get("show_caption_above_media") is not None
             ):
                 return await self.editor.apply(
                     scope,
@@ -122,11 +122,11 @@ class InlineHandler:
         return await self.editor.apply(scope, D.Decision.EDIT_TEXT, entry, base, executor=executor)
 
     async def _fallback(
-        self,
-        scope: Scope,
-        entry: Payload,
-        base: Message | None,
-        executor: EditExecutor,
+            self,
+            scope: Scope,
+            entry: Payload,
+            base: Message | None,
+            executor: EditExecutor,
     ) -> InlineOutcome | None:
         if base and not match(getattr(base, "markup", None), getattr(entry, "reply", None)):
             adjusted = entry.morph(media=base.media if base else None, group=None)

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from navigator.core.value.content import Payload, caption as resolve_caption
+from typing import Optional
 
 
 def caption(payload: Payload) -> Optional[str]:

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Any, Dict, FrozenSet
-
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Any, Dict, FrozenSet
 
 
 class SignatureScreen:

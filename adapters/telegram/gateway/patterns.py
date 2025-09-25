@@ -39,5 +39,4 @@ EDIT_FORBIDDEN = ErrorPatterns.collect(
     "message can be edited only within 48 hours",
 )
 
-
 __all__ = ["ErrorPatterns", "NOT_MODIFIED", "EDIT_FORBIDDEN"]

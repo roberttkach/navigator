@@ -25,10 +25,10 @@ def preserve(payload: Payload, entry: Message | None) -> Payload:
 
 
 def _emit(
-    channel: TelemetryChannel | None,
-    level: int,
-    code: LogCode,
-    **payload: object,
+        channel: TelemetryChannel | None,
+        level: int,
+        code: LogCode,
+        **payload: object,
 ) -> None:
     if channel is None:
         return
@@ -45,14 +45,14 @@ def _latest_marker(history: Sequence[Entry]) -> int | None:
 
 
 async def persist(
-    archive: HistoryRepository,
-    ledger: LatestRepository,
-    prune_history: Callable[[list[Entry], int], list[Entry]],
-    limit: int,
-    history: Sequence[Entry],
-    *,
-    operation: str,
-    telemetry: Telemetry | None = None,
+        archive: HistoryRepository,
+        ledger: LatestRepository,
+        prune_history: Callable[[list[Entry], int], list[Entry]],
+        limit: int,
+        history: Sequence[Entry],
+        *,
+        operation: str,
+        telemetry: Telemetry | None = None,
 ) -> None:
     """Persist updated history snapshots with telemetry support."""
 
@@ -94,9 +94,9 @@ async def persist(
 
 
 def reindex(
-    entry: Entry,
-    identifiers: Sequence[int],
-    extras: Sequence[Sequence[int]] | None = None,
+        entry: Entry,
+        identifiers: Sequence[int],
+        extras: Sequence[Sequence[int]] | None = None,
 ) -> Entry:
     """Rebuild entry messages with provided identifiers and extras."""
 
