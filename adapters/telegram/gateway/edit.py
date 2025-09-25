@@ -16,8 +16,8 @@ from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
 from ..media import compose
-from ..serializer import caption as caption_tools
-from ..serializer import text as text_tools
+from ..serializer import caption as captionkit
+from ..serializer import text as textkit
 from ..serializer.screen import SignatureScreen
 from . import util
 
@@ -30,7 +30,7 @@ async def rewrite(
     limits: Limits,
     preview: LinkPreviewCodec | None,
     scope: Scope,
-    message_id: int,
+    identifier: int,
     payload: Payload,
     truncate: bool,
     channel: TelemetryChannel,
@@ -48,12 +48,12 @@ async def rewrite(
         else:
             raise TextOverflow()
     extras = schema.edit(scope, payload.extra, span=len(text), media=False)
-    markup = text_tools.decode(codec, payload.reply)
+    markup = textkit.decode(codec, payload.reply)
     options = None
     if preview is not None and payload.preview is not None:
         options = preview.encode(payload.preview)
     message = await bot.edit_message_text(
-        **util.targets(scope, message_id),
+        **util.targets(scope, identifier),
         text=text,
         reply_markup=markup,
         link_preview_options=options,
@@ -64,7 +64,7 @@ async def rewrite(
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),
         payload=classify(payload),
-        message={"id": message.message_id if hasattr(message, "message_id") else message_id, "extra_len": 0},
+        message={"id": message.message_id if hasattr(message, "message_id") else identifier, "extra_len": 0},
     )
     return message
 
@@ -78,12 +78,12 @@ async def recast(
     policy: MediaPathPolicy,
     limits: Limits,
     scope: Scope,
-    message_id: int,
+    identifier: int,
     payload: Payload,
     truncate: bool,
     channel: TelemetryChannel,
 ):
-    caption = caption_tools.caption(payload)
+    caption = captionkit.caption(payload)
     if caption is not None and len(caption) > limits.captionlimit():
         if truncate:
             caption = caption[: limits.captionlimit()]
@@ -106,18 +106,18 @@ async def recast(
         limits=limits,
         native=not scope.inline,
     )
-    markup = text_tools.decode(codec, payload.reply)
+    markup = textkit.decode(codec, payload.reply)
     message = await bot.edit_message_media(
         media=media,
         reply_markup=markup,
-        **util.targets(scope, message_id),
+        **util.targets(scope, identifier),
     )
     channel.emit(
         logging.INFO,
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),
         payload=classify(payload),
-        message={"id": message.message_id if hasattr(message, "message_id") else message_id, "extra_len": 0},
+        message={"id": message.message_id if hasattr(message, "message_id") else identifier, "extra_len": 0},
     )
     return message
 
@@ -130,12 +130,12 @@ async def retitle(
     screen: SignatureScreen,
     limits: Limits,
     scope: Scope,
-    message_id: int,
+    identifier: int,
     payload: Payload,
     truncate: bool,
     channel: TelemetryChannel,
 ):
-    caption = caption_tools.restate(payload)
+    caption = captionkit.restate(payload)
     if caption is not None and len(caption) > limits.captionlimit():
         if truncate:
             caption = caption[: limits.captionlimit()]
@@ -148,9 +148,9 @@ async def retitle(
         else:
             raise CaptionOverflow()
     extras = schema.edit(scope, payload.extra, span=len(caption or ""), media=True)
-    markup = text_tools.decode(codec, payload.reply)
+    markup = textkit.decode(codec, payload.reply)
     message = await bot.edit_message_caption(
-        **util.targets(scope, message_id),
+        **util.targets(scope, identifier),
         caption=caption,
         reply_markup=markup,
         **screen.filter(bot.edit_message_caption, extras.get("caption", {})),
@@ -160,7 +160,7 @@ async def retitle(
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),
         payload=classify(payload),
-        message={"id": message.message_id if hasattr(message, "message_id") else message_id, "extra_len": 0},
+        message={"id": message.message_id if hasattr(message, "message_id") else identifier, "extra_len": 0},
     )
     return message
 
@@ -170,13 +170,13 @@ async def remap(
     *,
     codec: MarkupCodec,
     scope: Scope,
-    message_id: int,
+    identifier: int,
     payload: Payload,
     channel: TelemetryChannel,
 ):
-    markup = text_tools.decode(codec, payload.reply)
+    markup = textkit.decode(codec, payload.reply)
     message = await bot.edit_message_reply_markup(
-        **util.targets(scope, message_id),
+        **util.targets(scope, identifier),
         reply_markup=markup,
     )
     channel.emit(
@@ -184,7 +184,7 @@ async def remap(
         LogCode.GATEWAY_EDIT_OK,
         scope=profile(scope),
         payload=classify(payload),
-        message={"id": message.message_id if hasattr(message, "message_id") else message_id, "extra_len": 0},
+        message={"id": message.message_id if hasattr(message, "message_id") else identifier, "extra_len": 0},
     )
     return message
 

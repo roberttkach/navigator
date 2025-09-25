@@ -82,9 +82,12 @@ convention.
 | Telegram media | `caption_extra`, `media_extra`, `filtered_caption`, `filtered_settings` | `captionmeta`, `mediameta`, `captionview`, `settingview` | Media assembly helpers now expose one-word arguments and locals. |
 | Telegram gateway | `reply_markup`, `caption_text`, `payload_item`, `file_id` locals | `markup`, `caption`, `member`, `filetoken` | Entry points reuse concise one-word variables while delegating new argument names. |
 | Telegram gateway | `delete_action`, `delete_kwargs`, `scope_profile` locals | `eraser`, `params`, `scopeview` | Delete batch execution uses single-word locals. |
+| Telegram gateway | `gateway aliases caption_tools`, `text_tools` | `captionkit`, `textkit` | Serializer helpers now use single-word module handles. |
+| Telegram gateway | `message_id` parameters | `identifier` | Rewrite, recast, retitle and remap operations share a concise identifier noun. |
 | Album service | `former_group`, `latter_group`, `caption_payload`, `target_id`, `same_path` | `formerband`, `latterband`, `captiondraft`, `target`, `pathmatch` | Group refresh logic now avoids snake_case locals. |
 | Lock providers | `infra.locks.memory.MemoryLockProvider` | `infra.locks.memory.MemoryLatch` | Memory-backed provider now uses a single-word class name. |
 | Lock providers | `infra.locks.redis.RedisLockProvider`, `_RedisLock` | `infra.locks.redis.RedisLatch`, `_Latch` | Redis-backed lock provider adopts one-word naming for the public class and helper. |
+| Tests | `trial.delete_module` | `eraser` | Telegram delete gateway import alias now follows the single-word rule. |
 
 ## Scheduled Renames
 

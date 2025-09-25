@@ -20,8 +20,8 @@ from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
 from ..media import assemble
-from ..serializer import caption as caption_tools
-from ..serializer import text as text_tools
+from ..serializer import caption as captionkit
+from ..serializer import text as textkit
 from ..serializer.screen import SignatureScreen
 from . import util
 
@@ -43,14 +43,14 @@ async def send(
     if scope.inline:
         raise InlineUnsupported("inline_send_not_supported")
 
-    markup = text_tools.decode(codec, payload.reply)
+    markup = textkit.decode(codec, payload.reply)
     options = None
     if preview is not None and payload.preview is not None:
         options = preview.encode(payload.preview)
     targets = util.targets(scope)
 
     if payload.group:
-        caption = caption_tools.caption(payload)
+        caption = captionkit.caption(payload)
         extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
         effect = extras.get("effect")
         bundle = assemble(
@@ -125,7 +125,7 @@ async def send(
         return head, extras, meta
 
     if payload.media:
-        caption = caption_tools.caption(payload)
+        caption = captionkit.caption(payload)
         if caption is not None and len(caption) > limits.captionlimit():
             if truncate:
                 caption = caption[: limits.captionlimit()]
