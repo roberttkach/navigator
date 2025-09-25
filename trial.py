@@ -2,7 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
-import navigator.adapters.telegram.gateway.purge as eraser
+import navigator.adapters.telegram.gateway.purge as purger
 from navigator.adapters.telegram.gateway.purge import PurgeTask
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
 from navigator.app.service.view.planner import ViewPlanner
@@ -390,12 +390,12 @@ def commerce() -> None:
         captured.append((action, args, kwargs))
         return await action(*args, **kwargs)
 
-    baseline = eraser.invoke
-    eraser.invoke = capture
+    baseline = purger.invoke
+    purger.invoke = capture
     try:
         asyncio.run(runner.execute(scope, [9, 1, 2]))
     finally:
-        eraser.invoke = baseline
+        purger.invoke = baseline
 
     assert bot.delete_messages.await_count == 0
     assert bot.delete_business_messages.await_count == 2
