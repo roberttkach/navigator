@@ -43,6 +43,7 @@ convention.
 | Public API | `api.build_navigator` | `api.assemble` | Propagated through bootstrap modules and entry points. |
 | Presentation | `presentation.alerts.prev_not_found` | `presentation.alerts.missing` | Keeps the absent-history alert. |
 | Presentation | `presentation.alerts.inline_unsupported` | `presentation.alerts.barred` | Signals that inline mode is not supported. |
+| Presentation | `presentation.alerts._Lexicon["prev_not_found"]`, `..."inline_unsupported"` | `presentation.alerts._Lexicon["missing"]`, `..."barred"` | Lexicon keys now mirror the exported helper names. |
 | Presentation | `presentation.alerts.back_label` | `presentation.alerts.revert` | Supplies the “Back” button label. |
 | Presentation | `presentation.telegram.router.configure_telemetry` | `presentation.telegram.router.instrument` | Describes telemetry wiring with a single word. |
 | Tests | `trial.stub_telemetry` | `trial.monitor` | Returns a monitoring stub for telemetry. |
@@ -79,6 +80,7 @@ convention.
 | Telegram extra schema | `caption_block`, `text_block`, `media_block`, positional `caption_len` argument | `sections[...]`, `span` | Composed payload uses word-compliant section mapping and the new length noun. |
 | Telegram media | `caption_extra`, `media_extra`, `filtered_caption`, `filtered_settings` | `captionmeta`, `mediameta`, `captionview`, `settingview` | Media assembly helpers now expose one-word arguments and locals. |
 | Telegram gateway | `reply_markup`, `caption_text`, `payload_item`, `file_id` locals | `markup`, `caption`, `member`, `filetoken` | Entry points reuse concise one-word variables while delegating new argument names. |
+| Telegram gateway | `delete_action`, `delete_kwargs`, `scope_profile` locals | `eraser`, `params`, `scopeview` | Delete batch execution uses single-word locals. |
 | Album service | `former_group`, `latter_group`, `caption_payload`, `target_id`, `same_path` | `formerband`, `latterband`, `captiondraft`, `target`, `pathmatch` | Group refresh logic now avoids snake_case locals. |
 
 ## Scheduled Renames

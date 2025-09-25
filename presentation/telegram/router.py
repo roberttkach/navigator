@@ -75,7 +75,7 @@ async def retreat(cb: CallbackQuery, navigator: NavigatorLike, **data: Dict[str,
                 kind="callback",
                 note="history_empty",
             )
-        await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
+        await cb.answer(lexeme("missing", _tongue(cb)), show_alert=True)
     except StateNotFound:
         if channel:
             channel.emit(
@@ -84,16 +84,16 @@ async def retreat(cb: CallbackQuery, navigator: NavigatorLike, **data: Dict[str,
                 kind="callback",
                 note="state_not_found",
             )
-        await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
+        await cb.answer(lexeme("missing", _tongue(cb)), show_alert=True)
     except InlineUnsupported:
         if channel:
             channel.emit(
                 logging.WARNING,
                 LogCode.ROUTER_BACK_FAIL,
                 kind="callback",
-                note="inline_unsupported",
+                note="barred",
             )
-        await cb.answer(lexeme("inline_unsupported", _tongue(cb)), show_alert=True)
+        await cb.answer(lexeme("barred", _tongue(cb)), show_alert=True)
     except Exception:
         if channel:
             channel.emit(
@@ -102,7 +102,7 @@ async def retreat(cb: CallbackQuery, navigator: NavigatorLike, **data: Dict[str,
                 kind="callback",
                 note="generic",
             )
-        await cb.answer(lexeme("prev_not_found", _tongue(cb)), show_alert=True)
+        await cb.answer(lexeme("missing", _tongue(cb)), show_alert=True)
 
 
 __all__ = ["router", "NavigatorLike", "retreat", "BACK_CALLBACK_DATA"]
