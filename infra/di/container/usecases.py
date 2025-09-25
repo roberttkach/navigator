@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from dependency_injector import containers, providers
+from navigator.app.service import TailHistoryAccess, TailHistoryMutator
 from navigator.app.service.view.planner import ViewPlanner
 from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.add import Appender
 from navigator.app.usecase.alarm import Alarm
 from navigator.app.usecase.back import Rewinder
 from navigator.app.usecase.last import Tailer
+from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
+from navigator.app.usecase.last.inline import InlineEditCoordinator
+from navigator.app.usecase.last.mutation import MessageEditCoordinator
 from navigator.app.usecase.pop import Trimmer
 from navigator.app.usecase.rebase import Shifter
 from navigator.app.usecase.replace import Swapper
@@ -81,15 +85,34 @@ class UseCaseContainer(containers.DeclarativeContainer):
         latest=storage.latest,
         telemetry=telemetry,
     )
+    tail_history = providers.Factory(
+        TailHistoryAccess,
+        ledger=storage.chronicle,
+        latest=storage.latest,
+        telemetry=telemetry,
+    )
+    tail_mutator = providers.Factory(TailHistoryMutator)
+    tail_decision = providers.Factory(TailDecisionService, rendering=core.rendering)
+    tail_inline = providers.Factory(
+        InlineEditCoordinator,
+        handler=telegram.inline,
+        executor=telegram.executor,
+        rendering=core.rendering,
+    )
+    tail_mutation = providers.Factory(
+        MessageEditCoordinator,
+        executor=telegram.executor,
+        history=tail_history,
+        mutator=tail_mutator,
+    )
+    tail_telemetry = providers.Factory(TailTelemetry, telemetry=telemetry)
     tailer = providers.Factory(
         Tailer,
-        latest=storage.latest,
-        ledger=storage.chronicle,
-        planner=planner,
-        executor=telegram.executor,
-        inline=telegram.inline,
-        rendering=core.rendering,
-        telemetry=telemetry,
+        history=tail_history,
+        decision=tail_decision,
+        inline=tail_inline,
+        mutation=tail_mutation,
+        telemetry=tail_telemetry,
     )
     alarm = providers.Factory(Alarm, gateway=telegram.gateway, alert=core.alert, telemetry=telemetry)
 
