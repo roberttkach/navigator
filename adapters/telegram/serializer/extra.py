@@ -14,20 +14,20 @@ class TelegramExtraSchema(ExtraSchema):
         scope: Scope,
         extra: dict | None,
         *,
-        caption_len: int,
+        span: int,
         media: bool,
     ) -> dict:
-        return self._compose(scope, extra, caption_len, media, editing=False)
+        return self._compose(scope, extra, span, media, editing=False)
 
     def edit(
         self,
         scope: Scope,
         extra: dict | None,
         *,
-        caption_len: int,
+        span: int,
         media: bool,
     ) -> dict:
-        return self._compose(scope, extra, caption_len, media, editing=True)
+        return self._compose(scope, extra, span, media, editing=True)
 
     def history(self, extra: dict | None, *, length: int) -> dict | None:
         return history_cleanse(extra, length=length)
@@ -36,32 +36,34 @@ class TelegramExtraSchema(ExtraSchema):
         self,
         scope: Scope,
         extra: dict | None,
-        length: int,
+        span: int,
         media: bool,
         *,
         editing: bool,
     ) -> dict:
         mapping = dict(extra or {})
         effect = self._effect(scope, mapping, editing=editing)
-        text_block: Dict[str, Any] = {}
-        caption_block: Dict[str, Any] = {}
-        media_block: Dict[str, Any] = {}
+        sections: Dict[str, Dict[str, Any]] = {
+            "text": {},
+            "caption": {},
+            "media": {},
+        }
 
         if media:
-            caption_block = self._caption(mapping, length)
-            media_block = self._media(mapping)
+            sections["caption"] = self._caption(mapping, span)
+            sections["media"] = self._media(mapping)
         else:
-            text_block = self._text(mapping, length)
+            sections["text"] = self._text(mapping, span)
 
         if effect and media:
-            caption_block["message_effect_id"] = effect
+            sections["caption"]["message_effect_id"] = effect
         elif effect:
-            text_block["message_effect_id"] = effect
+            sections["text"]["message_effect_id"] = effect
 
         return {
-            "text": text_block,
-            "caption": caption_block,
-            "media": media_block,
+            "text": sections["text"],
+            "caption": sections["caption"],
+            "media": sections["media"],
             "effect": effect,
         }
 
@@ -82,22 +84,22 @@ class TelegramExtraSchema(ExtraSchema):
             return mode
         return None
 
-    def _text(self, extra: Dict[str, Any], length: int) -> Dict[str, Any]:
+    def _text(self, extra: Dict[str, Any], span: int) -> Dict[str, Any]:
         fields: Dict[str, Any] = {}
         mode = self._mode(extra)
         if mode:
             fields["parse_mode"] = mode
-        entities = self._entities(extra, length)
+        entities = self._entities(extra, span)
         if entities:
             fields["entities"] = entities
         return fields
 
-    def _caption(self, extra: Dict[str, Any], length: int) -> Dict[str, Any]:
+    def _caption(self, extra: Dict[str, Any], span: int) -> Dict[str, Any]:
         fields: Dict[str, Any] = {}
         mode = self._mode(extra)
         if mode:
             fields["parse_mode"] = mode
-        entities = self._entities(extra, length)
+        entities = self._entities(extra, span)
         if entities:
             fields["caption_entities"] = entities
         return fields
@@ -120,11 +122,11 @@ class TelegramExtraSchema(ExtraSchema):
         return {key: extra[key] for key in allowed if key in extra}
 
     @staticmethod
-    def _entities(extra: Dict[str, Any], length: int):
+    def _entities(extra: Dict[str, Any], span: int):
         entities = extra.get("entities")
         if not entities:
             return None
-        return sanitize(entities, length or 0) or None
+        return sanitize(entities, span or 0) or None
 
 
 __all__ = ["TelegramExtraSchema"]

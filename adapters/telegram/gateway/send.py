@@ -43,20 +43,20 @@ async def send(
     if scope.inline:
         raise InlineUnsupported("inline_send_not_supported")
 
-    reply_markup = text_tools.decode(codec, payload.reply)
+    markup = text_tools.decode(codec, payload.reply)
     options = None
     if preview is not None and payload.preview is not None:
         options = preview.encode(payload.preview)
     targets = util.targets(scope)
 
     if payload.group:
-        caption_text = caption_tools.caption(payload)
-        extras = schema.send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+        caption = caption_tools.caption(payload)
+        extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
         effect = extras.get("effect")
         bundle = assemble(
             payload.group,
-            caption_extra=extras.get("caption", {}),
-            media_extra=extras.get("media", {}),
+            captionmeta=extras.get("caption", {}),
+            mediameta=extras.get("media", {}),
             policy=policy,
             screen=screen,
             limits=limits,
@@ -74,42 +74,42 @@ async def send(
         head = messages[0]
         clusters: list[Cluster] = []
         for index, message in enumerate(messages):
-            payload_item = None
+            member = None
             if payload.group and index < len(payload.group):
-                payload_item = payload.group[index]
+                member = payload.group[index]
             medium = None
-            file_id = None
+            filetoken = None
             if message.photo:
                 medium = "photo"
-                file_id = message.photo[-1].file_id
+                filetoken = message.photo[-1].file_id
             elif message.video:
                 medium = "video"
-                file_id = message.video.file_id
+                filetoken = message.video.file_id
             elif message.animation:
                 medium = "animation"
-                file_id = message.animation.file_id
+                filetoken = message.animation.file_id
             elif message.document:
                 medium = "document"
-                file_id = message.document.file_id
+                filetoken = message.document.file_id
             elif message.audio:
                 medium = "audio"
-                file_id = message.audio.file_id
+                filetoken = message.audio.file_id
             elif message.voice:
                 medium = "voice"
-                file_id = message.voice.file_id
+                filetoken = message.voice.file_id
             elif message.video_note:
                 medium = "video_note"
-                file_id = message.video_note.file_id
-            if medium is None and payload_item is not None:
-                medium = getattr(getattr(payload_item, "type", None), "value", None)
-            if file_id is None and payload_item is not None:
-                path = getattr(payload_item, "path", None)
+                filetoken = message.video_note.file_id
+            if medium is None and member is not None:
+                medium = getattr(getattr(member, "type", None), "value", None)
+            if filetoken is None and member is not None:
+                path = getattr(member, "path", None)
                 if isinstance(path, str):
-                    file_id = path
+                    filetoken = path
             clusters.append(
                 Cluster(
                     medium=medium,
-                    file=file_id,
+                    file=filetoken,
                     caption=message.caption if index == 0 else "",
                 )
             )
@@ -125,10 +125,10 @@ async def send(
         return head, extras, meta
 
     if payload.media:
-        caption_text = caption_tools.caption(payload)
-        if caption_text is not None and len(caption_text) > limits.captionlimit():
+        caption = caption_tools.caption(payload)
+        if caption is not None and len(caption) > limits.captionlimit():
             if truncate:
-                caption_text = caption_text[: limits.captionlimit()]
+                caption = caption[: limits.captionlimit()]
                 channel.emit(
                     logging.INFO,
                     LogCode.TOO_LONG_TRUNCATED,
@@ -137,15 +137,15 @@ async def send(
                 )
             else:
                 raise CaptionOverflow()
-        extras = schema.send(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+        extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
         sender = getattr(bot, f"send_{payload.media.type.value}")
         arguments = {
             **targets,
             payload.media.type.value: policy.adapt(payload.media.path, native=True),
-            "reply_markup": reply_markup,
+            "reply_markup": markup,
         }
-        if caption_text is not None:
-            arguments["caption"] = caption_text
+        if caption is not None:
+            arguments["caption"] = caption
         arguments.update(screen.filter(sender, extras.get("caption", {})))
         arguments.update(screen.filter(sender, extras.get("media", {})))
         message = await sender(**arguments)
@@ -173,11 +173,11 @@ async def send(
             )
         else:
             raise TextOverflow()
-    extras = schema.send(scope, payload.extra, caption_len=len(text), media=False)
+    extras = schema.send(scope, payload.extra, span=len(text), media=False)
     message = await bot.send_message(
         **targets,
         text=text,
-        reply_markup=reply_markup,
+        reply_markup=markup,
         link_preview_options=options,
         **screen.filter(bot.send_message, extras.get("text", {})),
     )
