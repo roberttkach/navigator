@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import logging
 import time
+from functools import lru_cache
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
 from .events import TraceSpec
@@ -22,13 +23,19 @@ def _capture_context(
 ) -> Capture:
     """Extract stable telemetry context from ``fn`` call arguments."""
 
-    signature = inspect.signature(fn)
-    binding = signature.bind_partial(*args, **kwargs)
+    binding = _signature_of(fn).bind_partial(*args, **kwargs)
     scope = binding.arguments.get("scope")
     payload = binding.arguments.get("payload")
     scoped = profile(scope) if scope is not None else None
     classified = classify(payload) if payload is not None else None
     return scoped, classified
+
+
+@lru_cache(maxsize=128)
+def _signature_of(fn: Callable[..., Any]) -> inspect.Signature:
+    """Return cached function signature to avoid repeated introspection."""
+
+    return inspect.signature(fn)
 
 
 def _snapshot(result: Any) -> Optional[dict]:

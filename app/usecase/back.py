@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Any, Dict, List, Sequence, Tuple
 
 from ..log import events
 from ..log.aspect import TraceAspect
 from ..service.view.planner import ViewPlanner
 from ..service.view.restorer import ViewRestorer
-from ...core.entity.history import Entry, Message
+from ...core.entity.history import Entry
 from ...core.error import HistoryEmpty
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
@@ -120,53 +121,29 @@ class Rewinder:
         if not target.messages:
             return
 
-        marker = target.messages[0].id
+        marker = int(target.messages[0].id)
         await self._latest.mark(marker)
         trimmed = list(history[:-1])
-        await self._ledger.archive(trimmed)
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_SAVE,
-            op="back",
-            history={"len": len(trimmed)},
-        )
+        await self._archive(trimmed)
 
     def _patch_entry(self, target: Entry, render: Any) -> Entry:
         """Return ``target`` with messages patched using ``render`` metadata."""
 
-        identifiers = [int(identifier) for identifier in getattr(render, "ids", None) or []]
-        raw_extras = getattr(render, "extras", None) or []
-        extras = [list(extra) for extra in raw_extras]
+        identifiers = self._identifiers(render)
+        extras = self._extras(render)
         limit = min(len(target.messages), len(identifiers))
-        patched: List[Message] = []
+        messages = list(target.messages)
 
         for index in range(limit):
             message = target.messages[index]
-            default = list(message.extras) if message.extras is not None else []
-            provided = extras[index] if index < len(extras) else default
-            patched.append(
-                type(message)(
-                    id=int(identifiers[index]),
-                    text=message.text,
-                    media=message.media,
-                    group=message.group,
-                    markup=message.markup,
-                    preview=message.preview,
-                    extra=message.extra,
-                    extras=list(provided),
-                    inline=message.inline,
-                    automated=message.automated,
-                    ts=message.ts,
-                )
+            provided = extras[index] if index < len(extras) else list(message.extras or [])
+            messages[index] = replace(
+                message,
+                id=int(identifiers[index]),
+                extras=list(provided),
             )
 
-        patched.extend(target.messages[limit:])
-        return type(target)(
-            state=target.state,
-            view=target.view,
-            messages=patched,
-            root=target.root,
-        )
+        return replace(target, messages=messages)
 
     async def _finalize(
             self,
@@ -179,13 +156,7 @@ class Rewinder:
 
         trimmed = list(history[:-1])
         trimmed[-1] = rebuilt
-        await self._ledger.archive(trimmed)
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_SAVE,
-            op="back",
-            history={"len": len(trimmed)},
-        )
+        await self._archive(trimmed)
         await self._status.assign(target.state)
         self._channel.emit(
             logging.INFO,
@@ -193,7 +164,7 @@ class Rewinder:
             op="back",
             state={"target": target.state},
         )
-        identifiers = [int(identifier) for identifier in getattr(render, "ids", None) or []]
+        identifiers = self._identifiers(render)
         if not identifiers:
             return
         await self._latest.mark(identifiers[0])
@@ -202,4 +173,28 @@ class Rewinder:
             LogCode.LAST_SET,
             op="back",
             message={"id": identifiers[0]},
+        )
+
+    def _identifiers(self, render: Any) -> List[int]:
+        """Return integer identifiers extracted from ``render`` metadata."""
+
+        raw = getattr(render, "ids", None) or []
+        return [int(identifier) for identifier in raw]
+
+    def _extras(self, render: Any) -> List[List[int]]:
+        """Return extras extracted from ``render`` metadata."""
+
+        raw = getattr(render, "extras", None) or []
+        return [list(extra) for extra in raw]
+
+    async def _archive(self, history: Sequence[Entry]) -> None:
+        """Persist ``history`` snapshot with telemetry bookkeeping."""
+
+        snapshot = list(history)
+        await self._ledger.archive(snapshot)
+        self._channel.emit(
+            logging.DEBUG,
+            LogCode.HISTORY_SAVE,
+            op="back",
+            history={"len": len(snapshot)},
         )

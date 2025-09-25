@@ -2,15 +2,15 @@ from __future__ import annotations
 
 
 class NavigatorError(Exception):
-    """Base error for navigator domain."""
+    """Represent navigator domain errors."""
 
 
 class HistoryEmpty(NavigatorError):
-    """History is too short to perform the operation."""
+    """Signal that history is too short for the requested operation."""
 
 
 class StateNotFound(NavigatorError):
-    """Requested state is missing from history."""
+    """Report that a requested state could not be located."""
 
     def __init__(self, state: str | None = None):
         message = "state_not_found" if state is None else f"state_not_found:{state}"
@@ -25,31 +25,31 @@ class EditForbidden(NavigatorError):
 
 
 class MessageUnchanged(NavigatorError):
-    """Edit operation produced no changes."""
+    """Report an edit that produced no changes."""
 
 
 class InlineUnsupported(NavigatorError):
-    """Operation is not supported in inline context."""
+    """Reject operations that are not supported inline."""
 
 
 class EmptyPayload(NavigatorError):
-    """Attempt to send or edit with empty payload."""
+    """Reject attempts to send or edit with empty payload."""
 
 
 class TextOverflow(NavigatorError):
-    """Text payload exceeds gateway limits."""
+    """Signal that text payload exceeds gateway limits."""
 
 
 class CaptionOverflow(NavigatorError):
-    """Caption payload exceeds gateway limits."""
+    """Signal that caption payload exceeds gateway limits."""
 
 
 class ExtraForbidden(NavigatorError):
-    """Extra payload rejected by codec."""
+    """Reject extra payload that the codec disallows."""
 
 
 class MetadataError(NavigatorError):
-    """Base class for metadata mapping errors."""
+    """Represent errors encountered while mapping metadata."""
 
 
 class MetadataKindMissing(MetadataError):
