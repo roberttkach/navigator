@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from typing import Optional
-
 from navigator.core.entity.history import Entry, Message
 from navigator.core.error import (
     CaptionOverflow,
@@ -23,6 +21,7 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload, caption
 from navigator.core.value.message import Scope
+from typing import Optional
 
 
 def _head(entity: Entry | Message | None) -> Optional[Message]:

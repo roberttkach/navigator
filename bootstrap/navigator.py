@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 from navigator.adapters.telemetry.logger import PythonLoggingTelemetry
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
 from navigator.core.port.factory import ViewForge, ViewLedger
@@ -14,6 +12,7 @@ from navigator.presentation.alerts import missing
 from navigator.presentation.bootstrap.navigator import compose
 from navigator.presentation.navigator import Navigator
 from navigator.presentation.telegram import instrument
+from typing import Any, cast
 
 
 class _LedgerAdapter(ViewLedger):

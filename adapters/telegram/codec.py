@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Type
-
 from aiogram.types import (
     ForceReply,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-
 from navigator.core.entity.markup import Markup
 from navigator.core.port.markup import MarkupCodec
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
+from typing import Any, Optional, Type
 
 _AIROGRAM_TYPES: dict[str, Type[Any]] = {
     "InlineKeyboardMarkup": InlineKeyboardMarkup,

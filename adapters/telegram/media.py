@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Mapping
-
 from aiogram.types import (
     BufferedInputFile,
     FSInputFile,
@@ -16,7 +14,7 @@ from aiogram.types import (
     InputMediaVideo,
     URLInputFile,
 )
-
+from collections.abc import Mapping
 from navigator.core.entity.media import MediaItem, MediaType
 from navigator.core.error import CaptionOverflow, EditForbidden, NavigatorError
 from navigator.core.port.limits import Limits
@@ -29,11 +27,11 @@ from .serializer.screen import SignatureScreen
 
 InputFile = str | FSInputFile | BufferedInputFile | URLInputFile
 InputMedia = (
-    InputMediaPhoto
-    | InputMediaVideo
-    | InputMediaDocument
-    | InputMediaAudio
-    | InputMediaAnimation
+        InputMediaPhoto
+        | InputMediaVideo
+        | InputMediaDocument
+        | InputMediaAudio
+        | InputMediaAnimation
 )
 
 _FILE_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-=]{20,}$")

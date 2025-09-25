@@ -1,14 +1,13 @@
 """Aiogram middleware that injects a Navigator instance into handler context."""
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict
-
 from aiogram import BaseMiddleware
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
-
 from navigator.api import assemble as assemble_navigator
 from navigator.core.port.factory import ViewLedger
+from typing import Any, Awaitable, Callable, Dict
+
 from .scope import outline
 
 Handler = Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]]
@@ -21,10 +20,10 @@ class NavigatorMiddleware(BaseMiddleware):
         self._ledger = ledger
 
     async def __call__(
-        self,
-        handler: Handler,
-        event: TelegramObject,
-        data: Dict[str, Any],
+            self,
+            handler: Handler,
+            event: TelegramObject,
+            data: Dict[str, Any],
     ) -> Any:
         state = data.get("state")
         if not isinstance(state, FSMContext):  # pragma: no cover - runtime guard
@@ -40,4 +39,3 @@ class NavigatorMiddleware(BaseMiddleware):
 
 
 __all__ = ["NavigatorMiddleware", "Handler"]
-

@@ -137,7 +137,6 @@ class _TailView:
         )
 
 
-
 class Navigator:
     def __init__(
             self,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-
 from navigator.core.entity.history import Message
 from navigator.core.service.rendering import decision as D
 from navigator.core.service.rendering.config import RenderingConfig

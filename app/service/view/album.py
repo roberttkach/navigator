@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from typing import Iterable, Optional
-
 from navigator.core.entity.history import Message
 from navigator.core.entity.media import MediaItem
 from navigator.core.port.limits import Limits
@@ -17,6 +15,7 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from typing import Iterable, Optional
 
 from .executor import EditExecutor
 
@@ -113,22 +112,22 @@ def _compare_album(
     """Summarize structural differences between historic and fresh albums."""
 
     retitled = (
-        (former_band[0].caption or "") != (latter_band[0].caption or "")
-        or _encode_dict(_caption_fields(former_info))
-        != _encode_dict(_caption_fields(latter_info))
-        or bool(former_info.get("show_caption_above_media"))
-        != bool(latter_info.get("show_caption_above_media"))
+            (former_band[0].caption or "") != (latter_band[0].caption or "")
+            or _encode_dict(_caption_fields(former_info))
+            != _encode_dict(_caption_fields(latter_info))
+            or bool(former_info.get("show_caption_above_media"))
+            != bool(latter_info.get("show_caption_above_media"))
     )
 
     reshaped = (
-        bool(former_info.get("spoiler")) != bool(latter_info.get("spoiler"))
-        or _ensure_int(former_info.get("start"))
-        != _ensure_int(latter_info.get("start"))
+            bool(former_info.get("spoiler")) != bool(latter_info.get("spoiler"))
+            or _ensure_int(former_info.get("start"))
+            != _ensure_int(latter_info.get("start"))
     )
 
     if thumbguard:
         reshaped = reshaped or (
-            bool(former_info.get("has_thumb")) != bool(latter_info.get("thumb") is not None)
+                bool(former_info.get("has_thumb")) != bool(latter_info.get("thumb") is not None)
         )
 
     return _AlbumDiff(retitled=retitled, reshaped=reshaped)

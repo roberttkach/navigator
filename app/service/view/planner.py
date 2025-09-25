@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
-
 from navigator.core.entity.history import Entry, Message
 from navigator.core.service.rendering import decision
 from navigator.core.service.rendering.config import RenderingConfig
@@ -13,6 +11,7 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from typing import List, Optional, Sequence
 
 from .album import AlbumService
 from .executor import EditExecutor, Execution
@@ -163,15 +162,15 @@ class ViewPlanner:
         mutated = head_changed
 
         mutated = (
-            mutated
-            or await self._sync(
-                scope,
-                fresh,
-                ledger,
-                state,
-                start=origin,
-                inline_mode=False,
-            )
+                mutated
+                or await self._sync(
+            scope,
+            fresh,
+            ledger,
+            state,
+            start=origin,
+            inline_mode=False,
+        )
         )
 
         stored = len(ledger)

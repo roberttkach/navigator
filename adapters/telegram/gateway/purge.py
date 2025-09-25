@@ -3,12 +3,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any, Optional
-
 from navigator.core.service.scope import profile
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.ids import order as arrange
 from navigator.core.value.message import Scope
+from typing import Any, Optional
 
 from .retry import invoke
 from ..errors import excusable

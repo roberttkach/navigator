@@ -39,4 +39,3 @@ def outline(event) -> Scope:
 
 
 __all__ = ["outline"]
-
