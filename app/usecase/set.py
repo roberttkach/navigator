@@ -105,6 +105,8 @@ class Setter:
         inline: bool,
     ) -> List[Payload]:
         memory = await self._status.payload()
+        if memory is None:
+            memory = {}
         merged = {**memory, **context}
         restored = await self._restorer.revive(target, merged, inline=inline)
         return [normalize(p) for p in restored]
