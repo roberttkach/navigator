@@ -75,6 +75,11 @@ convention.
 | Telegram container | `infra.di.container.telegram.inline_guard`, `inline_remapper`, `inline_editor` | `sentinel`, `mapper`, `scribe` | Provider bindings now comply with the single-word policy. |
 | Core container | `infra.di.container.core.load_settings` alias, `lock_provider` binding | `ingest`, `locker` | Aligns import alias and lock provider attribute with the rule. |
 | Settings overrides | `infra.config.settings.env_key` | `variable` | Simplifies the environment variable loop binding. |
+| Extra schema | `ExtraSchema.send caption_len`, `ExtraSchema.edit caption_len` | `span` | Shared parameter now uses a single concise noun for measured length. |
+| Telegram extra schema | `caption_block`, `text_block`, `media_block`, positional `caption_len` argument | `sections[...]`, `span` | Composed payload uses word-compliant section mapping and the new length noun. |
+| Telegram media | `caption_extra`, `media_extra`, `filtered_caption`, `filtered_settings` | `captionmeta`, `mediameta`, `captionview`, `settingview` | Media assembly helpers now expose one-word arguments and locals. |
+| Telegram gateway | `reply_markup`, `caption_text`, `payload_item`, `file_id` locals | `markup`, `caption`, `member`, `filetoken` | Entry points reuse concise one-word variables while delegating new argument names. |
+| Album service | `former_group`, `latter_group`, `caption_payload`, `target_id`, `same_path` | `formerband`, `latterband`, `captiondraft`, `target`, `pathmatch` | Group refresh logic now avoids snake_case locals. |
 
 ## Scheduled Renames
 

@@ -76,13 +76,13 @@ class AlbumService:
     async def refresh(
         self, scope: Scope, former: Message, latter: Payload
     ) -> Optional[tuple[int, list[int], GroupMeta, bool]]:
-        former_group = former.group or []
-        latter_group = latter.group or []
+        formerband = former.group or []
+        latterband = latter.group or []
 
         if not (
-            former_group
-            and latter_group
-            and aligned(former_group, latter_group, limits=self._limits)
+            formerband
+            and latterband
+            and aligned(formerband, latterband, limits=self._limits)
         ):
             return None
 
@@ -113,7 +113,7 @@ class AlbumService:
                 return value
 
         retitled = (
-            (former_group[0].caption or "") != (latter_group[0].caption or "")
+            (formerband[0].caption or "") != (latterband[0].caption or "")
             or _encode(_excerpt(formerinfo)) != _encode(_excerpt(latterinfo))
             or bool(formerinfo.get("show_caption_above_media"))
             != bool(latterinfo.get("show_caption_above_media"))
@@ -129,16 +129,16 @@ class AlbumService:
                 reshaped = True
 
         if retitled:
-            cap = latter_group[0].caption or ""
-            caption_payload = latter.morph(
-                media=latter_group[0],
+            cap = latterband[0].caption or ""
+            captiondraft = latter.morph(
+                media=latterband[0],
                 group=None,
                 text=("" if cap == "" else None),
             )
             execution = await self._executor.execute(
                 scope,
                 Decision.EDIT_MEDIA_CAPTION,
-                caption_payload,
+                captiondraft,
                 former,
             )
             mutated = mutated or bool(execution)
@@ -152,18 +152,18 @@ class AlbumService:
             )
             mutated = mutated or bool(execution)
 
-        for index, pair in enumerate(zip(former_group, latter_group)):
+        for index, pair in enumerate(zip(formerband, latterband)):
             past = pair[0]
             latest = pair[1]
-            target_id = album[0] if index == 0 else album[index]
+            target = album[0] if index == 0 else album[index]
             altered = _changed(past, latest)
-            same_path = (
+            pathmatch = (
                 isinstance(getattr(past, "path", None), str)
                 and isinstance(getattr(latest, "path", None), str)
                 and getattr(past, "path") == getattr(latest, "path")
             )
-            if altered or ((not altered) and reshaped and same_path):
-                head = former if index == 0 else _copy(former, target_id, past)
+            if altered or ((not altered) and reshaped and pathmatch):
+                head = former if index == 0 else _copy(former, target, past)
                 payload = latter.morph(media=latest, group=None)
                 execution = await self._executor.execute(
                     scope,
@@ -173,7 +173,7 @@ class AlbumService:
                 )
                 mutated = mutated or bool(execution)
 
-        clusters = _collect(latter_group, album)
+        clusters = _collect(latterband, album)
 
         self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_OK, count=len(album))
 

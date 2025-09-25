@@ -13,7 +13,7 @@ class ExtraSchema(Protocol):
         scope: Scope,
         extra: dict | None,
         *,
-        caption_len: int,
+        span: int,
         media: bool,
     ) -> dict:
         ...
@@ -23,7 +23,7 @@ class ExtraSchema(Protocol):
         scope: Scope,
         extra: dict | None,
         *,
-        caption_len: int,
+        span: int,
         media: bool,
     ) -> dict:
         ...

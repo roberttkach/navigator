@@ -98,8 +98,8 @@ def compose(
     item: MediaItem,
     *,
     caption: str | None,
-    caption_extra: Dict[str, object],
-    media_extra: Dict[str, object],
+    captionmeta: Dict[str, object],
+    mediameta: Dict[str, object],
     policy: MediaPathPolicy,
     screen: SignatureScreen,
     limits: Limits,
@@ -113,38 +113,38 @@ def compose(
             raise CaptionOverflow()
         mapping["caption"] = caption
 
-    filtered_caption = screen.filter(handler, caption_extra)
-    mapping.update(filtered_caption)
+    captionview = screen.filter(handler, captionmeta)
+    mapping.update(captionview)
 
     settings: Dict[str, object] = {}
-    if media_extra.get("spoiler") is not None:
-        settings["has_spoiler"] = bool(media_extra.get("spoiler"))
-    if media_extra.get("show_caption_above_media") is not None:
-        settings["show_caption_above_media"] = bool(media_extra.get("show_caption_above_media"))
-    if media_extra.get("start") is not None:
-        settings["start_timestamp"] = media_extra.get("start")
-    if media_extra.get("supports_streaming") is not None:
-        settings["supports_streaming"] = bool(media_extra.get("supports_streaming"))
+    if mediameta.get("spoiler") is not None:
+        settings["has_spoiler"] = bool(mediameta.get("spoiler"))
+    if mediameta.get("show_caption_above_media") is not None:
+        settings["show_caption_above_media"] = bool(mediameta.get("show_caption_above_media"))
+    if mediameta.get("start") is not None:
+        settings["start_timestamp"] = mediameta.get("start")
+    if mediameta.get("supports_streaming") is not None:
+        settings["supports_streaming"] = bool(mediameta.get("supports_streaming"))
 
-    if media_extra.get("cover") is not None:
-        settings["cover"] = policy.adapt(media_extra.get("cover"), native=native)
-    if media_extra.get("thumb") is not None:
-        settings["thumbnail"] = policy.adapt(media_extra.get("thumb"), native=native)
+    if mediameta.get("cover") is not None:
+        settings["cover"] = policy.adapt(mediameta.get("cover"), native=native)
+    if mediameta.get("thumb") is not None:
+        settings["thumbnail"] = policy.adapt(mediameta.get("thumb"), native=native)
 
-    if media_extra.get("title") is not None:
-        settings["title"] = str(media_extra.get("title"))
-    if media_extra.get("performer") is not None:
-        settings["performer"] = str(media_extra.get("performer"))
-    if media_extra.get("duration") is not None:
-        settings["duration"] = int(media_extra.get("duration"))
+    if mediameta.get("title") is not None:
+        settings["title"] = str(mediameta.get("title"))
+    if mediameta.get("performer") is not None:
+        settings["performer"] = str(mediameta.get("performer"))
+    if mediameta.get("duration") is not None:
+        settings["duration"] = int(mediameta.get("duration"))
 
-    if media_extra.get("width") is not None:
-        settings["width"] = int(media_extra.get("width"))
-    if media_extra.get("height") is not None:
-        settings["height"] = int(media_extra.get("height"))
+    if mediameta.get("width") is not None:
+        settings["width"] = int(mediameta.get("width"))
+    if mediameta.get("height") is not None:
+        settings["height"] = int(mediameta.get("height"))
 
-    filtered_settings = screen.filter(handler, settings)
-    mapping.update(filtered_settings)
+    settingview = screen.filter(handler, settings)
+    mapping.update(settingview)
 
     arguments = {"media": convert(item, policy=policy, native=native), **mapping}
     return handler(**arguments)
@@ -153,8 +153,8 @@ def compose(
 def assemble(
     items: List[MediaItem],
     *,
-    caption_extra: Dict[str, object],
-    media_extra: Dict[str, object],
+    captionmeta: Dict[str, object],
+    mediameta: Dict[str, object],
     policy: MediaPathPolicy,
     screen: SignatureScreen,
     limits: Limits,
@@ -184,8 +184,8 @@ def assemble(
             compose(
                 item,
                 caption=text,
-                caption_extra=caption_extra,
-                media_extra=media_extra,
+                captionmeta=captionmeta,
+                mediameta=mediameta,
                 policy=policy,
                 screen=screen,
                 limits=limits,

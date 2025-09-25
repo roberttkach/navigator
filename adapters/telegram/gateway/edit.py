@@ -47,7 +47,7 @@ async def rewrite(
             )
         else:
             raise TextOverflow()
-    extras = schema.edit(scope, payload.extra, caption_len=len(text), media=False)
+    extras = schema.edit(scope, payload.extra, span=len(text), media=False)
     markup = text_tools.decode(codec, payload.reply)
     options = None
     if preview is not None and payload.preview is not None:
@@ -83,10 +83,10 @@ async def recast(
     truncate: bool,
     channel: TelemetryChannel,
 ):
-    caption_text = caption_tools.caption(payload)
-    if caption_text is not None and len(caption_text) > limits.captionlimit():
+    caption = caption_tools.caption(payload)
+    if caption is not None and len(caption) > limits.captionlimit():
         if truncate:
-            caption_text = caption_text[: limits.captionlimit()]
+            caption = caption[: limits.captionlimit()]
             channel.emit(
                 logging.INFO,
                 LogCode.TOO_LONG_TRUNCATED,
@@ -95,12 +95,12 @@ async def recast(
             )
         else:
             raise CaptionOverflow()
-    extras = schema.edit(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+    extras = schema.edit(scope, payload.extra, span=len(caption or ""), media=True)
     media = compose(
         payload.media,
-        caption=caption_text,
-        caption_extra=extras.get("caption", {}),
-        media_extra=extras.get("media", {}),
+        caption=caption,
+        captionmeta=extras.get("caption", {}),
+        mediameta=extras.get("media", {}),
         policy=policy,
         screen=screen,
         limits=limits,
@@ -135,10 +135,10 @@ async def retitle(
     truncate: bool,
     channel: TelemetryChannel,
 ):
-    caption_text = caption_tools.restate(payload)
-    if caption_text is not None and len(caption_text) > limits.captionlimit():
+    caption = caption_tools.restate(payload)
+    if caption is not None and len(caption) > limits.captionlimit():
         if truncate:
-            caption_text = caption_text[: limits.captionlimit()]
+            caption = caption[: limits.captionlimit()]
             channel.emit(
                 logging.INFO,
                 LogCode.TOO_LONG_TRUNCATED,
@@ -147,11 +147,11 @@ async def retitle(
             )
         else:
             raise CaptionOverflow()
-    extras = schema.edit(scope, payload.extra, caption_len=len(caption_text or ""), media=True)
+    extras = schema.edit(scope, payload.extra, span=len(caption or ""), media=True)
     markup = text_tools.decode(codec, payload.reply)
     message = await bot.edit_message_caption(
         **util.targets(scope, message_id),
-        caption=caption_text,
+        caption=caption,
         reply_markup=markup,
         **screen.filter(bot.edit_message_caption, extras.get("caption", {})),
     )
