@@ -15,7 +15,8 @@ from .retry import invoke
 class DeleteBatch:
     def __init__(self, bot, *, chunk: int, delay: float, telemetry: Telemetry) -> None:
         self._bot = bot
-        self._chunk = min(int(chunk), 100)
+        size = int(chunk)
+        self._chunk = max(min(size, 100), 1)
         self._delay = max(float(delay), 0.0)
         self._channel: TelemetryChannel = telemetry.channel(__name__)
 
