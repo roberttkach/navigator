@@ -1,7 +1,11 @@
+"""Plan rendering operations that reconcile history with payloads."""
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import List, Optional, Sequence
+
 from navigator.core.entity.history import Entry, Message
 from navigator.core.service.rendering import decision
 from navigator.core.service.rendering.config import RenderingConfig
@@ -9,7 +13,6 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
-from typing import List, Optional, Sequence
 
 from .album import AlbumService
 from .executor import EditExecutor, Execution
@@ -20,6 +23,8 @@ from ...internal.policy import shield
 
 @dataclass(frozen=True, slots=True)
 class RenderResult:
+    """Describe a single gateway result produced during rendering."""
+
     id: int
     extra: List[int]
     meta: Meta
@@ -27,6 +32,8 @@ class RenderResult:
 
 @dataclass(frozen=True, slots=True)
 class RenderNode:
+    """Collect identifiers and metadata for a rendered node."""
+
     ids: List[int]
     extras: List[List[int]]
     metas: List[Meta]
@@ -35,22 +42,30 @@ class RenderNode:
 
 @dataclass(slots=True)
 class _RenderState:
+    """Accumulate message identifiers and metadata during planning."""
+
     ids: List[int] = field(default_factory=list)
     extras: List[List[int]] = field(default_factory=list)
     metas: List[Meta] = field(default_factory=list)
 
     def retain(self, message: Message) -> None:
+        """Record existing message details without triggering mutations."""
+
         self.ids.append(message.id)
         self.extras.append(list(message.extras or []))
         self.metas.append(_meta(message))
 
     def collect(self, execution: Execution, meta: Meta) -> None:
+        """Capture execution outcome alongside calculated metadata."""
+
         self.ids.append(execution.result.id)
         self.extras.append(list(execution.result.extra))
         self.metas.append(meta)
 
 
 def _meta(node: Message) -> Meta:
+    """Convert stored history message into lightweight metadata."""
+
     if node.group:
         return GroupMeta(
             clusters=[
@@ -74,6 +89,8 @@ def _meta(node: Message) -> Meta:
 
 
 class ViewPlanner:
+    """Plan edits, deletions, and sends for a desired payload state."""
+
     def __init__(
             self,
             executor: EditExecutor,
@@ -96,6 +113,8 @@ class ViewPlanner:
             *,
             inline: bool,
     ) -> Optional[RenderNode]:
+        """Plan rendering actions for ``payloads`` within ``scope``."""
+
         if inline:
             shield(scope, payloads, inline=True)
 
@@ -103,32 +122,60 @@ class ViewPlanner:
         ledger = list(trail.messages) if trail else []
 
         state = _RenderState()
-        mutated = False
-        origin = 0
+        if inline:
+            mutated = await self._render_inline(scope, fresh, ledger, state)
+        else:
+            mutated = await self._render_regular(scope, fresh, ledger, state)
 
-        if not inline:
-            origin, changed = await self._head(scope, ledger, fresh, state)
-            mutated = mutated or changed
+        if not state.ids:
+            return None
 
-        stored = len(ledger)
-        incoming = len(fresh)
+        return RenderNode(ids=state.ids, extras=state.extras, metas=state.metas, changed=mutated)
+
+    async def _render_inline(
+            self,
+            scope: Scope,
+            fresh: List[Payload],
+            ledger: List[Message],
+            state: _RenderState,
+    ) -> bool:
+        """Reconcile inline payloads with the existing ledger."""
+
+        return await self._sync(
+            scope,
+            fresh,
+            ledger,
+            state,
+            start=0,
+            inline_mode=True,
+        )
+
+    async def _render_regular(
+            self,
+            scope: Scope,
+            fresh: List[Payload],
+            ledger: List[Message],
+            state: _RenderState,
+    ) -> bool:
+        """Handle regular rendering that may edit, append, or trim history."""
+
+        origin, head_changed = await self._head(scope, ledger, fresh, state)
+        mutated = head_changed
+
         mutated = mutated or await self._sync(
             scope,
             fresh,
             ledger,
             state,
             start=origin,
-            mode=inline,
+            inline_mode=False,
         )
 
-        if not inline:
-            mutated = mutated or await self._trim(scope, ledger, incoming)
-            mutated = mutated or await self._append(scope, fresh, stored, state)
-
-        if not state.ids:
-            return None
-
-        return RenderNode(ids=state.ids, extras=state.extras, metas=state.metas, changed=mutated)
+        stored = len(ledger)
+        incoming = len(fresh)
+        mutated = mutated or await self._trim(scope, ledger, incoming)
+        mutated = mutated or await self._append(scope, fresh, stored, state)
+        return mutated
 
     async def _head(
             self,
@@ -137,6 +184,8 @@ class ViewPlanner:
             fresh: List[Payload],
             state: _RenderState,
     ) -> tuple[int, bool]:
+        """Attempt to refresh the leading album message when applicable."""
+
         if not (
                 ledger
                 and fresh
@@ -164,8 +213,10 @@ class ViewPlanner:
             state: _RenderState,
             *,
             start: int,
-            mode: bool,
+            inline_mode: bool,
     ) -> bool:
+        """Synchronize overlapping history and payload slices."""
+
         mutated = False
         limit = min(len(ledger), len(fresh))
         for index in range(start, limit):
@@ -177,7 +228,7 @@ class ViewPlanner:
                 state.retain(previous)
                 continue
 
-            if mode:
+            if inline_mode:
                 changed = await self._mediate(scope, current, previous, state)
                 if not changed:
                     state.retain(previous)
@@ -198,6 +249,8 @@ class ViewPlanner:
             previous: Message,
             state: _RenderState,
     ) -> bool:
+        """Apply inline reconciliation using the inline handler pipeline."""
+
         outcome = await self._inline.handle(
             scope=scope,
             payload=payload,
@@ -222,6 +275,8 @@ class ViewPlanner:
             previous: Message,
             state: _RenderState,
     ) -> bool:
+        """Execute standard reconciliation against the message gateway."""
+
         execution = await self._executor.execute(scope, verdict, payload, previous)
         if execution is None:
             return False
@@ -230,6 +285,8 @@ class ViewPlanner:
         return True
 
     async def _trim(self, scope: Scope, ledger: List[Message], incoming: int) -> bool:
+        """Prune stored messages beyond the planned payload length."""
+
         if len(ledger) <= incoming:
             return False
         targets: List[int] = []
@@ -248,19 +305,17 @@ class ViewPlanner:
             stored: int,
             state: _RenderState,
     ) -> bool:
+        """Append new payloads beyond existing history."""
+
         if len(fresh) <= stored:
             return False
         mutated = False
         for payload in fresh[stored:]:
-            execution = await self._executor.execute(
-                scope,
-                decision.Decision.RESEND,
-                payload,
-                None,
-            )
+            verdict = decision.decide(None, payload, self._rendering)
+            execution = await self._executor.execute(scope, verdict, payload, None)
             if not execution:
                 continue
-            meta = self._executor.refine(execution, decision.Decision.RESEND, payload)
+            meta = self._executor.refine(execution, verdict, payload)
             state.collect(execution, meta)
             mutated = True
         return mutated

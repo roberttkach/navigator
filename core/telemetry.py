@@ -1,4 +1,4 @@
-"""Domain-level façade for telemetry emission."""
+"""Expose telemetry helpers for instrumented operations."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +15,8 @@ class TelemetryChannel:
     _origin: str
 
     def emit(self, level: int, code: LogCode, /, **fields: Any) -> None:
+        """Forward the telemetry event to the configured port."""
+
         self._port.emit(code, level, origin=self._origin, **fields)
 
 
@@ -25,9 +27,13 @@ class Telemetry:
         self._port = port
 
     def calibrate(self, mode: str) -> None:
+        """Adjust the telemetry port configuration for the given mode."""
+
         self._port.calibrate(mode)
 
     def channel(self, origin: str) -> TelemetryChannel:
+        """Return a channel dedicated to the supplied ``origin`` name."""
+
         return TelemetryChannel(self._port, origin)
 
 

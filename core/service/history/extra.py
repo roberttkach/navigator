@@ -1,8 +1,9 @@
-"""Provide helpers to sanitize history message extras."""
+"""Sanitize and normalize history extra metadata payloads."""
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any, Dict, MutableMapping, Optional, Protocol
 
 from ...telemetry import LogCode, Telemetry, TelemetryChannel
@@ -19,12 +20,18 @@ class ExtraHandler(Protocol):
             filtered: MutableExtra,
             key: str,
             value: Any,
-            *,
-            length: int,
-            telemetry: Telemetry | None,
-            channel: TelemetryChannel | None,
+            context: "ExtraContext",
     ) -> None:
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class ExtraContext:
+    """Carry shared parameters for extra sanitization handlers."""
+
+    length: int
+    telemetry: Telemetry | None
+    channel: TelemetryChannel | None
 
 
 def cleanse(
@@ -40,11 +47,11 @@ def cleanse(
 
     filtered: Dict[str, Any] = {}
     channel = _derive_channel(telemetry)
+    context = ExtraContext(length=length, telemetry=telemetry, channel=channel)
 
     for key, value in extra.items():
-        _EXTRA_HANDLERS.get(key, _keep_unknown)(
-            filtered, key, value, length=length, telemetry=telemetry, channel=channel
-        )
+        handler = _EXTRA_HANDLERS.get(key, _keep_unknown)
+        handler(filtered, key, value, context)
 
     return filtered or None
 
@@ -59,14 +66,11 @@ def _keep_unknown(
         filtered: MutableExtra,
         key: str,
         value: Any,
-        *,
-        length: int,
-        telemetry: Telemetry | None,
-        channel: TelemetryChannel | None,
+        context: ExtraContext,
 ) -> None:
     """Propagate an unrecognised extra value without modification."""
 
-    del length, telemetry, channel
+    del context
     filtered[key] = value
 
 
@@ -74,18 +78,15 @@ def _handle_entities(
         filtered: MutableExtra,
         key: str,
         value: Any,
-        *,
-        length: int,
-        telemetry: Telemetry | None,
-        channel: TelemetryChannel | None,
+        context: ExtraContext,
 ) -> None:
     """Sanitize text entities, emitting telemetry when they are discarded."""
 
-    sanitized = sanitize(value, length, telemetry=telemetry)
+    sanitized = sanitize(value, context.length, telemetry=context.telemetry)
     if sanitized:
         filtered[key] = sanitized
-    elif channel:
-        channel.emit(
+    elif context.channel:
+        context.channel.emit(
             logging.DEBUG,
             LogCode.EXTRA_UNKNOWN_DROPPED,
             filtered_keys=[key],
@@ -96,14 +97,11 @@ def _handle_thumb(
         filtered: MutableExtra,
         key: str,
         value: Any,
-        *,
-        length: int,
-        telemetry: Telemetry | None,
-        channel: TelemetryChannel | None,
+        context: ExtraContext,
 ) -> None:
     """Record the presence of a thumbnail without persisting raw data."""
 
-    del length, telemetry, channel
+    del context
     if value is not None:
         filtered["has_thumb"] = True
 

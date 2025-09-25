@@ -1,6 +1,9 @@
+"""Coordinate Telegram edit operations based on reconciliation verdicts."""
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from navigator.core.entity.history import Entry, Message
 from navigator.core.error import (
@@ -22,6 +25,8 @@ from typing import Optional
 
 
 def _head(entity: Entry | Message | None) -> Optional[Message]:
+    """Return the most recent message associated with ``entity``."""
+
     if entity is None:
         return None
     if isinstance(entity, Message):
@@ -35,6 +40,8 @@ def _head(entity: Entry | Message | None) -> Optional[Message]:
 
 
 def _targets(message: Message | None) -> list[int]:
+    """Collect identifiers that need deletion after resend fallbacks."""
+
     if not message:
         return []
     bundle = [int(message.id)]
@@ -44,14 +51,28 @@ def _targets(message: Message | None) -> list[int]:
 
 @dataclass(slots=True)
 class Execution:
+    """Capture the gateway response alongside the stem message."""
+
     result: Result
     stem: Message | None
 
 
 class EditExecutor:
+    """Dispatch reconciliation decisions to the Telegram gateway."""
+
+    _Handler = Callable[[Scope, Payload, Message | None], Awaitable[Optional[Execution]]]
+
     def __init__(self, gateway: MessageGateway, telemetry: Telemetry) -> None:
         self._gateway = gateway
         self._channel: TelemetryChannel = telemetry.channel(__name__)
+        self._handlers: dict[decision.Decision, EditExecutor._Handler] = {
+            decision.Decision.RESEND: self._send,
+            decision.Decision.EDIT_TEXT: self._rewrite,
+            decision.Decision.EDIT_MEDIA: self._recast,
+            decision.Decision.EDIT_MEDIA_CAPTION: self._retitle,
+            decision.Decision.EDIT_MARKUP: self._remap,
+            decision.Decision.DELETE_SEND: self._delete_and_send,
+        }
 
     async def execute(
             self,
@@ -60,47 +81,19 @@ class EditExecutor:
             payload: Payload,
             last: Entry | Message | None,
     ) -> Optional[Execution]:
+        """Apply ``verdict`` using the gateway and return execution metadata."""
+
         stem = _head(last)
 
         try:
             if verdict is decision.Decision.NO_CHANGE:
                 return None
 
-            if verdict is decision.Decision.RESEND:
-                result = await self._gateway.send(scope, payload)
-                return Execution(result=result, stem=stem)
+            handler = self._handlers.get(verdict)
+            if handler is None:
+                return None
 
-            if verdict is decision.Decision.EDIT_TEXT:
-                if not stem:
-                    return None
-                result = await self._gateway.rewrite(scope, stem.id, payload)
-                return Execution(result=result, stem=stem)
-
-            if verdict is decision.Decision.EDIT_MEDIA:
-                if not stem:
-                    return None
-                result = await self._gateway.recast(scope, stem.id, payload)
-                return Execution(result=result, stem=stem)
-
-            if verdict is decision.Decision.EDIT_MEDIA_CAPTION:
-                if not stem:
-                    return None
-                result = await self._gateway.retitle(scope, stem.id, payload)
-                return Execution(result=result, stem=stem)
-
-            if verdict is decision.Decision.EDIT_MARKUP:
-                if not stem:
-                    return None
-                result = await self._gateway.remap(scope, stem.id, payload)
-                return Execution(result=result, stem=stem)
-
-            if verdict is decision.Decision.DELETE_SEND:
-                result = await self._gateway.send(scope, payload)
-                if stem:
-                    await self._gateway.delete(scope, _targets(stem))
-                return Execution(result=result, stem=stem)
-
-            return None
+            return await handler(scope, payload, stem)
 
         except EmptyPayload:
             self._channel.emit(
@@ -152,6 +145,50 @@ class EditExecutor:
                 return None
             return None
 
+    async def _send(self, scope: Scope, payload: Payload, stem: Message | None) -> Execution:
+        result = await self._gateway.send(scope, payload)
+        return Execution(result=result, stem=stem)
+
+    async def _rewrite(
+            self, scope: Scope, payload: Payload, stem: Message | None
+    ) -> Optional[Execution]:
+        if not stem:
+            return None
+        result = await self._gateway.rewrite(scope, stem.id, payload)
+        return Execution(result=result, stem=stem)
+
+    async def _recast(
+            self, scope: Scope, payload: Payload, stem: Message | None
+    ) -> Optional[Execution]:
+        if not stem:
+            return None
+        result = await self._gateway.recast(scope, stem.id, payload)
+        return Execution(result=result, stem=stem)
+
+    async def _retitle(
+            self, scope: Scope, payload: Payload, stem: Message | None
+    ) -> Optional[Execution]:
+        if not stem:
+            return None
+        result = await self._gateway.retitle(scope, stem.id, payload)
+        return Execution(result=result, stem=stem)
+
+    async def _remap(
+            self, scope: Scope, payload: Payload, stem: Message | None
+    ) -> Optional[Execution]:
+        if not stem:
+            return None
+        result = await self._gateway.remap(scope, stem.id, payload)
+        return Execution(result=result, stem=stem)
+
+    async def _delete_and_send(
+            self, scope: Scope, payload: Payload, stem: Message | None
+    ) -> Execution:
+        result = await self._gateway.send(scope, payload)
+        if stem:
+            await self._gateway.delete(scope, _targets(stem))
+        return Execution(result=result, stem=stem)
+
     async def delete(self, scope: Scope, identifiers: list[int]) -> None:
         if identifiers:
             await self._gateway.delete(scope, identifiers)
@@ -162,6 +199,8 @@ class EditExecutor:
             verdict: decision.Decision,
             payload: Payload,
     ) -> Meta:
+        """Reconcile execution metadata with persisted message state."""
+
         meta = execution.result.meta
         stem = execution.stem
 
