@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from navigator.core.entity.history import Entry, Message
+from navigator.core.entity.history import Message
 from navigator.core.service.rendering import decision as D
 from navigator.core.service.rendering.config import RenderingConfig
 from navigator.core.service.rendering.helpers import match
@@ -45,8 +45,7 @@ class InlineHandler:
         if media:
             if not self.guard.admissible(entry):
                 return await self._fallback(scope, entry, base, executor)
-            anchor = Entry(state=None, view=None, messages=[tail]) if tail else None
-            verdict = D.decide(anchor, entry, config)
+            verdict = D.decide(tail, entry, config)
             return await self._mediate(scope, verdict, entry, base, executor)
 
         return await self._scribe(scope, entry, base, executor)
