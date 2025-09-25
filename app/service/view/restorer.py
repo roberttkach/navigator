@@ -1,40 +1,60 @@
+"""Restore view payloads via ledger-backed factories."""
+
 from __future__ import annotations
 
 import inspect
 import logging
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Dict, List, Optional
 
-from ....core.entity.history import Entry
+from ....core.entity.history import Entry, Message
 from ....core.error import InlineUnsupported
 from ....core.port.factory import ViewLedger
 from ....core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ....core.value.content import Payload
 
 
+_Forge = Callable[..., Awaitable[Optional[Payload | List[Payload]]]]
+
+
 class ViewRestorer:
+    """Orchestrate static and dynamic view restoration."""
+
     def __init__(self, ledger: ViewLedger, telemetry: Telemetry):
         self._ledger = ledger
         self._channel: TelemetryChannel = telemetry.channel(__name__)
 
-    async def revive(self, entry: Entry, context: Dict[str, Any], *, inline: bool) -> List[Payload]:
+    async def revive(
+            self,
+            entry: Entry,
+            context: Dict[str, Any],
+            *,
+            inline: bool,
+    ) -> List[Payload]:
+        """Return payloads for ``entry`` while respecting inline rules."""
+
         if entry.view:
             self._channel.emit(logging.INFO, LogCode.RESTORE_DYNAMIC, forge=entry.view)
-            content = await self._dynamic(entry.view, context)
-            if content:
-                if isinstance(content, list):
-                    if inline and len(content) > 1:
-                        raise InlineUnsupported("inline_dynamic_multi_payload")
-                    return content
-                return [content]
-        return [self._static(m) for m in entry.messages]
+            content = await self._resolve_dynamic(entry.view, context)
+            payloads = self._coerce_payloads(content, inline)
+            if payloads is not None:
+                return payloads
 
-    async def _dynamic(
+        return [self._static(message) for message in entry.messages]
+
+    async def _resolve_dynamic(
             self,
             key: str,
-            context: Dict[str, Any],
+            context: Mapping[str, Any],
     ) -> Optional[Payload | List[Payload]]:
+        forge = self._obtain_forge(key)
+        if forge is None:
+            return None
+        return await self._invoke_forge(key, forge, context)
+
+    def _obtain_forge(self, key: str) -> Optional[_Forge]:
         try:
-            forge = self._ledger.get(key)
+            return self._ledger.get(key)
         except KeyError:
             self._channel.emit(
                 logging.WARNING,
@@ -43,12 +63,17 @@ class ViewRestorer:
                 note="factory_not_found",
             )
             return None
+
+    async def _invoke_forge(
+            self,
+            key: str,
+            forge: _Forge,
+            context: Mapping[str, Any],
+    ) -> Optional[Payload | List[Payload]]:
         try:
-            params = inspect.signature(forge).parameters
-            supplies = {name: context[name] for name in params if name in context}
-            content = await forge(**supplies)
-            return content
-        except Exception as exc:
+            supplies = self._extract_supplies(forge, context)
+            return await forge(**supplies)
+        except Exception as exc:  # pragma: no cover - defensive
             self._channel.emit(
                 logging.WARNING,
                 LogCode.RESTORE_DYNAMIC_FALLBACK,
@@ -60,7 +85,30 @@ class ViewRestorer:
             return None
 
     @staticmethod
-    def _static(message) -> Payload:
+    def _extract_supplies(
+            forge: _Forge,
+            context: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        parameters = inspect.signature(forge).parameters
+        return {name: context[name] for name in parameters if name in context}
+
+    def _coerce_payloads(
+            self,
+            content: Optional[Payload | List[Payload]],
+            inline: bool,
+    ) -> Optional[List[Payload]]:
+        if not content:
+            return None
+        if isinstance(content, list):
+            if inline and len(content) > 1:
+                raise InlineUnsupported("inline_dynamic_multi_payload")
+            return content
+        return [content]
+
+    @staticmethod
+    def _static(message: Message) -> Payload:
+        """Convert a stored message into a payload shell."""
+
         text = getattr(message, "text", None)
         media = getattr(message, "media", None)
 

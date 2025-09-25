@@ -54,18 +54,7 @@ def normalize(payload: Payload) -> Payload:
 
 
 def caption(x: Payload | Entry | None) -> str | None:
-    """
-    Возвращает подпись к медиа с приоритетом источника:
-    1) Если есть group — возвращает None.
-    2) Если text является непустой строкой — возвращает text (приоритет над caption).
-    3) Иначе, если caption медиа непустая — возвращает её.
-    4) Иначе None.
-    Лишние пробелы по краям отбрасываются.
-
-    Инвариант: прямые вызовы с «сырым» Entry не предназначены для клиентского кода.
-    Для сравнения старого и нового представления используйте нормализованный вид
-    (см. decision._view_of) или передавайте Payload.
-    """
+    """Return prioritized caption text for media payloads."""
     if x is None:
         return None
     if getattr(x, "group", None):
