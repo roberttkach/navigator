@@ -12,17 +12,28 @@ HistoryList = List[Entry]
 def prune(history: HistoryList, limit: int) -> HistoryList:
     """Return history trimmed to ``limit`` while preserving the root."""
 
-    try:
-        maximum = max(0, int(limit))
-    except (TypeError, ValueError):
-        maximum = 0
+    maximum = _coerce_limit(limit)
     if len(history) <= maximum:
         return history
 
     overflow = len(history) - maximum
     if history and getattr(history[0], "root", False):
-        preserved = history[0]
-        start = min(len(history), 1 + overflow)
-        return [preserved, *history[start:]]
-
+        return _preserve_root(history, overflow)
     return history[overflow:]
+
+
+def _coerce_limit(limit: int) -> int:
+    """Coerce ``limit`` into a non-negative integer bound."""
+
+    try:
+        return max(0, int(limit))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _preserve_root(history: HistoryList, overflow: int) -> HistoryList:
+    """Retain the root entry while trimming ``overflow`` items."""
+
+    preserved = history[0]
+    start = min(len(history), 1 + overflow)
+    return [preserved, *history[start:]]

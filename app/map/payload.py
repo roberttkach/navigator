@@ -1,78 +1,27 @@
+"""Translate DTO content into core payload objects."""
+
+from __future__ import annotations
+
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional
 from urllib.parse import urlparse
 
 from ..dto.content import Content, Media, Node
 from ...core.entity.media import MediaItem, MediaType
 from ...core.value.content import Payload
 
-_PHOTO = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
-_VIDEO = {".mp4", ".mov", ".m4v", ".webm"}
-_AUDIO = {".mp3", ".m4a", ".ogg", ".oga", ".flac", ".wav"}
-_ANIM = {".gif"}
-
-
-def _moniker(x: object) -> str:
-    for attr in ("filename", "file_name", "name"):
-        v = getattr(x, attr, None)
-        if isinstance(v, str) and v:
-            return v
-    p = getattr(x, "path", None)
-    if p and hasattr(p, "name"):
-        return str(p.name)
-    if isinstance(x, str):
-        try:
-            u = urlparse(x)
-            if u.scheme in ("http", "https") and u.path:
-                return Path(u.path).name
-        except Exception:
-            pass
-        return x
-    return ""
-
-
-def _classify(path: object) -> MediaType:
-    name = _moniker(path).lower()
-    ext = Path(name).suffix.lower()
-    if ext in _PHOTO:
-        return MediaType.PHOTO
-    if ext in _VIDEO:
-        return MediaType.VIDEO
-    if ext in _AUDIO:
-        return MediaType.AUDIO
-    if ext in _ANIM:
-        return MediaType.ANIMATION
-    return MediaType.DOCUMENT
-
-
-def _marshal(item: Media) -> MediaItem:
-    mtype = MediaType(item.type) if item.type else _classify(item.path)
-    return MediaItem(type=mtype, path=item.path, caption=item.caption)
-
-
-def _single(item: Optional[Media]) -> Optional[MediaItem]:
-    if not item:
-        return None
-    return _marshal(item)
-
-
-def _cluster(items: Optional[List[Media]]) -> Optional[List[MediaItem]]:
-    if not items:
-        return None
-    return [_marshal(i) for i in items]
+_MEDIA_EXTENSIONS = {
+    MediaType.PHOTO: {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"},
+    MediaType.VIDEO: {".mp4", ".mov", ".m4v", ".webm"},
+    MediaType.AUDIO: {".mp3", ".m4a", ".ogg", ".oga", ".flac", ".wav"},
+    MediaType.ANIMATION: {".gif"},
+}
 
 
 def convert(dto: Content) -> Payload:
-    text = dto.text
-    erase = False
-    if dto.media and dto.erase:
-        if text is None or text == "":
-            text = ""
-            erase = True
-        else:
-            erase = False
-    if dto.media and text == "" and not dto.erase:
-        raise ValueError("empty_caption_without_erase_flag")
+    """Convert ``Content`` DTOs into domain ``Payload`` objects."""
+
+    text, erase = _resolve_text(dto)
     return Payload(
         text=text,
         media=_single(dto.media),
@@ -85,4 +34,70 @@ def convert(dto: Content) -> Payload:
 
 
 def collect(node: Node) -> List[Payload]:
-    return [convert(m) for m in node.messages]
+    """Convert all messages within ``node`` into payloads."""
+
+    return [convert(message) for message in node.messages]
+
+
+def _resolve_text(dto: Content) -> tuple[Optional[str], bool]:
+    """Return caption text and erase flag respecting DTO invariants."""
+
+    if not dto.media:
+        return dto.text, False
+    if dto.erase:
+        if dto.text in (None, ""):
+            return "", True
+        return dto.text, False
+    if dto.text == "":
+        raise ValueError("empty_caption_without_erase_flag")
+    return dto.text, False
+
+
+def _single(item: Optional[Media]) -> Optional[MediaItem]:
+    """Convert an optional media DTO into a media entity."""
+
+    return _marshal(item) if item else None
+
+
+def _cluster(items: Optional[Iterable[Media]]) -> Optional[List[MediaItem]]:
+    """Convert DTO collections into media entity clusters."""
+
+    if not items:
+        return None
+    return [_marshal(media) for media in items]
+
+
+def _marshal(item: Media) -> MediaItem:
+    """Build a ``MediaItem`` instance for the provided DTO ``item``."""
+
+    kind = MediaType(item.type) if item.type else _classify(item.path)
+    return MediaItem(type=kind, path=item.path, caption=item.caption)
+
+
+def _classify(path: object) -> MediaType:
+    """Infer media type by inspecting the ``path`` representation."""
+
+    name = _extract_name(path).lower()
+    extension = Path(name).suffix.lower()
+    for kind, suffixes in _MEDIA_EXTENSIONS.items():
+        if extension in suffixes:
+            return kind
+    return MediaType.DOCUMENT
+
+
+def _extract_name(candidate: object) -> str:
+    """Return a best-effort filename for ``candidate`` objects."""
+
+    for attribute in ("filename", "file_name", "name"):
+        value = getattr(candidate, attribute, None)
+        if isinstance(value, str) and value:
+            return value
+    path = getattr(candidate, "path", None)
+    if path and hasattr(path, "name"):
+        return str(path.name)
+    if isinstance(candidate, str):
+        parsed = urlparse(candidate)
+        if parsed.scheme in {"http", "https"} and parsed.path:
+            return Path(parsed.path).name
+        return candidate
+    return ""
