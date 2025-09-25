@@ -15,10 +15,12 @@ except ImportError:  # pragma: no cover - minimal fallback for plain pydantic in
     class BaseSettings(BaseModel):  # type: ignore[misc]
         """Simplified settings base that accepts keyword overrides only."""
 
-        model_config = ConfigDict(extra="ignore")
+        pass
 
     SettingsConfigDict = ConfigDict  # type: ignore[misc]
     _HAS_SETTINGS = False
+
+    setattr(BaseSettings, "model_config", ConfigDict(extra="ignore"))
 
 
 _ENV_MAPPING: Dict[str, str] = {
@@ -47,8 +49,6 @@ def _overrides() -> Dict[str, str]:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
-
     historylimit: int = Field(18, ge=1)
     chunk: int = Field(100, ge=1, le=100)
     truncate: bool = Field(False)
@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     @property
     def deletepause(self) -> float:
         return float(self.deletepausems) / 1000.0
+
+
+setattr(Settings, "model_config", SettingsConfigDict(env_file=".env", case_sensitive=False))
 
 
 @lru_cache(maxsize=1)

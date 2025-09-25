@@ -88,6 +88,10 @@ convention.
 | Lock providers | `infra.locks.memory.MemoryLockProvider` | `infra.locks.memory.MemoryLatch` | Memory-backed provider now uses a single-word class name. |
 | Lock providers | `infra.locks.redis.RedisLockProvider`, `_RedisLock` | `infra.locks.redis.RedisLatch`, `_Latch` | Redis-backed lock provider adopts one-word naming for the public class and helper. |
 | Tests | `trial.delete_module` | `eraser` | Telegram delete gateway import alias now follows the single-word rule. |
+| Inline remap | `app.service.view.inline.remap.origin_media`, `fresh_media` | `originrich`, `freshrich` | Inline remapper booleans now use single-word indicators. |
+| View executor | `app.service.view.executor.caption_value`, `text_value` | `captioncopy`, `textcopy` | Execution refinement locals adopt concise single nouns. |
+| Tests | `trial.original_invoke` | `baseline` | Delete batch test now uses a single-word sentinel for the monkeypatched call. |
+| Settings | `infra.config.settings.model_config` assignment | String-driven `setattr` | Pydantic-required attribute kept without introducing a snake_case identifier. |
 
 ## Scheduled Renames
 
