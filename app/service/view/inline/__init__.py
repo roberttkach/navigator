@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from navigator.core.entity.history import Message
 from navigator.core.service.rendering import decision as D
@@ -23,9 +23,10 @@ class InlineHandler:
     remapper: InlineRemapper
     editor: InlineEditor
     telemetry: Telemetry
+    _channel: TelemetryChannel = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self._channel: TelemetryChannel = self.telemetry.channel(__name__)
+        self._channel = self.telemetry.channel(__name__)
 
     async def handle(
         self,
