@@ -8,7 +8,9 @@ from ...core.entity.history import Entry, Message
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 
-def preserve(payload, entry):
+def preserve(payload, entry: Message | None):
+    if entry is None:
+        return payload
     return replace(
         payload,
         preview=payload.preview if payload.preview is not None else entry.preview,
