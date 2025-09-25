@@ -15,6 +15,7 @@ class ScopeDTO:
     business: str | None = None
     category: str | None = None
     topic: int | None = None
+    direct: bool = False
 
 
 @runtime_checkable

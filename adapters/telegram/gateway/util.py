@@ -23,8 +23,11 @@ def targets(scope: Scope, message: Optional[int] = None, *, topical: bool = True
         data["chat_id"] = scope.chat
         if message is not None:
             data["message_id"] = message
-    if topical and scope.topic is not None and not scope.inline:
-        data["message_thread_id"] = scope.topic
+    if topical and not scope.inline and scope.topic is not None:
+        if getattr(scope, "direct", False):
+            data["direct_messages_topic_id"] = scope.topic
+        else:
+            data["message_thread_id"] = scope.topic
     return data
 
 
