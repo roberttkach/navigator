@@ -3,18 +3,19 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from ..navigator import Navigator
-from ...app.locks.guard import Guardian
-from ...app.usecase.add import Appender
-from ...app.usecase.alarm import Alarm
-from ...app.usecase.back import Rewinder
-from ...app.usecase.last import Tailer
-from ...app.usecase.pop import Trimmer
-from ...app.usecase.rebase import Shifter
-from ...app.usecase.replace import Swapper
-from ...app.usecase.set import Setter
-from ...core.telemetry import Telemetry
-from ...core.value.message import Scope
+from navigator.app.locks.guard import Guardian
+from navigator.app.service import build_navigator_runtime
+from navigator.app.usecase.add import Appender
+from navigator.app.usecase.alarm import Alarm
+from navigator.app.usecase.back import Rewinder
+from navigator.app.usecase.last import Tailer
+from navigator.app.usecase.pop import Trimmer
+from navigator.app.usecase.rebase import Shifter
+from navigator.app.usecase.replace import Swapper
+from navigator.app.usecase.set import Setter
+from navigator.core.telemetry import Telemetry
+from navigator.core.value.message import Scope
+from navigator.presentation.navigator import Navigator
 
 
 class _Core(Protocol):
@@ -48,17 +49,17 @@ class NavigatorContainer(Protocol):
 
 
 def compose(
-        container: NavigatorContainer,
-        scope: Scope,
-        *,
-        guard: Guardian | None = None,
+    container: NavigatorContainer,
+    scope: Scope,
+    *,
+    guard: Guardian | None = None,
 ) -> Navigator:
     """Construct a Navigator facade from a DI container."""
 
     core = container.core()
     usecases = container.usecases()
     sentinel = guard or core.guard()
-    return Navigator(
+    runtime = build_navigator_runtime(
         appender=usecases.appender(),
         swapper=usecases.swapper(),
         rewinder=usecases.rewinder(),
@@ -71,6 +72,7 @@ def compose(
         guard=sentinel,
         telemetry=core.telemetry(),
     )
+    return Navigator(runtime)
 
 
 __all__ = ["compose", "NavigatorContainer"]

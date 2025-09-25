@@ -9,11 +9,12 @@ individual steps easier to test in isolation.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable, Sequence
 from dataclasses import replace
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from typing import Any
 
-from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.service.view.planner import ViewPlanner
+from navigator.app.service.view.restorer import ViewRestorer
 from navigator.core.entity.history import Entry
 from navigator.core.error import HistoryEmpty
 from navigator.core.port.history import HistoryRepository
@@ -23,25 +24,23 @@ from navigator.core.service.scope import profile
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.message import Scope
 
+_MIN_HISTORY_LENGTH = 2
 
-class RewindHistoryAccess:
-    """Expose history/state operations required during rewind."""
+
+class RewindHistoryReader:
+    """Expose read-only history operations required during rewind."""
 
     def __init__(
-            self,
-            ledger: HistoryRepository,
-            status: StateRepository,
-            latest: LatestRepository,
-            telemetry: Telemetry,
+        self,
+        ledger: HistoryRepository,
+        status: StateRepository,
+        telemetry: Telemetry,
     ) -> None:
         self._ledger = ledger
         self._status = status
-        self._latest = latest
-        self._channel: TelemetryChannel = telemetry.channel(
-            f"{__name__}.history"
-        )
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history.read")
 
-    async def snapshot(self, scope: Scope) -> List[Entry]:
+    async def snapshot(self, scope: Scope) -> list[Entry]:
         """Return the current history snapshot while logging telemetry."""
 
         history = await self._ledger.recall()
@@ -54,17 +53,33 @@ class RewindHistoryAccess:
         )
         return history
 
-    def select(self, history: Sequence[Entry]) -> Tuple[Entry, Entry]:
+    def select(self, history: Sequence[Entry]) -> tuple[Entry, Entry]:
         """Return the current and previous entries in ``history``."""
 
-        if len(history) < 2:
+        if len(history) < _MIN_HISTORY_LENGTH:
             raise HistoryEmpty("Cannot go back, history is too short.")
         return history[-1], history[-2]
 
-    async def payload(self) -> Dict[str, Any]:
+    async def payload(self) -> dict[str, Any]:
         """Return persisted state payload used for restore operations."""
 
         return await self._status.payload()
+
+
+class RewindHistoryWriter:
+    """Persist rewind side-effects while emitting telemetry."""
+
+    def __init__(
+        self,
+        ledger: HistoryRepository,
+        status: StateRepository,
+        latest: LatestRepository,
+        telemetry: Telemetry,
+    ) -> None:
+        self._ledger = ledger
+        self._status = status
+        self._latest = latest
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history.write")
 
     async def assign_state(self, state: str | None) -> None:
         """Persist ``state`` and report bookkeeping telemetry."""
@@ -117,25 +132,25 @@ class RewindRenderer:
         self._planner = planner
 
     async def revive(
-            self,
-            target: Entry,
-            context: Dict[str, Any],
-            memory: Dict[str, Any],
-            *,
-            inline: bool,
-    ) -> List[Any]:
+        self,
+        target: Entry,
+        context: dict[str, Any],
+        memory: dict[str, Any],
+        *,
+        inline: bool,
+    ) -> list[Any]:
         merged = {**memory, **context}
         revived = await self._restorer.revive(target, merged, inline=inline)
         return [*revived]
 
     async def render(
-            self,
-            scope: Scope,
-            payloads: List[Any],
-            origin: Entry,
-            *,
-            inline: bool,
-    ) -> Any:
+        self,
+        scope: Scope,
+        payloads: list[Any],
+        origin: Entry,
+        *,
+        inline: bool,
+    ) -> object:
         return await self._planner.render(
             scope,
             payloads,
@@ -147,7 +162,7 @@ class RewindRenderer:
 class RewindMutator:
     """Mutate entries using render metadata."""
 
-    def rebuild(self, target: Entry, render: Any) -> Entry:
+    def rebuild(self, target: Entry, render: object) -> Entry:
         identifiers = self.identifiers(render)
         extras = self.extras(render)
         limit = min(len(target.messages), len(identifiers))
@@ -168,15 +183,15 @@ class RewindMutator:
 
         return replace(target, messages=messages)
 
-    def identifiers(self, render: Any) -> List[int]:
+    def identifiers(self, render: object) -> list[int]:
         raw = getattr(render, "ids", None) or []
         return [int(identifier) for identifier in raw]
 
-    def extras(self, render: Any) -> List[List[int]]:
+    def extras(self, render: object) -> list[list[int]]:
         raw = getattr(render, "extras", None) or []
         return [list(extra) for extra in raw]
 
-    def primary_identifier(self, render: Any) -> int | None:
+    def primary_identifier(self, render: object) -> int | None:
         identifiers = self.identifiers(render)
         return identifiers[0] if identifiers else None
 
@@ -185,12 +200,12 @@ class RewindFinalizer:
     """Persist rewind outcomes while emitting telemetry."""
 
     def __init__(
-            self,
-            history: RewindHistoryAccess,
-            mutator: RewindMutator,
-            telemetry: Telemetry,
+        self,
+        writer: RewindHistoryWriter,
+        mutator: RewindMutator,
+        telemetry: Telemetry,
     ) -> None:
-        self._history = history
+        self._writer = writer
         self._mutator = mutator
         self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.finalizer")
 
@@ -198,12 +213,12 @@ class RewindFinalizer:
         """Handle rewind sequences that do not trigger mutations."""
 
         self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="back")
-        await self._history.assign_state(target.state)
+        await self._writer.assign_state(target.state)
         marker = target.messages[0].id if target.messages else None
-        await self._history.mark_latest(int(marker) if marker is not None else None)
-        await self._history.archive(trim(history))
+        await self._writer.mark_latest(int(marker) if marker is not None else None)
+        await self._writer.archive(trim(history))
 
-    async def apply(self, history: Sequence[Entry], target: Entry, render: Any) -> None:
+    async def apply(self, history: Sequence[Entry], target: Entry, render: object) -> None:
         """Persist rebuilt entries and update state markers."""
 
         snapshot = list(trim(history))
@@ -212,10 +227,10 @@ class RewindFinalizer:
             snapshot[-1] = rebuilt
         else:  # pragma: no cover - defensive guard
             snapshot.append(rebuilt)
-        await self._history.archive(snapshot)
-        await self._history.assign_state(target.state)
+        await self._writer.archive(snapshot)
+        await self._writer.assign_state(target.state)
         identifier = self._mutator.primary_identifier(render)
-        await self._history.mark_latest(identifier)
+        await self._writer.mark_latest(identifier)
 
 
 def trim(history: Sequence[Entry]) -> Iterable[Entry]:
@@ -225,7 +240,8 @@ def trim(history: Sequence[Entry]) -> Iterable[Entry]:
 
 
 __all__ = [
-    "RewindHistoryAccess",
+    "RewindHistoryReader",
+    "RewindHistoryWriter",
     "RewindMutator",
     "RewindRenderer",
     "RewindFinalizer",
