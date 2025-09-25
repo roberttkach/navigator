@@ -11,7 +11,7 @@ from ..service.view.policy import adapt
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
 from ...core.port.state import StateRepository
-from ...core.service.history import policy as chronicle
+from ...core.service.history.policy import prune as prune_history
 from ...core.service.scope import profile
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload, normalize
@@ -106,7 +106,7 @@ class Appender:
         await persist(
             self._archive,
             self._tail,
-            chronicle,
+            prune_history,
             self._limit,
             timeline,
             operation="add",

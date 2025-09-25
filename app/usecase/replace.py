@@ -12,7 +12,7 @@ from ..service.view.policy import adapt
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
 from ...core.port.state import StateRepository
-from ...core.service.history import policy as chronicle
+from ...core.service.history.policy import prune as prune_history
 from ...core.value.content import Payload, normalize
 from ...core.value.message import Scope
 
@@ -79,7 +79,7 @@ class Swapper:
         await persist(
             self._archive,
             self._tail,
-            chronicle,
+            prune_history,
             self._limit,
             timeline,
             operation="replace",
