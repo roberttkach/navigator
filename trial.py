@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
-from navigator.adapters.telegram.gateway import delete as delete_module
+from navigator.adapters.telegram.gateway import delete as eraser
 from navigator.adapters.telegram.gateway.delete import DeleteBatch
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
 from navigator.app.service.view.planner import ViewPlanner
@@ -391,12 +391,12 @@ def commerce() -> None:
         captured.append((action, args, kwargs))
         return await action(*args, **kwargs)
 
-    original_invoke = delete_module.invoke
-    delete_module.invoke = capture
+    original_invoke = eraser.invoke
+    eraser.invoke = capture
     try:
         asyncio.run(runner.run(scope, [9, 1, 2]))
     finally:
-        delete_module.invoke = original_invoke
+        eraser.invoke = original_invoke
 
     assert bot.delete_messages.await_count == 0
     assert bot.delete_business_messages.await_count == 2

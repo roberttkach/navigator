@@ -21,16 +21,16 @@ class MessageGateway(Protocol):
     async def send(self, scope: Scope, payload: Payload) -> Result:
         ...
 
-    async def rewrite(self, scope: Scope, message: int, payload: Payload) -> Result:
+    async def rewrite(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         ...
 
-    async def recast(self, scope: Scope, message: int, payload: Payload) -> Result:
+    async def recast(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         ...
 
-    async def retitle(self, scope: Scope, message: int, payload: Payload) -> Result:
+    async def retitle(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         ...
 
-    async def remap(self, scope: Scope, message: int, payload: Payload) -> Result:
+    async def remap(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         ...
 
     async def delete(self, scope: Scope, identifiers: List[int]) -> None:

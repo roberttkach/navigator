@@ -69,7 +69,7 @@ class TelegramGateway(MessageGateway):
         )
         return Result(id=message.message_id, extra=extras, meta=meta)
 
-    async def rewrite(self, scope: Scope, message: int, payload: Payload) -> Result:
+    async def rewrite(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         outcome = await rewrite(
             self._bot,
             codec=self._codec,
@@ -78,16 +78,16 @@ class TelegramGateway(MessageGateway):
             limits=self._limits,
             preview=self._preview,
             scope=scope,
-            message_id=message,
+            identifier=identifier,
             payload=payload,
             truncate=self._truncate,
             channel=self._channel,
         )
         meta = util.extract(outcome, payload, scope)
-        identifier = getattr(outcome, "message_id", message)
-        return Result(id=identifier, extra=[], meta=meta)
+        resultid = getattr(outcome, "message_id", identifier)
+        return Result(id=resultid, extra=[], meta=meta)
 
-    async def recast(self, scope: Scope, message: int, payload: Payload) -> Result:
+    async def recast(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         outcome = await recast(
             self._bot,
             codec=self._codec,
@@ -96,16 +96,16 @@ class TelegramGateway(MessageGateway):
             policy=self._policy,
             limits=self._limits,
             scope=scope,
-            message_id=message,
+            identifier=identifier,
             payload=payload,
             truncate=self._truncate,
             channel=self._channel,
         )
         meta = util.extract(outcome, payload, scope)
-        identifier = getattr(outcome, "message_id", message)
-        return Result(id=identifier, extra=[], meta=meta)
+        resultid = getattr(outcome, "message_id", identifier)
+        return Result(id=resultid, extra=[], meta=meta)
 
-    async def retitle(self, scope: Scope, message: int, payload: Payload) -> Result:
+    async def retitle(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         outcome = await retitle(
             self._bot,
             codec=self._codec,
@@ -113,27 +113,27 @@ class TelegramGateway(MessageGateway):
             screen=self._screen,
             limits=self._limits,
             scope=scope,
-            message_id=message,
+            identifier=identifier,
             payload=payload,
             truncate=self._truncate,
             channel=self._channel,
         )
         meta = util.extract(outcome, payload, scope)
-        identifier = getattr(outcome, "message_id", message)
-        return Result(id=identifier, extra=[], meta=meta)
+        resultid = getattr(outcome, "message_id", identifier)
+        return Result(id=resultid, extra=[], meta=meta)
 
-    async def remap(self, scope: Scope, message: int, payload: Payload) -> Result:
+    async def remap(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         outcome = await remap(
             self._bot,
             codec=self._codec,
             scope=scope,
-            message_id=message,
+            identifier=identifier,
             payload=payload,
             channel=self._channel,
         )
         meta = util.extract(outcome, payload, scope)
-        identifier = getattr(outcome, "message_id", message)
-        return Result(id=identifier, extra=[], meta=meta)
+        resultid = getattr(outcome, "message_id", identifier)
+        return Result(id=resultid, extra=[], meta=meta)
 
     async def delete(self, scope: Scope, identifiers: List[int]) -> None:
         await self._delete.run(scope, identifiers)
