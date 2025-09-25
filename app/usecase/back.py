@@ -6,8 +6,6 @@ from typing import Any, Dict
 
 from ..log import events
 from ..log.aspect import TraceAspect
-from ..service.view.planner import ViewPlanner
-from ..service.view.restorer import ViewRestorer
 from ...core.telemetry import Telemetry
 from ...core.value.content import normalize
 from ...core.value.message import Scope
@@ -24,21 +22,16 @@ class Rewinder:
 
     def __init__(
             self,
-            ledger,
-            status,
-            restorer: ViewRestorer,
-            planner: ViewPlanner,
-            latest,
+            history: RewindHistoryAccess,
+            renderer: RewindRenderer,
+            mutator: RewindMutator,
             telemetry: Telemetry,
-            history: RewindHistoryAccess | None = None,
-            renderer: RewindRenderer | None = None,
-            mutator: RewindMutator | None = None,
             finalizer: RewindFinalizer | None = None,
     ) -> None:
-        self._history = history or RewindHistoryAccess(ledger, status, latest, telemetry)
-        self._renderer = renderer or RewindRenderer(restorer, planner)
-        mutator = mutator or RewindMutator()
-        self._finalizer = finalizer or RewindFinalizer(self._history, mutator, telemetry)
+        self._history = history
+        self._renderer = renderer
+        self._mutator = mutator
+        self._finalizer = finalizer or RewindFinalizer(self._history, self._mutator, telemetry)
         self._trace = TraceAspect(telemetry)
 
     async def execute(self, scope: Scope, context: Dict[str, Any]) -> None:

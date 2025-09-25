@@ -5,8 +5,10 @@ from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway.purge import PurgeTask
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
+from navigator.app.internal.policy import shield
 from navigator.app.service import TailHistoryAccess, TailHistoryMutator
-from navigator.app.service.view.planner import ViewPlanner
+from navigator.app.service.view.planner import RenderPreparer, ViewPlanner
+from navigator.app.service.view.policy import adapt
 from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.alarm import Alarm
 from navigator.app.usecase.last import Tailer
@@ -199,7 +201,8 @@ def surface() -> None:
 
 def rebuff() -> None:
     scope = Scope(chat=7, lang="en", inline="token")
-    planner = ViewPlanner(inline=_InlineStub(), regular=_RegularStub())
+    preparer = RenderPreparer(adapter=adapt, shielder=shield)
+    planner = ViewPlanner(inline=_InlineStub(), regular=_RegularStub(), preparer=preparer)
 
     try:
         asyncio.run(
@@ -218,7 +221,8 @@ def rebuff() -> None:
 
 def refuse() -> None:
     scope = Scope(chat=8, lang="en", inline="token")
-    planner = ViewPlanner(inline=_InlineStub(), regular=_RegularStub())
+    preparer = RenderPreparer(adapter=adapt, shielder=shield)
+    planner = ViewPlanner(inline=_InlineStub(), regular=_RegularStub(), preparer=preparer)
     album = [
         MediaItem(type=MediaType.PHOTO, path="file-a", caption="a"),
         MediaItem(type=MediaType.PHOTO, path="file-b", caption="b"),

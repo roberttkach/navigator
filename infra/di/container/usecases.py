@@ -5,14 +5,23 @@ from navigator.app.service import TailHistoryAccess, TailHistoryMutator
 from navigator.app.service.view.planner import (
     InlineRenderPlanner,
     RegularRenderPlanner,
+    RenderPreparer,
     RenderSynchronizer,
     TailOperations,
     ViewPlanner,
 )
+from navigator.app.service.view.policy import adapt as adapt_payload
+from navigator.app.internal.policy import shield as inline_shield
 from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.add import Appender
 from navigator.app.usecase.alarm import Alarm
 from navigator.app.usecase.back import Rewinder
+from navigator.app.usecase.back_access import (
+    RewindFinalizer,
+    RewindHistoryAccess,
+    RewindMutator,
+    RewindRenderer,
+)
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
 from navigator.app.usecase.last.inline import InlineEditCoordinator
@@ -20,6 +29,11 @@ from navigator.app.usecase.last.mutation import MessageEditCoordinator
 from navigator.app.usecase.pop import Trimmer
 from navigator.app.usecase.rebase import Shifter
 from navigator.app.usecase.replace import Swapper
+from navigator.app.usecase.replace_components import (
+    ReplaceHistoryAccess,
+    ReplaceHistoryWriter,
+    ReplacePreparation,
+)
 from navigator.app.usecase.set import Setter
 from navigator.core.telemetry import Telemetry
 
@@ -45,10 +59,16 @@ class UseCaseContainer(containers.DeclarativeContainer):
         tails=tail_operations,
         telemetry=telemetry,
     )
+    render_preparer = providers.Factory(
+        RenderPreparer,
+        adapter=adapt_payload,
+        shielder=inline_shield,
+    )
     planner = providers.Factory(
         ViewPlanner,
         inline=inline_planner,
         regular=regular_planner,
+        preparer=render_preparer,
     )
     restorer = providers.Factory(ViewRestorer, ledger=core.ledger, telemetry=telemetry)
     appender = providers.Factory(
@@ -61,23 +81,56 @@ class UseCaseContainer(containers.DeclarativeContainer):
         limit=core.settings.provided.historylimit,
         telemetry=telemetry,
     )
-    swapper = providers.Factory(
-        Swapper,
+    replace_history = providers.Factory(
+        ReplaceHistoryAccess,
         archive=storage.chronicle,
         state=storage.status,
-        tail=storage.latest,
+        telemetry=telemetry,
+    )
+    replace_preparation = providers.Factory(
+        ReplacePreparation,
         planner=planner,
         mapper=storage.mapper,
+    )
+    replace_writer = providers.Factory(
+        ReplaceHistoryWriter,
+        archive=storage.chronicle,
+        tail=storage.latest,
         limit=core.settings.provided.historylimit,
+        telemetry=telemetry,
+    )
+    swapper = providers.Factory(
+        Swapper,
+        history=replace_history,
+        preparation=replace_preparation,
+        writer=replace_writer,
+        telemetry=telemetry,
+    )
+    rewind_history = providers.Factory(
+        RewindHistoryAccess,
+        ledger=storage.chronicle,
+        status=storage.status,
+        latest=storage.latest,
+        telemetry=telemetry,
+    )
+    rewind_renderer = providers.Factory(
+        RewindRenderer,
+        restorer=restorer,
+        planner=planner,
+    )
+    rewind_mutator = providers.Factory(RewindMutator)
+    rewind_finalizer = providers.Factory(
+        RewindFinalizer,
+        history=rewind_history,
+        mutator=rewind_mutator,
         telemetry=telemetry,
     )
     rewinder = providers.Factory(
         Rewinder,
-        ledger=storage.chronicle,
-        status=storage.status,
-        restorer=restorer,
-        planner=planner,
-        latest=storage.latest,
+        history=rewind_history,
+        renderer=rewind_renderer,
+        mutator=rewind_mutator,
+        finalizer=rewind_finalizer,
         telemetry=telemetry,
     )
     setter = providers.Factory(

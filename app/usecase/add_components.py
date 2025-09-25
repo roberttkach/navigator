@@ -8,7 +8,7 @@ from typing import List, Optional, Sequence
 from navigator.app.map.entry import EntryMapper, Outcome
 from navigator.app.service.view.planner import ViewPlanner
 from navigator.app.service.view.policy import adapt
-from navigator.app.service.store import persist
+from navigator.app.service.store import HistoryPersistencePipeline
 from navigator.core.entity.history import Entry
 from navigator.core.port.history import HistoryRepository
 from navigator.core.port.last import LatestRepository
@@ -78,22 +78,19 @@ class AppendHistoryWriter:
             tail: LatestRepository,
             limit: int,
             telemetry: Telemetry,
+            *,
+            pipeline: HistoryPersistencePipeline | None = None,
     ) -> None:
-        self._archive = archive
-        self._tail = tail
-        self._limit = limit
-        self._telemetry = telemetry
+        self._pipeline = pipeline or HistoryPersistencePipeline(
+            archive=archive,
+            ledger=tail,
+            prune_history=prune_history,
+            limit=limit,
+            telemetry=telemetry,
+        )
 
     async def persist(self, timeline: Sequence[Entry]) -> None:
-        await persist(
-            self._archive,
-            self._tail,
-            prune_history,
-            self._limit,
-            list(timeline),
-            operation="add",
-            telemetry=self._telemetry,
-        )
+        await self._pipeline.persist(list(timeline), operation="add")
 
 
 class AppendPreparation:

@@ -11,13 +11,12 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
-from typing import List, Optional, Sequence
+from collections.abc import Callable, Sequence
+from typing import List, Optional
 
 from .album import AlbumService
 from .executor import EditExecutor, Execution
 from .inline import InlineHandler, InlineOutcome
-from .policy import adapt
-from ...internal.policy import shield
 
 
 @dataclass(frozen=True, slots=True)
@@ -308,6 +307,32 @@ class RegularRenderPlanner:
         return 1, changed
 
 
+class RenderPreparer:
+    """Normalize payload bundles before rendering operations."""
+
+    def __init__(
+            self,
+            adapter: Callable[[Scope, Payload], Payload],
+            shielder: Callable[[Scope, Sequence[Payload], bool], None] | None = None,
+    ) -> None:
+        self._adapt = adapter
+        self._shield = shielder
+
+    def prepare(
+            self,
+            scope: Scope,
+            payloads: Sequence[Payload],
+            *,
+            inline: bool,
+    ) -> List[Payload]:
+        """Return payloads adapted to the current ``scope``."""
+
+        bundle = [*payloads]
+        if inline and self._shield is not None:
+            self._shield(scope, bundle, inline=True)
+        return [self._adapt(scope, payload) for payload in bundle]
+
+
 class ViewPlanner:
     """Plan edits, deletions, and sends for a desired payload state."""
 
@@ -315,9 +340,11 @@ class ViewPlanner:
             self,
             inline: InlineRenderPlanner,
             regular: RegularRenderPlanner,
+            preparer: RenderPreparer,
     ) -> None:
         self._inline_planner = inline
         self._regular_planner = regular
+        self._prepare = preparer
 
     async def render(
             self,
@@ -329,10 +356,7 @@ class ViewPlanner:
     ) -> Optional[RenderNode]:
         """Plan rendering actions for ``payloads`` within ``scope``."""
 
-        if inline:
-            shield(scope, payloads, inline=True)
-
-        fresh = [adapt(scope, p) for p in payloads]
+        fresh = self._prepare.prepare(scope, payloads, inline=inline)
         ledger = list(trail.messages) if trail else []
 
         state = _RenderState()
@@ -351,6 +375,7 @@ class ViewPlanner:
 __all__ = [
     "RenderResult",
     "RenderNode",
+    "RenderPreparer",
     "RenderSynchronizer",
     "TailOperations",
     "InlineRenderPlanner",
