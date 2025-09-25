@@ -162,13 +162,16 @@ class ViewPlanner:
         origin, head_changed = await self._head(scope, ledger, fresh, state)
         mutated = head_changed
 
-        mutated = mutated or await self._sync(
-            scope,
-            fresh,
-            ledger,
-            state,
-            start=origin,
-            inline_mode=False,
+        mutated = (
+            mutated
+            or await self._sync(
+                scope,
+                fresh,
+                ledger,
+                state,
+                start=origin,
+                inline_mode=False,
+            )
         )
 
         stored = len(ledger)
@@ -230,15 +233,11 @@ class ViewPlanner:
 
             if inline_mode:
                 changed = await self._mediate(scope, current, previous, state)
-                if not changed:
-                    state.retain(previous)
-                mutated = mutated or changed
+                mutated = mutated or self._retain_if_unchanged(changed, previous, state)
                 continue
 
             changed = await self._regular(scope, verdict, current, previous, state)
-            if not changed:
-                state.retain(previous)
-            mutated = mutated or changed
+            mutated = mutated or self._retain_if_unchanged(changed, previous, state)
 
         return mutated
 
@@ -261,6 +260,14 @@ class ViewPlanner:
         if outcome is None:
             return False
         return self._record(outcome, state)
+
+    @staticmethod
+    def _retain_if_unchanged(changed: bool, previous: Message, state: _RenderState) -> bool:
+        """Retain ``previous`` when no mutation occurred and propagate flag."""
+
+        if not changed:
+            state.retain(previous)
+        return changed
 
     def _record(self, outcome: InlineOutcome, state: _RenderState) -> bool:
         meta = self._executor.refine(outcome.execution, outcome.decision, outcome.payload)

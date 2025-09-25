@@ -1,10 +1,11 @@
-"""Emit trace envelopes around asynchronous operations."""
+"""Capture reusable telemetry helpers for traced async operations."""
 
 from __future__ import annotations
 
 import inspect
 import logging
 import time
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
@@ -13,14 +14,20 @@ from ...core.service.rendering.helpers import classify
 from ...core.service.scope import profile
 from ...core.telemetry import Telemetry
 
-Capture = Tuple[Optional[dict], Optional[dict]]
+
+@dataclass(frozen=True, slots=True)
+class TraceContext:
+    """Describe the scope and payload extracted for telemetry."""
+
+    scope: Optional[dict]
+    payload: Optional[dict]
 
 
 def _capture_context(
         fn: Callable[..., Any],
         args: Tuple[Any, ...],
         kwargs: Dict[str, Any],
-) -> Capture:
+) -> TraceContext:
     """Extract stable telemetry context from ``fn`` call arguments."""
 
     binding = _signature_of(fn).bind_partial(*args, **kwargs)
@@ -28,7 +35,7 @@ def _capture_context(
     payload = binding.arguments.get("payload")
     scoped = profile(scope) if scope is not None else None
     classified = classify(payload) if payload is not None else None
-    return scoped, classified
+    return TraceContext(scope=scoped, payload=classified)
 
 
 @lru_cache(maxsize=128)
@@ -65,8 +72,8 @@ class TraceAspect:
         """Run ``call`` while reporting progress through ``spec`` telemetry."""
 
         channel = self._telemetry.channel(call.__module__)
-        scope, payload = _capture_context(call, args, kwargs)
-        channel.emit(logging.INFO, spec.begin, scope=scope, payload=payload)
+        context = _capture_context(call, args, kwargs)
+        channel.emit(logging.INFO, spec.begin, scope=context.scope, payload=context.payload)
         started = time.monotonic()
         try:
             result = await call(*args, **kwargs)
@@ -74,8 +81,8 @@ class TraceAspect:
             channel.emit(
                 logging.WARNING,
                 spec.failure,
-                scope=scope,
-                payload=payload,
+                scope=context.scope,
+                payload=context.payload,
                 exc_info=True,
             )
             raise
@@ -84,8 +91,8 @@ class TraceAspect:
         channel.emit(
             logging.INFO,
             spec.success,
-            scope=scope,
-            payload=payload,
+            scope=context.scope,
+            payload=context.payload,
             elapsed=elapsed,
             result=meta,
         )
