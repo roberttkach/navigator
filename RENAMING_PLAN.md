@@ -71,6 +71,10 @@ convention.
 | Telegram media | `telegram.media._media_handler` | `_select` | Picks the media constructor using one-word naming. |
 | Preview codec | `serializer.preview._optional_flag` | `_maybe` | Streamlines the optional flag helper. |
 | Settings | `infra.config.settings._environment_overrides` | `_overrides` | Reduces the configuration shim to a single noun. |
+| Presentation bootstrap | `presentation.bootstrap.navigator.guard_factory` | `sentinel` | Local guard factory binding renamed to a single-word noun. |
+| Telegram container | `infra.di.container.telegram.inline_guard`, `inline_remapper`, `inline_editor` | `sentinel`, `mapper`, `scribe` | Provider bindings now comply with the single-word policy. |
+| Core container | `infra.di.container.core.load_settings` alias, `lock_provider` binding | `ingest`, `locker` | Aligns import alias and lock provider attribute with the rule. |
+| Settings overrides | `infra.config.settings.env_key` | `variable` | Simplifies the environment variable loop binding. |
 
 ## Scheduled Renames
 
@@ -79,6 +83,9 @@ be addressed incrementally. Proposed target names are provided for future work:
 
 * Identify any remaining compound identifiers in the inline workflow once new
   features land and continue migrating them to the single-word style.
+* Continue auditing dependency-injector containers for nested provider
+  attributes that still rely on compound snake_case placeholders (for instance
+  HTTP bindings) and schedule concise replacements as they appear.
 
 Each future step should follow the same approach as this update: choose the
 shortest precise word, refactor call sites, and update exports (`__all__`,

@@ -48,7 +48,7 @@ def compose(
 
     core = container.core()
     usecases = container.usecases()
-    guard_factory = guard or core.guard()
+    sentinel = guard or core.guard()
     return Navigator(
         appender=usecases.appender(),
         swapper=usecases.swapper(),
@@ -59,7 +59,7 @@ def compose(
         tailer=usecases.tailer(),
         alarm=usecases.alarm(),
         scope=scope,
-        guard=guard_factory,
+        guard=sentinel,
         telemetry=core.telemetry(),
     )
 
