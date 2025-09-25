@@ -107,6 +107,18 @@ def _resolve_inline(meta: Meta) -> Optional[bool]:
     return bool(inline) if inline is not None else None
 
 
+def _clean_extra(
+        payload: Payload,
+        base: Optional[Entry],
+        index: int,
+        length: int,
+) -> Optional[dict[str, Any]]:
+    """Return sanitised extra metadata for ``payload`` at ``index``."""
+
+    source = payload.extra if payload.extra is not None else _previous_extra(base, index)
+    return cleanse(source, length=length)
+
+
 def _view_if_known(ledger: ViewLedger, view: Optional[str]) -> Optional[str]:
     """Return ``view`` only when the ledger recognises the identifier."""
 
@@ -140,9 +152,8 @@ class EntryMapper:
             inline = _resolve_inline(meta)
             text, media, group = _message_content(meta, payload)
 
-            source = payload.extra if payload.extra is not None else _previous_extra(base, index)
             length = _caption_length(text, media, group)
-            extra = cleanse(source, length=length)
+            extra = _clean_extra(payload, base, index, length)
 
             messages.append(
                 Message(

@@ -1,12 +1,16 @@
+"""Coordinate state restoration to reconcile history with a desired goal."""
+
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Any, Dict, List, Optional
 
 from ..log import events
 from ..log.aspect import TraceAspect
 from ..service.view.planner import RenderNode, ViewPlanner
 from ..service.view.restorer import ViewRestorer
+from ...core.entity.history import Entry
 from ...core.error import StateNotFound
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
@@ -18,6 +22,8 @@ from ...core.value.message import Scope
 
 
 class Setter:
+    """Restore and re-render history entries to satisfy a ``goal`` state."""
+
     def __init__(
             self,
             ledger: HistoryRepository,
@@ -43,6 +49,8 @@ class Setter:
             goal: str,
             context: Dict[str, Any],
     ) -> None:
+        """Restore ``goal`` entry for ``scope`` using additional ``context``."""
+
         await self._trace.run(events.SET, self._perform, scope, goal, context)
 
     async def _perform(
@@ -51,6 +59,8 @@ class Setter:
             goal: str,
             context: Dict[str, Any],
     ) -> None:
+        """Run the state restoration workflow for ``goal``."""
+
         history = await self._recall(scope)
         cursor = self._locate(history, goal)
         target = history[cursor]
@@ -69,9 +79,11 @@ class Setter:
         if render and render.changed:
             await self._apply(scope, render)
         else:
-            await self._skip(scope, target)
+            await self._skip(target)
 
     async def _recall(self, scope: Scope) -> List[Any]:
+        """Fetch history for ``scope`` while emitting telemetry."""
+
         history = await self._ledger.recall()
         self._channel.emit(
             logging.DEBUG,
@@ -83,27 +95,27 @@ class Setter:
         return history
 
     def _locate(self, history: List[Any], goal: str) -> int:
+        """Return the index of the entry whose state matches ``goal``."""
+
         for index in range(len(history) - 1, -1, -1):
             if history[index].state == goal:
                 return index
         raise StateNotFound(goal)
 
     async def _truncate(self, history: List[Any], cursor: int) -> None:
+        """Persist ``history`` truncated to ``cursor`` inclusively."""
+
         trimmed = history[: cursor + 1]
-        await self._ledger.archive(trimmed)
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_SAVE,
-            op="set",
-            history={"len": len(trimmed)},
-        )
+        await self._archive(trimmed)
 
     async def _revive(
             self,
-            target,
+            target: Entry,
             context: Dict[str, Any],
             inline: bool,
     ) -> List[Payload]:
+        """Return payloads revived from ``target`` merged with ``context``."""
+
         memory = await self._status.payload()
         if memory is None:
             memory = {}
@@ -115,9 +127,11 @@ class Setter:
             self,
             scope: Scope,
             resolved: List[Payload],
-            tail,
+            tail: Entry,
             inline: bool,
     ) -> Optional[RenderNode]:
+        """Render ``resolved`` payloads against ``tail`` context."""
+
         return await self._planner.render(
             scope,
             resolved,
@@ -126,17 +140,13 @@ class Setter:
         )
 
     async def _apply(self, scope: Scope, render: RenderNode) -> None:
+        """Apply ``render`` metadata to history and refresh markers."""
+
         current = await self._ledger.recall()
         if current:
             tail = current[-1]
             patched = self._patch(tail, render)
-            await self._ledger.archive(current[:-1] + [patched])
-            self._channel.emit(
-                logging.DEBUG,
-                LogCode.HISTORY_SAVE,
-                op="set",
-                history={"len": len(current)},
-            )
+            await self._archive([*current[:-1], patched])
         await self._latest.mark(render.ids[0])
         self._channel.emit(
             logging.INFO,
@@ -145,37 +155,38 @@ class Setter:
             message={"id": render.ids[0]},
         )
 
-    def _patch(self, entry, render: RenderNode):
+    def _patch(self, entry: Entry, render: RenderNode) -> Entry:
+        """Return ``entry`` with identifiers and extras refreshed from ``render``."""
+
         limit = min(len(entry.messages), len(render.ids))
-        messages = []
+        messages = list(entry.messages)
+
         for index in range(limit):
             source = entry.messages[index]
-            messages.append(
-                type(source)(
-                    id=render.ids[index],
-                    text=source.text,
-                    media=source.media,
-                    group=source.group,
-                    markup=source.markup,
-                    preview=source.preview,
-                    extra=source.extra,
-                    extras=render.extras[index],
-                    inline=source.inline,
-                    automated=source.automated,
-                    ts=source.ts,
-                )
+            messages[index] = replace(
+                source,
+                id=int(render.ids[index]),
+                extras=list(render.extras[index]),
             )
-        messages += entry.messages[limit:]
-        return type(entry)(
-            state=entry.state,
-            view=entry.view,
-            messages=messages,
-            root=entry.root,
-        )
 
-    async def _skip(self, scope: Scope, target) -> None:
+        return replace(entry, messages=messages)
+
+    async def _skip(self, target: Entry) -> None:
+        """Handle situations where rendering results in no changes."""
+
         self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="set")
         current = await self._ledger.recall()
         tail = current[-1] if current else target
         if tail.messages:
             await self._latest.mark(tail.messages[0].id)
+
+    async def _archive(self, history: List[Entry]) -> None:
+        """Persist ``history`` and emit bookkeeping telemetry."""
+
+        await self._ledger.archive(history)
+        self._channel.emit(
+            logging.DEBUG,
+            LogCode.HISTORY_SAVE,
+            op="set",
+            history={"len": len(history)},
+        )

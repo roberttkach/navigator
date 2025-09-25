@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import List
 
 from ..log import events
 from ..log.aspect import TraceAspect
-from ...core.entity.history import Entry, Message
+from ...core.entity.history import Entry
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
@@ -34,7 +35,7 @@ class Shifter:
 
         last = history[-1]
         if not last.messages:
-            await self._update_marker_only(marker, len(history))
+            await self._mark_and_report(marker, len(history))
             return
 
         rebuilt = self._patch_entry(history, last, marker)
@@ -52,21 +53,22 @@ class Shifter:
         )
         return history
 
-    async def _update_marker_only(self, marker: int, history_len: int) -> None:
-        """Update latest marker when history has no persisted messages."""
+    async def _mark_and_report(self, marker: int, history_len: int) -> None:
+        """Update the latest marker and emit success telemetry."""
 
-        await self._latest.mark(int(marker))
+        identifier = int(marker)
+        await self._latest.mark(identifier)
         self._channel.emit(
             logging.INFO,
             LogCode.LAST_SET,
             op="rebase",
-            message={"id": int(marker)},
+            message={"id": identifier},
         )
         self._channel.emit(
             logging.INFO,
             LogCode.REBASE_SUCCESS,
             op="rebase",
-            message={"id": int(marker)},
+            message={"id": identifier},
             history={"len": history_len},
         )
 
@@ -74,25 +76,8 @@ class Shifter:
         """Return rebuilt history with ``last`` message id replaced."""
 
         first = last.messages[0]
-        patched = Message(
-            id=int(marker),
-            text=first.text,
-            media=first.media,
-            group=first.group,
-            markup=first.markup,
-            preview=first.preview,
-            extra=first.extra,
-            extras=first.extras,
-            inline=first.inline,
-            automated=first.automated,
-            ts=first.ts,
-        )
-        trailer = Entry(
-            state=last.state,
-            view=last.view,
-            messages=[patched, *last.messages[1:]],
-            root=last.root,
-        )
+        patched = replace(first, id=int(marker))
+        trailer = replace(last, messages=[patched, *last.messages[1:]])
         rebuilt: List[Entry] = [*history[:-1], trailer]
         return rebuilt
 
@@ -106,17 +91,4 @@ class Shifter:
             op="rebase",
             history={"len": len(rebuilt)},
         )
-        await self._latest.mark(int(marker))
-        self._channel.emit(
-            logging.INFO,
-            LogCode.LAST_SET,
-            op="rebase",
-            message={"id": int(marker)},
-        )
-        self._channel.emit(
-            logging.INFO,
-            LogCode.REBASE_SUCCESS,
-            op="rebase",
-            message={"id": int(marker)},
-            history={"len": len(rebuilt)},
-        )
+        await self._mark_and_report(marker, len(rebuilt))
