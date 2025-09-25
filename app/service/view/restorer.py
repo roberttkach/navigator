@@ -1,4 +1,4 @@
-"""Restore view payloads via ledger-backed factories."""
+"""Describe dynamic and static view restoration workflows."""
 
 from __future__ import annotations
 
@@ -32,14 +32,25 @@ class ViewRestorer:
     ) -> List[Payload]:
         """Return payloads for ``entry`` while respecting inline rules."""
 
-        if entry.view:
-            self._channel.emit(logging.INFO, LogCode.RESTORE_DYNAMIC, forge=entry.view)
-            content = await self._resolve_dynamic(entry.view, context)
-            payloads = self._coerce_payloads(content, inline)
-            if payloads is not None:
-                return payloads
-
+        dynamic = await self._restore_dynamic(entry, context, inline)
+        if dynamic is not None:
+            return dynamic
         return [self._static(message) for message in entry.messages]
+
+    async def _restore_dynamic(
+            self,
+            entry: Entry,
+            context: Mapping[str, Any],
+            inline: bool,
+    ) -> Optional[List[Payload]]:
+        """Resolve dynamic view payloads when the entry references a forge."""
+
+        if not entry.view:
+            return None
+
+        self._channel.emit(logging.INFO, LogCode.RESTORE_DYNAMIC, forge=entry.view)
+        content = await self._resolve_dynamic(entry.view, context)
+        return self._normalize_dynamic_payloads(content, inline)
 
     async def _resolve_dynamic(
             self,
@@ -91,7 +102,7 @@ class ViewRestorer:
         parameters = inspect.signature(forge).parameters
         return {name: context[name] for name in parameters if name in context}
 
-    def _coerce_payloads(
+    def _normalize_dynamic_payloads(
             self,
             content: Optional[Payload | List[Payload]],
             inline: bool,

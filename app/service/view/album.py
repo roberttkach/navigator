@@ -1,10 +1,11 @@
-"""Coordinate album refreshes during history reconciliation."""
+"""Coordinate album reconciliation for stored Telegram history."""
 
 from __future__ import annotations
 
 import json
 import logging
-from typing import Optional
+from dataclasses import dataclass
+from typing import Iterable, Optional
 
 from navigator.core.entity.history import Message
 from navigator.core.entity.media import MediaItem
@@ -18,6 +19,14 @@ from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
 from .executor import EditExecutor
+
+
+@dataclass(frozen=True, slots=True)
+class _AlbumDiff:
+    """Capture high-level album comparison outcomes."""
+
+    retitled: bool
+    reshaped: bool
 
 
 def _lineup(message: Message) -> list[int]:
@@ -54,18 +63,13 @@ def _copy(message: Message, identifier: int, media: MediaItem) -> Message:
     )
 
 
-def _collect(latter: list[MediaItem]) -> list[Cluster]:
+def _collect(items: Iterable[MediaItem]) -> list[Cluster]:
     """Return cluster descriptors for the refreshed album payload."""
 
     clusters: list[Cluster] = []
-    for index, item in enumerate(latter):
-        clusters.append(
-            Cluster(
-                medium=item.type.value,
-                file=item.path,
-                caption=item.caption if index == 0 else "",
-            )
-        )
+    for index, item in enumerate(items):
+        caption = item.caption if index == 0 else ""
+        clusters.append(Cluster(medium=item.type.value, file=item.path, caption=caption))
     return clusters
 
 
@@ -96,6 +100,44 @@ def _ensure_int(value):
         return int(value) if value is not None else None
     except Exception:  # pragma: no cover - defensive
         return value
+
+
+def _compare_album(
+        former_band: list[MediaItem],
+        latter_band: list[MediaItem],
+        former_info: dict,
+        latter_info: dict,
+        *,
+        thumbguard: bool,
+) -> _AlbumDiff:
+    """Summarize structural differences between historic and fresh albums."""
+
+    retitled = (
+        (former_band[0].caption or "") != (latter_band[0].caption or "")
+        or _encode_dict(_caption_fields(former_info))
+        != _encode_dict(_caption_fields(latter_info))
+        or bool(former_info.get("show_caption_above_media"))
+        != bool(latter_info.get("show_caption_above_media"))
+    )
+
+    reshaped = (
+        bool(former_info.get("spoiler")) != bool(latter_info.get("spoiler"))
+        or _ensure_int(former_info.get("start"))
+        != _ensure_int(latter_info.get("start"))
+    )
+
+    if thumbguard:
+        reshaped = reshaped or (
+            bool(former_info.get("has_thumb")) != bool(latter_info.get("thumb") is not None)
+        )
+
+    return _AlbumDiff(retitled=retitled, reshaped=reshaped)
+
+
+def _should_refresh_media(altered: bool, reshaped: bool, path_match: bool) -> bool:
+    """Return ``True`` when media needs refreshing or reshaping."""
+
+    return altered or (reshaped and path_match)
 
 
 class AlbumService:
@@ -132,26 +174,15 @@ class AlbumService:
 
         formerinfo = former.extra or {}
         latterinfo = latter.extra or {}
-
-        retitled = (
-                (formerband[0].caption or "") != (latterband[0].caption or "")
-                or _encode_dict(_caption_fields(formerinfo))
-                != _encode_dict(_caption_fields(latterinfo))
-                or bool(formerinfo.get("show_caption_above_media"))
-                != bool(latterinfo.get("show_caption_above_media"))
+        diff = _compare_album(
+            formerband,
+            latterband,
+            formerinfo,
+            latterinfo,
+            thumbguard=self._thumbguard,
         )
 
-        reshaped = (
-                bool(formerinfo.get("spoiler")) != bool(latterinfo.get("spoiler"))
-                or _ensure_int(formerinfo.get("start"))
-                != _ensure_int(latterinfo.get("start"))
-        )
-
-        if self._thumbguard:
-            if bool(formerinfo.get("has_thumb")) != bool(latterinfo.get("thumb") is not None):
-                reshaped = True
-
-        if retitled:
+        if diff.retitled:
             cap = latterband[0].caption or ""
             captiondraft = latter.morph(
                 media=latterband[0],
@@ -176,8 +207,7 @@ class AlbumService:
             mutated = mutated or bool(execution)
 
         for index, pair in enumerate(zip(formerband, latterband)):
-            past = pair[0]
-            latest = pair[1]
+            past, latest = pair
             target = album[0] if index == 0 else album[index]
             altered = _changed(past, latest)
             pathmatch = (
@@ -185,7 +215,7 @@ class AlbumService:
                     and isinstance(getattr(latest, "path", None), str)
                     and getattr(past, "path") == getattr(latest, "path")
             )
-            if altered or ((not altered) and reshaped and pathmatch):
+            if _should_refresh_media(altered, diff.reshaped, pathmatch):
                 head = former if index == 0 else _copy(former, target, past)
                 payload = latter.morph(media=latest, group=None)
                 execution = await self._executor.execute(

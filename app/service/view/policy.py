@@ -1,3 +1,5 @@
+"""Define reply markup policy adjustments per scope."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -9,23 +11,23 @@ from ....core.value.message import Scope
 _INLINE_KEYBOARD_KIND = "InlineKeyboardMarkup"
 
 
-def permit(scope: Scope, reply: Optional[Markup]) -> Optional[Markup]:
-    """Return reply markup allowed for the given scope.
-
-    Scope-specific restrictions limit business chats and non-private/group chats to
-    inline keyboards only. Private and group chats may use any supported markup.
-    """
-    if reply is None:
-        return None
+def _inline_only(scope: Scope) -> bool:
+    """Report whether ``scope`` may only use inline keyboard markup."""
 
     if bool(getattr(scope, "business", None)):
-        return reply if reply.kind == _INLINE_KEYBOARD_KIND else None
-
+        return True
     category = getattr(scope, "category", None)
-    if category in {"private", "group"}:
-        return reply
+    return category not in {"private", "group"}
 
-    return reply if reply.kind == _INLINE_KEYBOARD_KIND else None
+
+def permit(scope: Scope, reply: Optional[Markup]) -> Optional[Markup]:
+    """Return reply markup allowed for the given scope."""
+
+    if reply is None:
+        return None
+    if _inline_only(scope) and reply.kind != _INLINE_KEYBOARD_KIND:
+        return None
+    return reply
 
 
 def adapt(scope: Scope, payload: Payload) -> Payload:

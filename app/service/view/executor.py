@@ -1,10 +1,12 @@
-"""Coordinate Telegram edit operations based on reconciliation verdicts."""
+"""Drive Telegram edits according to reconciliation verdicts."""
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
+from typing import Optional
+
 from navigator.core.entity.history import Entry, Message
 from navigator.core.error import (
     CaptionOverflow,
@@ -21,7 +23,6 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import GroupMeta, MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload, caption
 from navigator.core.value.message import Scope
-from typing import Optional
 
 
 def _head(entity: Entry | Message | None) -> Optional[Message]:
@@ -74,6 +75,32 @@ class EditExecutor:
             decision.Decision.DELETE_SEND: self._delete_and_send,
         }
 
+    def _emit_skip(self, note: str) -> None:
+        """Emit a skip telemetry event with a descriptive ``note``."""
+
+        self._channel.emit(logging.INFO, LogCode.RERENDER_START, note=note, skip=True)
+
+    async def _fallback_send(
+            self, scope: Scope, payload: Payload, stem: Message | None
+    ) -> Execution:
+        """Fallback to resending payload and deleting the stem when required."""
+
+        result = await self._gateway.send(scope, payload)
+        if stem:
+            await self._gateway.delete(scope, _targets(stem))
+        return Execution(result=result, stem=stem)
+
+    def _handle_inline_blocked(self, scope: Scope, note: str) -> None:
+        """Emit telemetry for inline scopes when fallbacks are prohibited."""
+
+        if scope.inline:
+            self._channel.emit(
+                logging.INFO,
+                LogCode.RERENDER_INLINE_NO_FALLBACK,
+                note=note,
+                skip=True,
+            )
+
     async def execute(
             self,
             scope: Scope,
@@ -96,52 +123,24 @@ class EditExecutor:
             return await handler(scope, payload, stem)
 
         except EmptyPayload:
-            self._channel.emit(
-                logging.INFO,
-                LogCode.RERENDER_START,
-                note="empty_payload",
-                skip=True,
-            )
+            self._emit_skip("empty_payload")
             return None
         except ExtraForbidden:
-            self._channel.emit(
-                logging.INFO,
-                LogCode.RERENDER_START,
-                note="extra_validation_failed",
-                skip=True,
-            )
+            self._emit_skip("extra_validation_failed")
             return None
         except (TextOverflow, CaptionOverflow):
-            self._channel.emit(
-                logging.INFO,
-                LogCode.RERENDER_START,
-                note="too_long",
-                skip=True,
-            )
+            self._emit_skip("too_long")
             return None
         except EditForbidden:
             self._channel.emit(logging.INFO, LogCode.RERENDER_START, note="edit_forbidden")
+            self._handle_inline_blocked(scope, "inline_no_fallback")
             if scope.inline:
-                self._channel.emit(
-                    logging.INFO,
-                    LogCode.RERENDER_INLINE_NO_FALLBACK,
-                    note="inline_no_fallback",
-                    skip=True,
-                )
                 return None
-            result = await self._gateway.send(scope, payload)
-            if stem:
-                await self._gateway.delete(scope, _targets(stem))
-            return Execution(result=result, stem=stem)
+            return await self._fallback_send(scope, payload, stem)
         except MessageUnchanged:
             self._channel.emit(logging.INFO, LogCode.RERENDER_START, note="not_modified")
+            self._handle_inline_blocked(scope, "inline_no_fallback")
             if scope.inline:
-                self._channel.emit(
-                    logging.INFO,
-                    LogCode.RERENDER_INLINE_NO_FALLBACK,
-                    note="inline_no_fallback",
-                    skip=True,
-                )
                 return None
             return None
 

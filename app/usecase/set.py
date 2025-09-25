@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Optional
 
 from ..log import events
@@ -19,6 +19,17 @@ from ...core.port.state import StateRepository
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload, normalize
 from ...core.value.message import Scope
+
+
+@dataclass(frozen=True, slots=True)
+class _RestorationPlan:
+    """Capture the state required to reconcile a requested goal."""
+
+    history: List[Entry]
+    target: Entry
+    tail: Entry
+    cursor: int
+    inline: bool
 
 
 class Setter:
@@ -61,27 +72,39 @@ class Setter:
     ) -> None:
         """Run the state restoration workflow for ``goal``."""
 
+        plan = await self._prepare_plan(scope, goal)
+        await self._truncate(plan.history, plan.cursor)
+        await self._status.assign(plan.target.state)
+        self._channel.emit(
+            logging.INFO,
+            LogCode.STATE_SET,
+            op="set",
+            state={"target": plan.target.state},
+        )
+        resolved = await self._revive(plan.target, context, plan.inline)
+        render = await self._render(scope, resolved, plan.tail, plan.inline)
+        if render and render.changed:
+            await self._apply(scope, render)
+        else:
+            await self._skip(plan.target)
+
+    async def _prepare_plan(self, scope: Scope, goal: str) -> _RestorationPlan:
+        """Collect history context and inline mode for subsequent steps."""
+
         history = await self._recall(scope)
         cursor = self._locate(history, goal)
         target = history[cursor]
         inline = bool(scope.inline)
         tail = history[-1] if history else target
-        await self._truncate(history, cursor)
-        await self._status.assign(target.state)
-        self._channel.emit(
-            logging.INFO,
-            LogCode.STATE_SET,
-            op="set",
-            state={"target": target.state},
+        return _RestorationPlan(
+            history=history,
+            target=target,
+            tail=tail,
+            cursor=cursor,
+            inline=inline,
         )
-        resolved = await self._revive(target, context, inline)
-        render = await self._render(scope, resolved, tail, inline)
-        if render and render.changed:
-            await self._apply(scope, render)
-        else:
-            await self._skip(target)
 
-    async def _recall(self, scope: Scope) -> List[Any]:
+    async def _recall(self, scope: Scope) -> List[Entry]:
         """Fetch history for ``scope`` while emitting telemetry."""
 
         history = await self._ledger.recall()
@@ -94,7 +117,7 @@ class Setter:
         )
         return history
 
-    def _locate(self, history: List[Any], goal: str) -> int:
+    def _locate(self, history: List[Entry], goal: str) -> int:
         """Return the index of the entry whose state matches ``goal``."""
 
         for index in range(len(history) - 1, -1, -1):
@@ -102,7 +125,7 @@ class Setter:
                 return index
         raise StateNotFound(goal)
 
-    async def _truncate(self, history: List[Any], cursor: int) -> None:
+    async def _truncate(self, history: List[Entry], cursor: int) -> None:
         """Persist ``history`` truncated to ``cursor`` inclusively."""
 
         trimmed = history[: cursor + 1]
