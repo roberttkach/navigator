@@ -2,8 +2,8 @@ import asyncio
 from contextlib import asynccontextmanager
 from navigator.adapters.telegram.errors import dismissible
 from navigator.adapters.telegram.gateway import TelegramGateway
-from navigator.adapters.telegram.gateway import delete as eraser
-from navigator.adapters.telegram.gateway.delete import DeleteBatch
+import navigator.adapters.telegram.gateway.purge as eraser
+from navigator.adapters.telegram.gateway.purge import PurgeTask
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
 from navigator.app.service.view.planner import ViewPlanner
 from navigator.app.service.view.restorer import ViewRestorer
@@ -382,7 +382,7 @@ def commerce() -> None:
         ),
         delete_messages=AsyncMock(),
     )
-    runner = DeleteBatch(bot=bot, chunk=2, delay=0.0, telemetry=monitor())
+    runner = PurgeTask(bot=bot, chunk=2, delay=0.0, telemetry=monitor())
 
     captured = []
 
@@ -393,7 +393,7 @@ def commerce() -> None:
     baseline = eraser.invoke
     eraser.invoke = capture
     try:
-        asyncio.run(runner.run(scope, [9, 1, 2]))
+        asyncio.run(runner.execute(scope, [9, 1, 2]))
     finally:
         eraser.invoke = baseline
 

@@ -4,7 +4,7 @@ import asyncio
 import logging
 from navigator.core.service.scope import profile
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
-from navigator.core.value.ids import order as _order
+from navigator.core.value.ids import order as arrange
 from navigator.core.value.message import Scope
 from typing import List
 
@@ -12,7 +12,7 @@ from .retry import invoke
 from ..errors import excusable
 
 
-class DeleteBatch:
+class PurgeTask:
     def __init__(self, bot, *, chunk: int, delay: float, telemetry: Telemetry) -> None:
         self._bot = bot
         size = int(chunk)
@@ -20,7 +20,7 @@ class DeleteBatch:
         self._delay = max(float(delay), 0.0)
         self._channel: TelemetryChannel = telemetry.channel(__name__)
 
-    async def run(self, scope: Scope, identifiers: List[int]) -> None:
+    async def execute(self, scope: Scope, identifiers: List[int]) -> None:
         if scope.inline and not scope.business:
             self._channel.emit(
                 logging.INFO,
@@ -32,14 +32,14 @@ class DeleteBatch:
             return
         if not identifiers:
             return
-        unique = _order(identifiers)
+        unique = arrange(identifiers)
         if not unique:
             return
-        groups = [
+        batches = [
             unique[start:start + self._chunk]
             for start in range(0, len(unique), self._chunk)
         ]
-        total = len(groups)
+        total = len(batches)
         self._channel.emit(
             logging.DEBUG,
             LogCode.RERENDER_START,
@@ -56,12 +56,12 @@ class DeleteBatch:
             eraser = getattr(self._bot, "delete_messages", None)
             params = {"chat_id": scope.chat}
         try:
-            for index, group in enumerate(groups, start=1):
+            for index, batch in enumerate(batches, start=1):
                 try:
                     if eraser is not None:
                         await invoke(
                             eraser,
-                            message_ids=group,
+                            message_ids=batch,
                             **params,
                             channel=self._channel,
                         )
@@ -69,7 +69,7 @@ class DeleteBatch:
                         # Fallback to singles (non-business only)
                         if scope.business:
                             raise RuntimeError("bulk_business_delete_unsupported")
-                        for mid in group:
+                        for mid in batch:
                             await invoke(
                                 self._bot.delete_message,
                                 chat_id=scope.chat,
@@ -80,7 +80,7 @@ class DeleteBatch:
                         logging.INFO,
                         LogCode.GATEWAY_DELETE_OK,
                         scope=scopeview,
-                        message={"deleted": len(group)},
+                        message={"deleted": len(batch)},
                         chunk={"index": index, "total": total},
                     )
                     if self._delay:

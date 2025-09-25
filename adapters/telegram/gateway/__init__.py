@@ -46,9 +46,9 @@ class TelegramGateway(MessageGateway):
         self._truncate = truncate
         self._telemetry = telemetry
         self._channel: TelemetryChannel = telemetry.channel(__name__)
-        from .delete import DeleteBatch
+        from .purge import PurgeTask
 
-        self._delete = DeleteBatch(bot, chunk=chunk, delay=deletepause, telemetry=telemetry)
+        self._purge = PurgeTask(bot, chunk=chunk, delay=deletepause, telemetry=telemetry)
 
     async def send(self, scope: Scope, payload: Payload) -> Result:
         message, extras, meta = await send(
@@ -134,7 +134,7 @@ class TelegramGateway(MessageGateway):
         return Result(id=resultid, extra=[], meta=meta)
 
     async def delete(self, scope: Scope, identifiers: List[int]) -> None:
-        await self._delete.run(scope, identifiers)
+        await self._purge.execute(scope, identifiers)
 
     async def alert(self, scope: Scope, text: str) -> None:
         if scope.inline or not text:
