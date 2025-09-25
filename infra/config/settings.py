@@ -1,66 +1,47 @@
 from __future__ import annotations
 
-import os
 from functools import lru_cache
-from typing import Dict, Set
+from typing import Set
 
-from pydantic import Field
-
-try:  # pragma: no cover - preferred path when pydantic-settings is available
-    from pydantic_settings import BaseSettings, SettingsConfigDict
-    _HAS_SETTINGS = True
-except ImportError:  # pragma: no cover - minimal fallback for plain pydantic installs
-    from pydantic import BaseModel, ConfigDict
-
-    class BaseSettings(BaseModel):  # type: ignore[misc]
-        """Simplified settings base that accepts keyword overrides only."""
-
-        pass
-
-    SettingsConfigDict = ConfigDict  # type: ignore[misc]
-    _HAS_SETTINGS = False
-
-    setattr(BaseSettings, "model_config", ConfigDict(extra="ignore"))
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-_ENV_MAPPING: Dict[str, str] = {
-    "historylimit": "NAV_HISTORY_LIMIT",
-    "chunk": "NAV_CHUNK",
-    "truncate": "NAV_TRUNCATE",
-    "strictpath": "NAV_STRICT_INLINE_MEDIA_PATH",
-    "thumbguard": "NAV_DETECT_THUMB_CHANGE",
-    "redaction": "NAV_LOG_REDACTION",
-    "textlimit": "NAV_TEXT_LIMIT",
-    "captionlimit": "NAV_CAPTION_LIMIT",
-    "groupmin": "NAV_ALBUM_FLOOR",
-    "groupmax": "NAV_ALBUM_CEILING",
-    "mixcodes": "NAV_ALBUM_BLEND",
-    "deletepausems": "NAV_DELETE_DELAY_MS",
-}
+def _alias(field: str, env: str) -> AliasChoices:
+    """Build a validation alias accepting both *field* and *env* names."""
 
-
-def _overrides() -> Dict[str, str]:
-    values: Dict[str, str] = {}
-    for field, variable in _ENV_MAPPING.items():
-        raw = os.getenv(variable)
-        if raw is not None:
-            values[field] = raw
-    return values
+    return AliasChoices(field, env)
 
 
 class Settings(BaseSettings):
-    historylimit: int = Field(18, ge=1)
-    chunk: int = Field(100, ge=1, le=100)
-    truncate: bool = Field(False)
-    strictpath: bool = Field(True)
-    thumbguard: bool = Field(False)
-    redaction: str = Field("safe")
-    textlimit: int = Field(4096, ge=1)
-    captionlimit: int = Field(1024, ge=1)
-    groupmin: int = Field(2, ge=1)
-    groupmax: int = Field(10, ge=1)
-    mixcodes: str = Field("photo,video")
-    deletepausems: int = Field(50, ge=0)
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+
+    historylimit: int = Field(18, ge=1, validation_alias=_alias("historylimit", "NAV_HISTORY_LIMIT"))
+    chunk: int = Field(100, ge=1, le=100, validation_alias=_alias("chunk", "NAV_CHUNK"))
+    truncate: bool = Field(False, validation_alias=_alias("truncate", "NAV_TRUNCATE"))
+    strictpath: bool = Field(
+        True,
+        validation_alias=_alias("strictpath", "NAV_STRICT_INLINE_MEDIA_PATH"),
+    )
+    thumbguard: bool = Field(
+        False,
+        validation_alias=_alias("thumbguard", "NAV_DETECT_THUMB_CHANGE"),
+    )
+    redaction: str = Field("safe", validation_alias=_alias("redaction", "NAV_LOG_REDACTION"))
+    textlimit: int = Field(4096, ge=1, validation_alias=_alias("textlimit", "NAV_TEXT_LIMIT"))
+    captionlimit: int = Field(
+        1024,
+        ge=1,
+        validation_alias=_alias("captionlimit", "NAV_CAPTION_LIMIT"),
+    )
+    groupmin: int = Field(2, ge=1, validation_alias=_alias("groupmin", "NAV_ALBUM_FLOOR"))
+    groupmax: int = Field(10, ge=1, validation_alias=_alias("groupmax", "NAV_ALBUM_CEILING"))
+    mixcodes: str = Field("photo,video", validation_alias=_alias("mixcodes", "NAV_ALBUM_BLEND"))
+    deletepausems: int = Field(
+        50,
+        ge=0,
+        validation_alias=_alias("deletepausems", "NAV_DELETE_DELAY_MS"),
+    )
 
     @property
     def mixset(self) -> Set[str]:
@@ -71,14 +52,9 @@ class Settings(BaseSettings):
         return float(self.deletepausems) / 1000.0
 
 
-setattr(Settings, "model_config", SettingsConfigDict(env_file=".env", case_sensitive=False))
-
-
 @lru_cache(maxsize=1)
 def load() -> Settings:
-    if _HAS_SETTINGS:
-        return Settings()
-    return Settings(**_overrides())
+    return Settings()
 
 
 __all__ = ["Settings", "load"]
