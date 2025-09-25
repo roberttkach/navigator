@@ -28,12 +28,12 @@ class AppContainer(containers.DeclarativeContainer):
         telemetry=telemetry,
     )
     storage = providers.Container(StorageContainer, core=core, telemetry=telemetry)
-    telegram = providers.Container(TelegramContainer, core=core, telemetry=telemetry)
+    view = providers.Container(TelegramContainer, core=core, telemetry=telemetry)
     usecases = providers.Container(
         UseCaseContainer,
         core=core,
         storage=storage,
-        telegram=telegram,
+        view=view,
         telemetry=telemetry,
     )
 

@@ -2,23 +2,20 @@
 
 from __future__ import annotations
 
-import logging
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict
 
 from ..log import events
 from ..log.aspect import TraceAspect
 from ..service.view.planner import ViewPlanner
 from ..service.view.restorer import ViewRestorer
-from ...core.entity.history import Entry
-from ...core.port.message import MessageGateway
-from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
+from ...core.telemetry import Telemetry
 from ...core.value.content import normalize
 from ...core.value.message import Scope
 from .back_access import (
+    RewindFinalizer,
     RewindHistoryAccess,
     RewindMutator,
     RewindRenderer,
-    trim,
 )
 
 
@@ -29,7 +26,6 @@ class Rewinder:
             self,
             ledger,
             status,
-            gateway: MessageGateway,
             restorer: ViewRestorer,
             planner: ViewPlanner,
             latest,
@@ -37,12 +33,12 @@ class Rewinder:
             history: RewindHistoryAccess | None = None,
             renderer: RewindRenderer | None = None,
             mutator: RewindMutator | None = None,
+            finalizer: RewindFinalizer | None = None,
     ) -> None:
         self._history = history or RewindHistoryAccess(ledger, status, latest, telemetry)
         self._renderer = renderer or RewindRenderer(restorer, planner)
-        self._mutator = mutator or RewindMutator()
-        self._gateway = gateway
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
+        mutator = mutator or RewindMutator()
+        self._finalizer = finalizer or RewindFinalizer(self._history, mutator, telemetry)
         self._trace = TraceAspect(telemetry)
 
     async def execute(self, scope: Scope, context: Dict[str, Any]) -> None:
@@ -60,33 +56,7 @@ class Rewinder:
         render = await self._renderer.render(scope, resolved, origin, inline=inline)
 
         if not render or not getattr(render, "changed", False):
-            await self._handle_skip(history, target)
+            await self._finalizer.skip(history, target)
             return
 
-        rebuilt = self._mutator.rebuild(target, render)
-        await self._finalize(history, rebuilt, target, render)
-
-    async def _handle_skip(self, history: Sequence[Entry], target: Entry) -> None:
-        """Handle rewind when no rendering changes are required."""
-
-        self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="back")
-        await self._history.assign_state(target.state)
-        marker = target.messages[0].id if target.messages else None
-        await self._history.mark_latest(int(marker) if marker is not None else None)
-        await self._history.archive(trim(history))
-
-    async def _finalize(
-            self,
-            history: Sequence[Entry],
-            rebuilt: Entry,
-            target: Entry,
-            render: Any,
-    ) -> None:
-        """Persist rebuilt entry and update state/marker telemetry."""
-
-        snapshot = list(trim(history))
-        snapshot[-1] = rebuilt
-        await self._history.archive(snapshot)
-        await self._history.assign_state(target.state)
-        identifier = self._mutator.primary_identifier(render)
-        await self._history.mark_latest(identifier)
+        await self._finalizer.apply(history, target, render)

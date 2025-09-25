@@ -181,6 +181,43 @@ class RewindMutator:
         return identifiers[0] if identifiers else None
 
 
+class RewindFinalizer:
+    """Persist rewind outcomes while emitting telemetry."""
+
+    def __init__(
+            self,
+            history: RewindHistoryAccess,
+            mutator: RewindMutator,
+            telemetry: Telemetry,
+    ) -> None:
+        self._history = history
+        self._mutator = mutator
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.finalizer")
+
+    async def skip(self, history: Sequence[Entry], target: Entry) -> None:
+        """Handle rewind sequences that do not trigger mutations."""
+
+        self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="back")
+        await self._history.assign_state(target.state)
+        marker = target.messages[0].id if target.messages else None
+        await self._history.mark_latest(int(marker) if marker is not None else None)
+        await self._history.archive(trim(history))
+
+    async def apply(self, history: Sequence[Entry], target: Entry, render: Any) -> None:
+        """Persist rebuilt entries and update state markers."""
+
+        snapshot = list(trim(history))
+        rebuilt = self._mutator.rebuild(target, render)
+        if snapshot:
+            snapshot[-1] = rebuilt
+        else:  # pragma: no cover - defensive guard
+            snapshot.append(rebuilt)
+        await self._history.archive(snapshot)
+        await self._history.assign_state(target.state)
+        identifier = self._mutator.primary_identifier(render)
+        await self._history.mark_latest(identifier)
+
+
 def trim(history: Sequence[Entry]) -> Iterable[Entry]:
     """Yield history entries without the latest snapshot."""
 
@@ -191,5 +228,6 @@ __all__ = [
     "RewindHistoryAccess",
     "RewindMutator",
     "RewindRenderer",
+    "RewindFinalizer",
     "trim",
 ]

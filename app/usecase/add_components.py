@@ -20,46 +20,69 @@ from navigator.core.value.content import Payload, normalize
 from navigator.core.value.message import Scope
 
 
-class AppendHistoryAccess:
-    """Provide read/write helpers around history repositories."""
+class AppendHistoryJournal:
+    """Emit telemetry envelopes for append history events."""
 
-    def __init__(
-            self,
-            archive: HistoryRepository,
-            state: StateRepository,
-            tail: LatestRepository,
-            limit: int,
-            telemetry: Telemetry,
-    ) -> None:
-        self._archive = archive
-        self._state = state
-        self._tail = tail
-        self._limit = limit
-        self._telemetry = telemetry
-        self._channel: TelemetryChannel = telemetry.channel(
-            f"{__name__}.history"
-        )
+    def __init__(self, telemetry: Telemetry) -> None:
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history")
 
-    async def snapshot(self, scope: Scope) -> List[Entry]:
-        records = await self._archive.recall()
+    def loaded(self, scope: Scope, count: int) -> None:
         self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_LOAD,
             op="add",
-            history={"len": len(records)},
+            history={"len": count},
             scope=profile(scope),
         )
-        return records
 
-    async def status(self) -> Optional[str]:
-        status = await self._state.status()
+    def status(self, status: Optional[str]) -> None:
         self._channel.emit(
             logging.INFO,
             LogCode.STATE_GET,
             op="add",
             state={"current": status},
         )
+
+
+class AppendHistoryAccess:
+    """Provide read helpers around history repositories."""
+
+    def __init__(
+            self,
+            archive: HistoryRepository,
+            state: StateRepository,
+            telemetry: Telemetry,
+            journal: AppendHistoryJournal | None = None,
+    ) -> None:
+        self._archive = archive
+        self._state = state
+        self._journal = journal or AppendHistoryJournal(telemetry)
+
+    async def snapshot(self, scope: Scope) -> List[Entry]:
+        records = await self._archive.recall()
+        self._journal.loaded(scope, len(records))
+        return records
+
+    async def status(self) -> Optional[str]:
+        status = await self._state.status()
+        self._journal.status(status)
         return status
+
+
+class AppendHistoryWriter:
+    """Persist history timelines while applying pruning policy."""
+
+    def __init__(
+            self,
+            archive: HistoryRepository,
+            tail: LatestRepository,
+            limit: int,
+            telemetry: Telemetry,
+    ) -> None:
+        self._archive = archive
+        self._tail = tail
+        self._limit = limit
+        self._telemetry = telemetry
 
     async def persist(self, timeline: Sequence[Entry]) -> None:
         await persist(
@@ -129,5 +152,7 @@ class AppendPreparation:
 
 __all__ = [
     "AppendHistoryAccess",
+    "AppendHistoryJournal",
+    "AppendHistoryWriter",
     "AppendPreparation",
 ]

@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from dependency_injector import containers, providers
 from navigator.app.service import TailHistoryAccess, TailHistoryMutator
-from navigator.app.service.view.planner import ViewPlanner
+from navigator.app.service.view.planner import (
+    InlineRenderPlanner,
+    RegularRenderPlanner,
+    RenderSynchronizer,
+    TailOperations,
+    ViewPlanner,
+)
 from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.add import Appender
 from navigator.app.usecase.alarm import Alarm
@@ -21,16 +27,28 @@ from navigator.core.telemetry import Telemetry
 class UseCaseContainer(containers.DeclarativeContainer):
     core = providers.DependenciesContainer()
     storage = providers.DependenciesContainer()
-    telegram = providers.DependenciesContainer()
+    view = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
+    render_synchronizer = providers.Factory(
+        RenderSynchronizer,
+        executor=view.executor,
+        inline=view.inline,
+        rendering=core.rendering,
+    )
+    tail_operations = providers.Factory(TailOperations, executor=view.executor, rendering=core.rendering)
+    inline_planner = providers.Factory(InlineRenderPlanner, synchronizer=render_synchronizer)
+    regular_planner = providers.Factory(
+        RegularRenderPlanner,
+        album=view.album,
+        synchronizer=render_synchronizer,
+        tails=tail_operations,
+        telemetry=telemetry,
+    )
     planner = providers.Factory(
         ViewPlanner,
-        executor=telegram.executor,
-        inline=telegram.inline,
-        album=telegram.album,
-        rendering=core.rendering,
-        telemetry=telemetry,
+        inline=inline_planner,
+        regular=regular_planner,
     )
     restorer = providers.Factory(ViewRestorer, ledger=core.ledger, telemetry=telemetry)
     appender = providers.Factory(
@@ -57,7 +75,6 @@ class UseCaseContainer(containers.DeclarativeContainer):
         Rewinder,
         ledger=storage.chronicle,
         status=storage.status,
-        gateway=telegram.gateway,
         restorer=restorer,
         planner=planner,
         latest=storage.latest,
@@ -67,7 +84,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         Setter,
         ledger=storage.chronicle,
         status=storage.status,
-        gateway=telegram.gateway,
+        gateway=view.gateway,
         restorer=restorer,
         planner=planner,
         latest=storage.latest,
@@ -95,13 +112,13 @@ class UseCaseContainer(containers.DeclarativeContainer):
     tail_decision = providers.Factory(TailDecisionService, rendering=core.rendering)
     tail_inline = providers.Factory(
         InlineEditCoordinator,
-        handler=telegram.inline,
-        executor=telegram.executor,
+        handler=view.inline,
+        executor=view.executor,
         rendering=core.rendering,
     )
     tail_mutation = providers.Factory(
         MessageEditCoordinator,
-        executor=telegram.executor,
+        executor=view.executor,
         history=tail_history,
         mutator=tail_mutator,
     )
@@ -114,7 +131,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         mutation=tail_mutation,
         telemetry=tail_telemetry,
     )
-    alarm = providers.Factory(Alarm, gateway=telegram.gateway, alert=core.alert, telemetry=telemetry)
+    alarm = providers.Factory(Alarm, gateway=view.gateway, alert=core.alert, telemetry=telemetry)
 
 
 __all__ = ["UseCaseContainer"]

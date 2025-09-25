@@ -87,7 +87,7 @@ def _meta(node: Message) -> Meta:
     return TextMeta(text=node.text, inline=node.inline)
 
 
-class _RenderSynchronizer:
+class RenderSynchronizer:
     """Synchronize stored ledger messages with desired payloads."""
 
     def __init__(
@@ -175,7 +175,7 @@ class _RenderSynchronizer:
         return changed
 
 
-class _TailOperations:
+class TailOperations:
     """Handle tail trimming and appending of history nodes."""
 
     def __init__(self, executor: EditExecutor, rendering: RenderingConfig) -> None:
@@ -215,10 +215,10 @@ class _TailOperations:
         return mutated
 
 
-class _InlinePlanner:
+class InlineRenderPlanner:
     """Resolve inline rendering sequences."""
 
-    def __init__(self, synchronizer: _RenderSynchronizer) -> None:
+    def __init__(self, synchronizer: RenderSynchronizer) -> None:
         self._synchronizer = synchronizer
 
     async def plan(
@@ -238,20 +238,20 @@ class _InlinePlanner:
         )
 
 
-class _RegularPlanner:
+class RegularRenderPlanner:
     """Plan regular rendering flows that may mutate history."""
 
     def __init__(
             self,
             album: AlbumService,
-            synchronizer: _RenderSynchronizer,
-            tails: _TailOperations,
-            channel: TelemetryChannel,
+            synchronizer: RenderSynchronizer,
+            tails: TailOperations,
+            telemetry: Telemetry,
     ) -> None:
         self._album = album
         self._synchronizer = synchronizer
         self._tails = tails
-        self._channel = channel
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.regular")
 
     async def plan(
             self,
@@ -313,17 +313,11 @@ class ViewPlanner:
 
     def __init__(
             self,
-            executor: EditExecutor,
-            inline: InlineHandler,
-            album: AlbumService,
-            rendering: RenderingConfig,
-            telemetry: Telemetry,
+            inline: InlineRenderPlanner,
+            regular: RegularRenderPlanner,
     ) -> None:
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
-        synchronizer = _RenderSynchronizer(executor, inline, rendering)
-        tails = _TailOperations(executor, rendering)
-        self._inline_planner = _InlinePlanner(synchronizer)
-        self._regular_planner = _RegularPlanner(album, synchronizer, tails, self._channel)
+        self._inline_planner = inline
+        self._regular_planner = regular
 
     async def render(
             self,
@@ -354,4 +348,12 @@ class ViewPlanner:
 
 
 
-__all__ = ["RenderResult", "RenderNode", "ViewPlanner"]
+__all__ = [
+    "RenderResult",
+    "RenderNode",
+    "RenderSynchronizer",
+    "TailOperations",
+    "InlineRenderPlanner",
+    "RegularRenderPlanner",
+    "ViewPlanner",
+]
