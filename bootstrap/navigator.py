@@ -36,6 +36,7 @@ def _scope(dto: ScopeDTO) -> Scope:
         business=getattr(dto, "business", None),
         category=getattr(dto, "category", None),
         topic=getattr(dto, "topic", None),
+        direct=bool(getattr(dto, "direct", False)),
     )
 
 
