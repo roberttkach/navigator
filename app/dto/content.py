@@ -1,3 +1,5 @@
+"""Define application-level DTOs for payload assembly."""
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +11,8 @@ Extra = Dict[str, Any]
 
 @dataclass(frozen=True, slots=True)
 class Media:
+    """Represent media inputs captured from upstream adapters."""
+
     path: object
     type: Optional[str] = None
     caption: Optional[str] = None
@@ -16,19 +20,18 @@ class Media:
 
 @dataclass(frozen=True, slots=True)
 class Content:
-    """
-    DTO контента для Navigator.
+    """Describe Navigator content transfer object contract.
 
-    Поле `extra`:
-    - `message_effect_id` применяется только при отправке в приватных чатах.
-    - При редактировании и/или вне приватных чатов эффект удаляется нормализацией.
-    - Попытка изменить только эффект без изменения текста/медиа/markup логически приводит к NO_CHANGE.
+    Extra payload notes:
+    * ``message_effect_id`` applies only when targeting private chats.
+    * Normalisation strips unsupported effects when editing existing content.
+    * Updating only the effect without changing content does not trigger writes.
 
-    Очистка подписи:
-    - Если media и erase=True и text в значении None/"" →
-      в payload.text будет установлен "" и установлен маркер явной очистки.
-    - Если media и text == "" при erase=False → выбрасывается ValueError.
+    Caption erasure rules:
+    * ``media`` with ``erase=True`` and ``text`` in ``(None, "")`` clears captions.
+    * ``media`` with an empty caption requires ``erase`` to be ``True``.
     """
+
     text: Optional[str] = None
     media: Optional[Media] = None
     group: Optional[List[Media]] = None
@@ -40,6 +43,8 @@ class Content:
 
 @dataclass(frozen=True, slots=True)
 class Node:
+    """Group sequential content messages for batch operations."""
+
     messages: List[Content]
 
 

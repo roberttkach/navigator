@@ -1,10 +1,13 @@
+"""Assemble runtime configuration from layered environment sources."""
+
 from __future__ import annotations
 
 import os
 from functools import lru_cache
 from pathlib import Path
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from typing import Dict, Iterable, Mapping, Set
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 _ENV_FILE = Path(".env")
 
@@ -25,12 +28,14 @@ _ALIASES: Dict[str, str] = {
 
 
 def _alias(field: str) -> AliasChoices:
-    """Build a validation alias accepting both *field* and *env* names."""
+    """Build a validation alias accepting both field and env names."""
 
     return AliasChoices(field, _ALIASES[field])
 
 
 class Settings(BaseModel):
+    """Model resolved configuration for Navigator runtime."""
+
     model_config = ConfigDict(extra="ignore")
 
     historylimit: int = Field(18, ge=1, validation_alias=_alias("historylimit"))
@@ -62,14 +67,20 @@ class Settings(BaseModel):
 
     @property
     def mixset(self) -> Set[str]:
+        """Return parsed ``mixcodes`` entries without empty tokens."""
+
         return {item.strip() for item in self.mixcodes.split(",") if item.strip()}
 
     @property
     def deletepause(self) -> float:
+        """Return deletion grace period in seconds."""
+
         return float(self.deletepausems) / 1000.0
 
 
 def _read_env_file(path: Path) -> Dict[str, str]:
+    """Return key/value pairs parsed from ``path`` when present."""
+
     if not path.exists() or not path.is_file():
         return {}
 
@@ -91,6 +102,8 @@ def _read_env_file(path: Path) -> Dict[str, str]:
 
 
 def _merge_sources(*sources: Iterable[Mapping[str, str]]) -> Dict[str, str]:
+    """Return a combined mapping where later sources override earlier ones."""
+
     merged: Dict[str, str] = {}
     for source in sources:
         for key, value in source.items():
@@ -99,6 +112,8 @@ def _merge_sources(*sources: Iterable[Mapping[str, str]]) -> Dict[str, str]:
 
 
 def _prepare_payload(raw: Mapping[str, str]) -> Dict[str, str]:
+    """Normalise raw environment data to ``Settings`` field names."""
+
     lowered = {key.lower(): value for key, value in raw.items()}
     payload: Dict[str, str] = {}
     for field, env_name in _ALIASES.items():
@@ -112,6 +127,8 @@ def _prepare_payload(raw: Mapping[str, str]) -> Dict[str, str]:
 
 @lru_cache(maxsize=1)
 def load() -> Settings:
+    """Load settings from ``.env`` file and OS environment variables."""
+
     env_file = _read_env_file(_ENV_FILE)
     env_vars: Dict[str, str] = _merge_sources(env_file, os.environ)
     payload = _prepare_payload(env_vars)
