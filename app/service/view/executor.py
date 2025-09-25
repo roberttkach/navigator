@@ -57,15 +57,38 @@ class Execution:
     stem: Message | None
 
 
-class EditExecutor:
+class FallbackStrategy:
+    """Coordinate fallback resend operations when edits are forbidden."""
+
+    def __init__(self, gateway: MessageGateway) -> None:
+        self._gateway = gateway
+
+    async def resend(
+        self,
+        scope: Scope,
+        payload: Payload,
+        stem: Message | None,
+    ) -> Execution:
+        result = await self._gateway.send(scope, payload)
+        if stem:
+            await self._gateway.delete(scope, _targets(stem))
+        return Execution(result=result, stem=stem)
+
+
+class VerdictDispatcher:
     """Dispatch reconciliation decisions to the Telegram gateway."""
 
     _Handler = Callable[[Scope, Payload, Message | None], Awaitable[Optional[Execution]]]
 
-    def __init__(self, gateway: MessageGateway, telemetry: Telemetry) -> None:
+    def __init__(
+        self,
+        gateway: MessageGateway,
+        *,
+        fallback: FallbackStrategy | None = None,
+    ) -> None:
         self._gateway = gateway
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
-        self._handlers: dict[decision.Decision, EditExecutor._Handler] = {
+        self._fallback = fallback or FallbackStrategy(gateway)
+        self._handlers: dict[decision.Decision, VerdictDispatcher._Handler] = {
             decision.Decision.RESEND: self._send,
             decision.Decision.EDIT_TEXT: self._rewrite,
             decision.Decision.EDIT_MEDIA: self._recast,
@@ -74,24 +97,88 @@ class EditExecutor:
             decision.Decision.DELETE_SEND: self._delete_and_send,
         }
 
-    def _emit_skip(self, note: str) -> None:
-        """Emit a skip telemetry event with a descriptive ``note``."""
+    async def dispatch(
+        self,
+        verdict: decision.Decision,
+        scope: Scope,
+        payload: Payload,
+        stem: Message | None,
+    ) -> Optional[Execution]:
+        handler = self._handlers.get(verdict)
+        if handler is None:
+            return None
+        return await handler(scope, payload, stem)
 
-        self._channel.emit(logging.INFO, LogCode.RERENDER_START, note=note, skip=True)
-
-    async def _fallback_send(
-            self, scope: Scope, payload: Payload, stem: Message | None
-    ) -> Execution:
-        """Fallback to resending payload and deleting the stem when required."""
-
+    async def _send(self, scope: Scope, payload: Payload, stem: Message | None) -> Execution:
         result = await self._gateway.send(scope, payload)
-        if stem:
-            await self._gateway.delete(scope, _targets(stem))
         return Execution(result=result, stem=stem)
 
-    def _handle_inline_blocked(self, scope: Scope, note: str) -> None:
-        """Emit telemetry for inline scopes when fallbacks are prohibited."""
+    async def _rewrite(
+        self,
+        scope: Scope,
+        payload: Payload,
+        stem: Message | None,
+    ) -> Optional[Execution]:
+        if not stem:
+            return None
+        result = await self._gateway.rewrite(scope, stem.id, payload)
+        return Execution(result=result, stem=stem)
 
+    async def _recast(
+        self,
+        scope: Scope,
+        payload: Payload,
+        stem: Message | None,
+    ) -> Optional[Execution]:
+        if not stem:
+            return None
+        result = await self._gateway.recast(scope, stem.id, payload)
+        return Execution(result=result, stem=stem)
+
+    async def _retitle(
+        self,
+        scope: Scope,
+        payload: Payload,
+        stem: Message | None,
+    ) -> Optional[Execution]:
+        if not stem:
+            return None
+        result = await self._gateway.retitle(scope, stem.id, payload)
+        return Execution(result=result, stem=stem)
+
+    async def _remap(
+        self,
+        scope: Scope,
+        payload: Payload,
+        stem: Message | None,
+    ) -> Optional[Execution]:
+        if not stem:
+            return None
+        result = await self._gateway.remap(scope, stem.id, payload)
+        return Execution(result=result, stem=stem)
+
+    async def _delete_and_send(
+        self,
+        scope: Scope,
+        payload: Payload,
+        stem: Message | None,
+    ) -> Execution:
+        return await self._fallback.resend(scope, payload, stem)
+
+
+class EditTelemetry:
+    """Emit telemetry statements for edit execution."""
+
+    def __init__(self, telemetry: Telemetry) -> None:
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+
+    def skip(self, note: str) -> None:
+        self._channel.emit(logging.INFO, LogCode.RERENDER_START, note=note, skip=True)
+
+    def event(self, note: str) -> None:
+        self._channel.emit(logging.INFO, LogCode.RERENDER_START, note=note)
+
+    def inline_blocked(self, scope: Scope, note: str) -> None:
         if scope.inline:
             self._channel.emit(
                 logging.INFO,
@@ -100,105 +187,59 @@ class EditExecutor:
                 skip=True,
             )
 
-    async def execute(
-            self,
-            scope: Scope,
-            verdict: decision.Decision,
-            payload: Payload,
-            last: Entry | Message | None,
+
+class EditErrorHandler:
+    """Translate gateway failures into telemetry and fallbacks."""
+
+    def __init__(
+        self,
+        telemetry: EditTelemetry,
+        fallback: FallbackStrategy,
+    ) -> None:
+        self._telemetry = telemetry
+        self._fallback = fallback
+
+    async def resolve(
+        self,
+        error: Exception,
+        scope: Scope,
+        payload: Payload,
+        stem: Message | None,
     ) -> Optional[Execution]:
-        """Apply ``verdict`` using the gateway and return execution metadata."""
-
-        stem = _head(last)
-
-        try:
-            if verdict is decision.Decision.NO_CHANGE:
-                return None
-
-            handler = self._handlers.get(verdict)
-            if handler is None:
-                return None
-
-            return await handler(scope, payload, stem)
-
-        except EmptyPayload:
-            self._emit_skip("empty_payload")
+        if isinstance(error, EmptyPayload):
+            self._telemetry.skip("empty_payload")
             return None
-        except ExtraForbidden:
-            self._emit_skip("extra_validation_failed")
+        if isinstance(error, ExtraForbidden):
+            self._telemetry.skip("extra_validation_failed")
             return None
-        except (TextOverflow, CaptionOverflow):
-            self._emit_skip("too_long")
+        if isinstance(error, (TextOverflow, CaptionOverflow)):
+            self._telemetry.skip("too_long")
             return None
-        except EditForbidden:
-            self._channel.emit(logging.INFO, LogCode.RERENDER_START, note="edit_forbidden")
-            self._handle_inline_blocked(scope, "inline_no_fallback")
+        if isinstance(error, EditForbidden):
+            self._telemetry.event("edit_forbidden")
+            self._telemetry.inline_blocked(scope, "inline_no_fallback")
             if scope.inline:
                 return None
-            return await self._fallback_send(scope, payload, stem)
-        except MessageUnchanged:
-            self._channel.emit(logging.INFO, LogCode.RERENDER_START, note="not_modified")
-            self._handle_inline_blocked(scope, "inline_no_fallback")
+            return await self._fallback.resend(scope, payload, stem)
+        if isinstance(error, MessageUnchanged):
+            self._telemetry.event("not_modified")
+            self._telemetry.inline_blocked(scope, "inline_no_fallback")
             if scope.inline:
                 return None
             return None
+        raise error
 
-    async def _send(self, scope: Scope, payload: Payload, stem: Message | None) -> Execution:
-        result = await self._gateway.send(scope, payload)
-        return Execution(result=result, stem=stem)
 
-    async def _rewrite(
-            self, scope: Scope, payload: Payload, stem: Message | None
-    ) -> Optional[Execution]:
-        if not stem:
-            return None
-        result = await self._gateway.rewrite(scope, stem.id, payload)
-        return Execution(result=result, stem=stem)
-
-    async def _recast(
-            self, scope: Scope, payload: Payload, stem: Message | None
-    ) -> Optional[Execution]:
-        if not stem:
-            return None
-        result = await self._gateway.recast(scope, stem.id, payload)
-        return Execution(result=result, stem=stem)
-
-    async def _retitle(
-            self, scope: Scope, payload: Payload, stem: Message | None
-    ) -> Optional[Execution]:
-        if not stem:
-            return None
-        result = await self._gateway.retitle(scope, stem.id, payload)
-        return Execution(result=result, stem=stem)
-
-    async def _remap(
-            self, scope: Scope, payload: Payload, stem: Message | None
-    ) -> Optional[Execution]:
-        if not stem:
-            return None
-        result = await self._gateway.remap(scope, stem.id, payload)
-        return Execution(result=result, stem=stem)
-
-    async def _delete_and_send(
-            self, scope: Scope, payload: Payload, stem: Message | None
-    ) -> Execution:
-        result = await self._gateway.send(scope, payload)
-        if stem:
-            await self._gateway.delete(scope, _targets(stem))
-        return Execution(result=result, stem=stem)
-
-    async def delete(self, scope: Scope, identifiers: list[int]) -> None:
-        if identifiers:
-            await self._gateway.delete(scope, identifiers)
+class MetaRefiner:
+    """Reconcile execution metadata with persisted message state."""
 
     def refine(
-            self,
-            execution: Execution,
-            verdict: decision.Decision,
-            payload: Payload,
+        self,
+        execution: Execution,
+        verdict: decision.Decision,
+        payload: Payload,
     ) -> Meta:
-        """Reconcile execution metadata with persisted message state."""
-
+        _ = verdict
         meta = execution.result.meta
         stem = execution.stem
 
@@ -235,6 +276,67 @@ class EditExecutor:
             return meta
 
         raise MetadataKindMissing()
+
+
+class EditExecutor:
+    """Dispatch reconciliation decisions to the Telegram gateway."""
+
+    def __init__(
+        self,
+        gateway: MessageGateway,
+        telemetry: Telemetry,
+        *,
+        dispatcher: VerdictDispatcher | None = None,
+        errors: EditErrorHandler | None = None,
+        refiner: MetaRefiner | None = None,
+    ) -> None:
+        self._gateway = gateway
+        fallback = FallbackStrategy(gateway)
+        self._dispatcher = dispatcher or VerdictDispatcher(gateway, fallback=fallback)
+        telemetry_helper = EditTelemetry(telemetry)
+        self._errors = errors or EditErrorHandler(telemetry_helper, fallback)
+        self._refiner = refiner or MetaRefiner()
+
+    async def execute(
+            self,
+            scope: Scope,
+            verdict: decision.Decision,
+            payload: Payload,
+            last: Entry | Message | None,
+    ) -> Optional[Execution]:
+        """Apply ``verdict`` using the gateway and return execution metadata."""
+
+        stem = _head(last)
+
+        try:
+            if verdict is decision.Decision.NO_CHANGE:
+                return None
+
+            return await self._dispatcher.dispatch(verdict, scope, payload, stem)
+
+        except (
+            EmptyPayload,
+            ExtraForbidden,
+            TextOverflow,
+            CaptionOverflow,
+            EditForbidden,
+            MessageUnchanged,
+        ) as error:
+            return await self._errors.resolve(error, scope, payload, stem)
+
+    async def delete(self, scope: Scope, identifiers: list[int]) -> None:
+        if identifiers:
+            await self._gateway.delete(scope, identifiers)
+
+    def refine(
+            self,
+            execution: Execution,
+            verdict: decision.Decision,
+            payload: Payload,
+    ) -> Meta:
+        """Reconcile execution metadata with persisted message state."""
+
+        return self._refiner.refine(execution, verdict, payload)
 
 
 __all__ = ["EditExecutor", "Execution"]

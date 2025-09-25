@@ -7,6 +7,7 @@ from .navigator_runtime import (
     NavigatorRuntime,
     NavigatorStateService,
     NavigatorTail,
+    NavigatorUseCases,
     build_navigator_runtime,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "NavigatorHistoryService",
     "NavigatorStateService",
     "NavigatorTail",
+    "NavigatorUseCases",
     "build_navigator_runtime",
 ]

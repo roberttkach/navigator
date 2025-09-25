@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Callable
+
 from dependency_injector import containers, providers
 
 from navigator.app.internal.policy import shield as inline_shield
 from navigator.app.service import TailHistoryAccess, TailHistoryMutator
+from navigator.app.service.navigator_runtime import NavigatorUseCases
 from navigator.app.service.view.planner import (
     InlineRenderPlanner,
     RegularRenderPlanner,
@@ -38,6 +42,32 @@ from navigator.app.usecase.replace_components import (
 )
 from navigator.app.usecase.set import Setter
 from navigator.core.telemetry import Telemetry
+
+
+@dataclass(frozen=True)
+class NavigatorUsecaseProvider:
+    """Factory interface exposing navigator use case bundles."""
+
+    _appender: Callable[[], Appender]
+    _swapper: Callable[[], Swapper]
+    _rewinder: Callable[[], Rewinder]
+    _setter: Callable[[], Setter]
+    _trimmer: Callable[[], Trimmer]
+    _shifter: Callable[[], Shifter]
+    _tailer: Callable[[], Tailer]
+    _alarm: Callable[[], Alarm]
+
+    def navigator(self) -> NavigatorUseCases:
+        return NavigatorUseCases(
+            appender=self._appender(),
+            swapper=self._swapper(),
+            rewinder=self._rewinder(),
+            setter=self._setter(),
+            trimmer=self._trimmer(),
+            shifter=self._shifter(),
+            tailer=self._tailer(),
+            alarm=self._alarm(),
+        )
 
 
 class UseCaseContainer(containers.DeclarativeContainer):
@@ -198,6 +228,17 @@ class UseCaseContainer(containers.DeclarativeContainer):
         telemetry=tail_telemetry,
     )
     alarm = providers.Factory(Alarm, gateway=view.gateway, alert=core.alert, telemetry=telemetry)
+    navigator = providers.Factory(
+        NavigatorUsecaseProvider,
+        _appender=appender,
+        _swapper=swapper,
+        _rewinder=rewinder,
+        _setter=setter,
+        _trimmer=trimmer,
+        _shifter=shifter,
+        _tailer=tailer,
+        _alarm=alarm,
+    )
 
 
 __all__ = ["UseCaseContainer"]
