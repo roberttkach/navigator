@@ -87,6 +87,11 @@ class RetreatOutcomeFactory:
         key = "barred" if note == "barred" else "missing"
         return RetreatOutcome(text=self._translate(key, tongue), show_alert=True)
 
+    def render(self, result: RetreatResult, cb: CallbackQuery) -> RetreatOutcome:
+        if result.success:
+            return self.success()
+        return self.failure(result.note or "generic", cb)
+
     @staticmethod
     def _tongue(obj: CallbackQuery) -> str:
         user = getattr(obj, "from_user", None)
@@ -94,20 +99,83 @@ class RetreatOutcomeFactory:
         return (code or "en").split("-")[0].lower()
 
 
+@dataclass(frozen=True)
+class RetreatResult:
+    """Represents the outcome of a retreat workflow execution."""
+
+    note: str | None = None
+
+    @property
+    def success(self) -> bool:
+        return self.note is None
+
+    @classmethod
+    def ok(cls) -> "RetreatResult":
+        return cls()
+
+    @classmethod
+    def failed(cls, note: str) -> "RetreatResult":
+        return cls(note=note)
+
+
+class RetreatWorkflow:
+    """Drive navigator back actions while handling telemetry and context."""
+
+    def __init__(
+        self,
+        *,
+        telemetry: RetreatTelemetry,
+        context: RetreatContextBuilder,
+    ) -> None:
+        self._telemetry = telemetry
+        self._context = context
+
+    async def execute(
+        self,
+        cb: CallbackQuery,
+        navigator: NavigatorBack,
+        payload: dict[str, Any],
+    ) -> RetreatResult:
+        scope = self._telemetry.scope(cb)
+        self._telemetry.entered(scope)
+        try:
+            context = self._context.build(cb, payload)
+            await navigator.back(context=context)
+        except HistoryEmpty:
+            return self._failure("history_empty", scope)
+        except StateNotFound:
+            return self._failure("state_not_found", scope)
+        except InlineUnsupported:
+            return self._failure("barred", scope)
+        except Exception:  # pragma: no cover - defensive net for logging
+            return self._failure("generic", scope)
+        self._telemetry.completed(scope)
+        return RetreatResult.ok()
+
+    def _failure(self, note: str, scope: dict[str, object]) -> RetreatResult:
+        self._telemetry.failed(note, scope)
+        return RetreatResult.failed(note)
+
+
 class RetreatHandler:
-    """Coordinate navigator back operations with delegated collaborators."""
+    """Adapt retreat workflow results to Telegram specific outcomes."""
 
     def __init__(
         self,
         telemetry: Telemetry,
         translator: Translator,
         *,
+        workflow: RetreatWorkflow | None = None,
         instrumentation: RetreatTelemetry | None = None,
         context: RetreatContextBuilder | None = None,
         outcomes: RetreatOutcomeFactory | None = None,
     ) -> None:
-        self._telemetry = instrumentation or RetreatTelemetry(telemetry)
-        self._context = context or RetreatContextBuilder()
+        telemetry_tools = instrumentation or RetreatTelemetry(telemetry)
+        context_builder = context or RetreatContextBuilder()
+        self._workflow = workflow or RetreatWorkflow(
+            telemetry=telemetry_tools,
+            context=context_builder,
+        )
         self._outcomes = outcomes or RetreatOutcomeFactory(translator)
 
     async def __call__(
@@ -116,30 +184,14 @@ class RetreatHandler:
         navigator: NavigatorBack,
         payload: dict[str, Any],
     ) -> RetreatOutcome:
-        scope = self._telemetry.scope(cb)
-        self._telemetry.entered(scope)
-        try:
-            context = self._context.build(cb, payload)
-            await navigator.back(context=context)
-        except HistoryEmpty:
-            return self._fail("history_empty", cb, scope)
-        except StateNotFound:
-            return self._fail("state_not_found", cb, scope)
-        except InlineUnsupported:
-            return self._fail("barred", cb, scope)
-        except Exception:  # pragma: no cover - defensive net for logging
-            return self._fail("generic", cb, scope)
-        self._telemetry.completed(scope)
-        return self._outcomes.success()
-
-    def _fail(
-        self,
-        note: str,
-        cb: CallbackQuery,
-        scope: dict[str, object],
-    ) -> RetreatOutcome:
-        self._telemetry.failed(note, scope)
-        return self._outcomes.failure(note, cb)
+        result = await self._workflow.execute(cb, navigator, payload)
+        return self._outcomes.render(result, cb)
 
 
-__all__ = ["NavigatorBack", "RetreatHandler", "RetreatOutcome"]
+__all__ = [
+    "NavigatorBack",
+    "RetreatHandler",
+    "RetreatOutcome",
+    "RetreatResult",
+    "RetreatWorkflow",
+]
