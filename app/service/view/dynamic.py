@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from typing import Any, List, Optional
 
 from ....core.entity.history import Entry
@@ -40,15 +41,14 @@ class DynamicViewRestorer:
         self,
         *,
         channel: TelemetryChannel,
-        ledger: ViewLedger,
-        resolver: ForgeResolver | None = None,
-        invoker: ForgeInvoker | None = None,
-        normaliser: DynamicPayloadNormaliser | None = None,
+        resolver: ForgeResolver,
+        invoker: ForgeInvoker,
+        normaliser: DynamicPayloadNormaliser,
     ) -> None:
         self._channel = channel
-        self._resolver = resolver or ForgeResolver(ledger, channel)
-        self._invoker = invoker or ForgeInvoker(channel)
-        self._normaliser = normaliser or DynamicPayloadNormaliser()
+        self._resolver = resolver
+        self._invoker = invoker
+        self._normaliser = normaliser
 
     async def restore(
         self,
@@ -68,7 +68,56 @@ class DynamicViewRestorer:
         return self._normaliser.normalize(content, inline=inline)
 
 
+@dataclass(slots=True)
+class DynamicRestorationFactory:
+    """Create :class:`DynamicViewRestorer` instances from loosely coupled hooks."""
+
+    channel: TelemetryChannel
+    resolver_factory: Callable[[], ForgeResolver]
+    invoker_factory: Callable[[], ForgeInvoker]
+    normaliser_factory: Callable[[], DynamicPayloadNormaliser] = (
+        DynamicPayloadNormaliser
+    )
+
+    def create(
+        self,
+        *,
+        resolver: ForgeResolver | None = None,
+        invoker: ForgeInvoker | None = None,
+        normaliser: DynamicPayloadNormaliser | None = None,
+    ) -> DynamicViewRestorer:
+        return DynamicViewRestorer(
+            channel=self.channel,
+            resolver=resolver or self.resolver_factory(),
+            invoker=invoker or self.invoker_factory(),
+            normaliser=normaliser or self.normaliser_factory(),
+        )
+
+
+def create_dynamic_view_restorer(
+    ledger: ViewLedger,
+    channel: TelemetryChannel,
+    *,
+    resolver_factory: Callable[[ViewLedger, TelemetryChannel], ForgeResolver] | None = None,
+    invoker_factory: Callable[[TelemetryChannel], ForgeInvoker] | None = None,
+    normaliser_factory: Callable[[], DynamicPayloadNormaliser] | None = None,
+) -> DynamicViewRestorer:
+    """Convenience helper wiring default resolver, invoker and normaliser."""
+
+    resolver_builder = resolver_factory or (lambda src, chan: ForgeResolver(src, chan))
+    invoker_builder = invoker_factory or (lambda chan: ForgeInvoker(chan))
+    factory = DynamicRestorationFactory(
+        channel=channel,
+        resolver_factory=lambda: resolver_builder(ledger, channel),
+        invoker_factory=lambda: invoker_builder(channel),
+        normaliser_factory=normaliser_factory or DynamicPayloadNormaliser,
+    )
+    return factory.create()
+
+
 __all__ = [
     "DynamicPayloadNormaliser",
+    "DynamicRestorationFactory",
     "DynamicViewRestorer",
+    "create_dynamic_view_restorer",
 ]

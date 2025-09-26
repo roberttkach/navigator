@@ -7,6 +7,7 @@ from .provision import (
     ContainerInspector,
     RuntimeProvision,
     RuntimeProvisioner,
+    RuntimeProvisionWorkflow,
     TelemetryInitializer,
 )
 
@@ -20,5 +21,6 @@ __all__ = [
     "RuntimeCalibrator",
     "RuntimeProvision",
     "RuntimeProvisioner",
+    "RuntimeProvisionWorkflow",
     "TelemetryInitializer",
 ]

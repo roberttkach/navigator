@@ -9,6 +9,7 @@ from .factory import (
 from .handler import RetreatHandler
 from .orchestrator import RetreatOrchestrator
 from .outcome import RetreatOutcome
+from .providers import default_retreat_providers
 from .protocols import NavigatorBack, Translator
 from .result import RetreatResult
 from .telemetry import RetreatTelemetry
@@ -26,5 +27,6 @@ __all__ = [
     "RetreatTelemetry",
     "RetreatWorkflow",
     "Translator",
+    "default_retreat_providers",
     "create_retreat_handler",
 ]

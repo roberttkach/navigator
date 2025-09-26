@@ -1,9 +1,8 @@
-"""Coordinate album reconciliation for stored Telegram history."""
+"""Plan album refresh operations."""
 
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
@@ -13,20 +12,8 @@ from navigator.core.port.limits import Limits
 from navigator.core.service.rendering.album import aligned
 from navigator.core.service.rendering.decision import Decision
 from navigator.core.service.rendering.helpers import match
-from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta
 from navigator.core.value.content import Payload
-from navigator.core.value.message import Scope
-
-from .executor import EditExecutor
-
-
-@dataclass(frozen=True, slots=True)
-class _AlbumDiff:
-    """Capture high-level album comparison outcomes."""
-
-    retitled: bool
-    reshaped: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +33,14 @@ class AlbumRefreshPlan:
     extras: list[int]
     meta: GroupMeta
     mutations: list[AlbumMutation]
+
+
+@dataclass(frozen=True, slots=True)
+class _AlbumDiff:
+    """Capture high-level album comparison outcomes."""
+
+    retitled: bool
+    reshaped: bool
 
 
 def _lineup(message: Message) -> list[int]:
@@ -122,32 +117,32 @@ def _ensure_int(value):
 
 
 def _compare_album(
-        former_band: list[MediaItem],
-        latter_band: list[MediaItem],
-        former_info: dict,
-        latter_info: dict,
-        *,
-        thumbguard: bool,
+    former_band: list[MediaItem],
+    latter_band: list[MediaItem],
+    former_info: dict,
+    latter_info: dict,
+    *,
+    thumbguard: bool,
 ) -> _AlbumDiff:
     """Summarize structural differences between historic and fresh albums."""
 
     retitled = (
-            (former_band[0].caption or "") != (latter_band[0].caption or "")
-            or _encode_dict(_caption_fields(former_info))
-            != _encode_dict(_caption_fields(latter_info))
-            or bool(former_info.get("show_caption_above_media"))
-            != bool(latter_info.get("show_caption_above_media"))
+        (former_band[0].caption or "") != (latter_band[0].caption or "")
+        or _encode_dict(_caption_fields(former_info))
+        != _encode_dict(_caption_fields(latter_info))
+        or bool(former_info.get("show_caption_above_media"))
+        != bool(latter_info.get("show_caption_above_media"))
     )
 
     reshaped = (
-            bool(former_info.get("spoiler")) != bool(latter_info.get("spoiler"))
-            or _ensure_int(former_info.get("start"))
-            != _ensure_int(latter_info.get("start"))
+        bool(former_info.get("spoiler")) != bool(latter_info.get("spoiler"))
+        or _ensure_int(former_info.get("start"))
+        != _ensure_int(latter_info.get("start"))
     )
 
     if thumbguard:
         reshaped = reshaped or (
-                bool(former_info.get("has_thumb")) != bool(latter_info.get("thumb") is not None)
+            bool(former_info.get("has_thumb")) != bool(latter_info.get("thumb") is not None)
         )
 
     return _AlbumDiff(retitled=retitled, reshaped=reshaped)
@@ -245,56 +240,8 @@ class AlbumRefreshPlanner:
         )
 
 
-class AlbumMutationExecutor:
-    """Execute album mutations with shared edit executor."""
-
-    def __init__(self, executor: EditExecutor) -> None:
-        self._executor = executor
-
-    async def apply(self, scope: Scope, mutations: Iterable[AlbumMutation]) -> bool:
-        mutated = False
-        for mutation in mutations:
-            execution = await self._executor.execute(
-                scope,
-                mutation.decision,
-                mutation.payload,
-                mutation.reference,
-            )
-            mutated = mutated or bool(execution)
-        return mutated
-
-
-class AlbumService:
-    def __init__(
-            self,
-            executor: EditExecutor,
-            *,
-            limits: Limits,
-            thumbguard: bool,
-            telemetry: Telemetry,
-    ) -> None:
-        self._planner = AlbumRefreshPlanner(limits=limits, thumbguard=thumbguard)
-        self._mutations = AlbumMutationExecutor(executor)
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
-
-    async def refresh(
-            self, scope: Scope, former: Message, latter: Payload
-    ) -> Optional[tuple[int, list[int], GroupMeta, bool]]:
-        """Refresh album state and emit edits when existing nodes diverge."""
-
-        plan = self._planner.prepare(former, latter)
-        if plan is None:
-            return None
-
-        mutated = await self._mutations.apply(scope, plan.mutations)
-
-        self._channel.emit(
-            logging.INFO,
-            LogCode.ALBUM_PARTIAL_OK,
-            count=len(plan.lineup),
-        )
-
-        return plan.lineup[0], plan.extras, plan.meta, mutated
-
-
-__all__ = ["AlbumService"]
+__all__ = [
+    "AlbumMutation",
+    "AlbumRefreshPlan",
+    "AlbumRefreshPlanner",
+]
