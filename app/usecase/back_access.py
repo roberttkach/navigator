@@ -66,6 +66,37 @@ class RewindHistoryReader:
         return await self._status.payload()
 
 
+class RewindWriteTelemetry:
+    """Isolate telemetry side-effects for history write operations."""
+
+    def __init__(self, telemetry: Telemetry) -> None:
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history.write")
+
+    def state_assigned(self, state: str) -> None:
+        self._channel.emit(
+            logging.INFO,
+            LogCode.STATE_SET,
+            op="back",
+            state={"target": state},
+        )
+
+    def latest_marked(self, identifier: int) -> None:
+        self._channel.emit(
+            logging.INFO,
+            LogCode.LAST_SET,
+            op="back",
+            message={"id": identifier},
+        )
+
+    def history_saved(self, length: int) -> None:
+        self._channel.emit(
+            logging.DEBUG,
+            LogCode.HISTORY_SAVE,
+            op="back",
+            history={"len": length},
+        )
+
+
 class RewindHistoryWriter:
     """Persist rewind side-effects while emitting telemetry."""
 
@@ -74,12 +105,12 @@ class RewindHistoryWriter:
         ledger: HistoryRepository,
         status: StateRepository,
         latest: LatestRepository,
-        telemetry: Telemetry,
+        instrumentation: RewindWriteTelemetry,
     ) -> None:
         self._ledger = ledger
         self._status = status
         self._latest = latest
-        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history.write")
+        self._instrumentation = instrumentation
 
     async def assign_state(self, state: str | None) -> None:
         """Persist ``state`` and report bookkeeping telemetry."""
@@ -87,12 +118,7 @@ class RewindHistoryWriter:
         if state is None:
             return
         await self._status.assign(state)
-        self._channel.emit(
-            logging.INFO,
-            LogCode.STATE_SET,
-            op="back",
-            state={"target": state},
-        )
+        self._instrumentation.state_assigned(state)
 
     async def mark_latest(self, identifier: int | None) -> None:
         """Mark ``identifier`` as the latest message when provided."""
@@ -100,24 +126,14 @@ class RewindHistoryWriter:
         if identifier is None:
             return
         await self._latest.mark(identifier)
-        self._channel.emit(
-            logging.INFO,
-            LogCode.LAST_SET,
-            op="back",
-            message={"id": identifier},
-        )
+        self._instrumentation.latest_marked(identifier)
 
     async def archive(self, history: Sequence[Entry]) -> None:
         """Persist ``history`` snapshot with telemetry."""
 
         snapshot = list(history)
         await self._ledger.archive(snapshot)
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_SAVE,
-            op="back",
-            history={"len": len(snapshot)},
-        )
+        self._instrumentation.history_saved(len(snapshot))
 
 
 class RewindRenderer:
@@ -245,5 +261,6 @@ __all__ = [
     "RewindMutator",
     "RewindRenderer",
     "RewindFinalizer",
+    "RewindWriteTelemetry",
     "trim",
 ]

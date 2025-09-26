@@ -5,7 +5,7 @@ from __future__ import annotations
 from dependency_injector import containers, providers
 
 from navigator.core.telemetry import Telemetry
-from navigator.presentation.bootstrap.navigator import NavigatorDependencies
+from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
 
 
 class NavigatorRuntimeContainer(containers.DeclarativeContainer):

@@ -17,9 +17,11 @@ from navigator.app.usecase.back_access import (
     RewindHistoryWriter,
     RewindMutator,
     RewindRenderer,
+    RewindWriteTelemetry,
 )
 from navigator.app.usecase.pop import Trimmer
 from navigator.app.usecase.rebase import Shifter
+from navigator.app.usecase.rebase_instrumentation import RebaseInstrumentation
 from navigator.app.usecase.replace import Swapper
 from navigator.app.usecase.replace_components import (
     ReplaceHistoryAccess,
@@ -124,12 +126,16 @@ class RewindUseCaseContainer(containers.DeclarativeContainer):
         status=storage.status,
         telemetry=telemetry,
     )
+    writer_instrumentation = providers.Factory(
+        RewindWriteTelemetry,
+        telemetry=telemetry,
+    )
     writer = providers.Factory(
         RewindHistoryWriter,
         ledger=storage.chronicle,
         status=storage.status,
         latest=storage.latest,
-        telemetry=telemetry,
+        instrumentation=writer_instrumentation,
     )
     renderer = providers.Factory(
         RewindRenderer,
@@ -201,11 +207,15 @@ class MaintenanceUseCaseContainer(containers.DeclarativeContainer):
         latest=storage.latest,
         telemetry=telemetry,
     )
+    rebase_instrumentation = providers.Factory(
+        RebaseInstrumentation,
+        telemetry=telemetry,
+    )
     shifter = providers.Factory(
         Shifter,
         ledger=storage.chronicle,
         latest=storage.latest,
-        telemetry=telemetry,
+        instrumentation=rebase_instrumentation,
     )
 
 

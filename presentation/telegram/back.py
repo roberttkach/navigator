@@ -119,15 +119,13 @@ class RetreatResult:
 
 
 class RetreatWorkflow:
-    """Drive navigator back actions while handling telemetry and context."""
+    """Drive navigator back actions while building execution context."""
 
     def __init__(
         self,
         *,
-        telemetry: RetreatTelemetry,
         context: RetreatContextBuilder,
     ) -> None:
-        self._telemetry = telemetry
         self._context = context
 
     async def execute(
@@ -136,25 +134,18 @@ class RetreatWorkflow:
         navigator: NavigatorBack,
         payload: dict[str, Any],
     ) -> RetreatResult:
-        scope = self._telemetry.scope(cb)
-        self._telemetry.entered(scope)
         try:
             context = self._context.build(cb, payload)
             await navigator.back(context=context)
         except HistoryEmpty:
-            return self._failure("history_empty", scope)
+            return RetreatResult.failed("history_empty")
         except StateNotFound:
-            return self._failure("state_not_found", scope)
+            return RetreatResult.failed("state_not_found")
         except InlineUnsupported:
-            return self._failure("barred", scope)
+            return RetreatResult.failed("barred")
         except Exception:  # pragma: no cover - defensive net for logging
-            return self._failure("generic", scope)
-        self._telemetry.completed(scope)
+            return RetreatResult.failed("generic")
         return RetreatResult.ok()
-
-    def _failure(self, note: str, scope: dict[str, object]) -> RetreatResult:
-        self._telemetry.failed(note, scope)
-        return RetreatResult.failed(note)
 
 
 class RetreatHandler:
@@ -170,10 +161,9 @@ class RetreatHandler:
         context: RetreatContextBuilder | None = None,
         outcomes: RetreatOutcomeFactory | None = None,
     ) -> None:
-        telemetry_tools = instrumentation or RetreatTelemetry(telemetry)
+        self._telemetry = instrumentation or RetreatTelemetry(telemetry)
         context_builder = context or RetreatContextBuilder()
         self._workflow = workflow or RetreatWorkflow(
-            telemetry=telemetry_tools,
             context=context_builder,
         )
         self._outcomes = outcomes or RetreatOutcomeFactory(translator)
@@ -184,7 +174,19 @@ class RetreatHandler:
         navigator: NavigatorBack,
         payload: dict[str, Any],
     ) -> RetreatOutcome:
-        result = await self._workflow.execute(cb, navigator, payload)
+        scope = self._telemetry.scope(cb)
+        self._telemetry.entered(scope)
+        try:
+            result = await self._workflow.execute(cb, navigator, payload)
+        except Exception:  # pragma: no cover - defensive net for logging
+            self._telemetry.failed("generic", scope)
+            failure = RetreatResult.failed("generic")
+            return self._outcomes.render(failure, cb)
+
+        if result.success:
+            self._telemetry.completed(scope)
+        else:
+            self._telemetry.failed(result.note or "generic", scope)
         return self._outcomes.render(result, cb)
 
 

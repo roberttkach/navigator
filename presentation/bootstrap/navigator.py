@@ -1,24 +1,12 @@
 """Navigator assembly helpers decoupled from dependency container details."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from navigator.app.locks.guard import Guardian
-from navigator.app.service.navigator_runtime import MissingAlert, NavigatorUseCases
+from navigator.app.service.navigator_runtime import MissingAlert
+from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
 from navigator.app.service import build_navigator_runtime
-from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
 from navigator.presentation.navigator import Navigator
-
-
-@dataclass(frozen=True)
-class NavigatorDependencies:
-    """Minimal set of services required to assemble a navigator runtime."""
-
-    usecases: NavigatorUseCases
-    guard: Guardian
-    telemetry: Telemetry
-    missing_alert: MissingAlert
 
 
 def compose(

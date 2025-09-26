@@ -7,7 +7,8 @@ from typing import Protocol
 from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.telemetry import Telemetry
 from navigator.infra.di.container import AppContainer
-from navigator.presentation.bootstrap.navigator import NavigatorDependencies, compose
+from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
+from navigator.presentation.bootstrap.navigator import compose
 from navigator.presentation.navigator import Navigator
 
 from .context import BootstrapContext, scope_from_dto
