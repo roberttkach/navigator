@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Protocol
 
 from navigator.app.map.entry import EntryMapper, Outcome
 from navigator.app.service.view.planner import ViewPlanner
@@ -20,13 +20,31 @@ from navigator.core.value.content import Payload, normalize
 from navigator.core.value.message import Scope
 
 
-class AppendHistoryJournal:
+class AppendHistoryObserver(Protocol):
+    """Protocol describing side effects performed during append access."""
+
+    def history_loaded(self, scope: Scope, count: int) -> None: ...
+
+    def state_retrieved(self, status: Optional[str]) -> None: ...
+
+
+class NullAppendHistoryObserver:
+    """No-op implementation shielding access from optional observers."""
+
+    def history_loaded(self, scope: Scope, count: int) -> None:  # pragma: no cover - no-op
+        return
+
+    def state_retrieved(self, status: Optional[str]) -> None:  # pragma: no cover - no-op
+        return
+
+
+class AppendHistoryJournal(AppendHistoryObserver):
     """Emit telemetry envelopes for append history events."""
 
     def __init__(self, telemetry: Telemetry) -> None:
         self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history")
 
-    def loaded(self, scope: Scope, count: int) -> None:
+    def history_loaded(self, scope: Scope, count: int) -> None:
         self._channel.emit(
             logging.DEBUG,
             LogCode.HISTORY_LOAD,
@@ -35,7 +53,7 @@ class AppendHistoryJournal:
             scope=profile(scope),
         )
 
-    def status(self, status: Optional[str]) -> None:
+    def state_retrieved(self, status: Optional[str]) -> None:
         self._channel.emit(
             logging.INFO,
             LogCode.STATE_GET,
@@ -51,21 +69,20 @@ class AppendHistoryAccess:
             self,
             archive: HistoryRepository,
             state: StateRepository,
-            telemetry: Telemetry,
-            journal: AppendHistoryJournal | None = None,
+            observer: AppendHistoryObserver | None = None,
     ) -> None:
         self._archive = archive
         self._state = state
-        self._journal = journal or AppendHistoryJournal(telemetry)
+        self._observer: AppendHistoryObserver = observer or NullAppendHistoryObserver()
 
     async def snapshot(self, scope: Scope) -> List[Entry]:
         records = await self._archive.recall()
-        self._journal.loaded(scope, len(records))
+        self._observer.history_loaded(scope, len(records))
         return records
 
     async def status(self) -> Optional[str]:
         status = await self._state.status()
-        self._journal.status(status)
+        self._observer.state_retrieved(status)
         return status
 
 
@@ -149,7 +166,9 @@ class AppendPreparation:
 
 __all__ = [
     "AppendHistoryAccess",
+    "AppendHistoryObserver",
     "AppendHistoryJournal",
+    "NullAppendHistoryObserver",
     "AppendHistoryWriter",
     "AppendPreparation",
 ]

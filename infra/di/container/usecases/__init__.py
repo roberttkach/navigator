@@ -31,7 +31,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         core=core,
         storage=storage,
         telemetry=telemetry,
-        view_support=view_support.provided,
+        view_support=view_support,
     )
     tail = providers.Container(
         TailUseCaseContainer,

@@ -6,6 +6,7 @@ from dependency_injector import containers, providers
 from navigator.app.usecase.add import AppendDependencies, Appender
 from navigator.app.usecase.add_components import (
     AppendHistoryAccess,
+    AppendHistoryJournal,
     AppendHistoryWriter,
     AppendPreparation,
 )
@@ -35,114 +36,143 @@ from navigator.app.usecase.set_components import (
 from navigator.core.telemetry import Telemetry
 
 
-class HistoryUseCaseContainer(containers.DeclarativeContainer):
-    """Compose history-oriented use cases from storage and view helpers."""
+class AppendUseCaseContainer(containers.DeclarativeContainer):
+    """Bundle append collaborators to keep the history container lean."""
 
-    core = providers.DependenciesContainer()
     storage = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
     view_support = providers.DependenciesContainer()
+    history_limit = providers.Dependency()
 
-    append_history = providers.Factory(
+    journal = providers.Factory(AppendHistoryJournal, telemetry=telemetry)
+    history = providers.Factory(
         AppendHistoryAccess,
         archive=storage.chronicle,
         state=storage.status,
-        telemetry=telemetry,
+        observer=journal,
     )
-    append_preparation = providers.Factory(
+    preparation = providers.Factory(
         AppendPreparation,
         planner=view_support.planner,
         mapper=storage.mapper,
     )
-    append_writer = providers.Factory(
+    writer = providers.Factory(
         AppendHistoryWriter,
         archive=storage.chronicle,
         tail=storage.latest,
-        limit=core.settings.provided.historylimit,
+        limit=history_limit,
         telemetry=telemetry,
     )
-    append_dependencies = providers.Factory(
+    bundle = providers.Factory(
         AppendDependencies,
-        history=append_history,
-        preparation=append_preparation,
-        writer=append_writer,
+        history=history,
+        preparation=preparation,
+        writer=writer,
     )
-    appender = providers.Factory(
+    usecase = providers.Factory(
         Appender,
         telemetry=telemetry,
-        dependencies=append_dependencies,
+        dependencies=bundle,
     )
-    replace_history = providers.Factory(
+
+
+class ReplaceUseCaseContainer(containers.DeclarativeContainer):
+    """Construct replace-related collaborators in isolation."""
+
+    storage = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+    view_support = providers.DependenciesContainer()
+    history_limit = providers.Dependency()
+
+    history = providers.Factory(
         ReplaceHistoryAccess,
         archive=storage.chronicle,
         state=storage.status,
         telemetry=telemetry,
     )
-    replace_preparation = providers.Factory(
+    preparation = providers.Factory(
         ReplacePreparation,
         planner=view_support.planner,
         mapper=storage.mapper,
     )
-    replace_writer = providers.Factory(
+    writer = providers.Factory(
         ReplaceHistoryWriter,
         archive=storage.chronicle,
         tail=storage.latest,
-        limit=core.settings.provided.historylimit,
+        limit=history_limit,
         telemetry=telemetry,
     )
-    swapper = providers.Factory(
+    usecase = providers.Factory(
         Swapper,
-        history=replace_history,
-        preparation=replace_preparation,
-        writer=replace_writer,
+        history=history,
+        preparation=preparation,
+        writer=writer,
         telemetry=telemetry,
     )
-    rewind_reader = providers.Factory(
+
+
+class RewindUseCaseContainer(containers.DeclarativeContainer):
+    """Group rewinder dependencies to avoid sprawling provider lists."""
+
+    storage = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+    view_support = providers.DependenciesContainer()
+
+    reader = providers.Factory(
         RewindHistoryReader,
         ledger=storage.chronicle,
         status=storage.status,
         telemetry=telemetry,
     )
-    rewind_writer = providers.Factory(
+    writer = providers.Factory(
         RewindHistoryWriter,
         ledger=storage.chronicle,
         status=storage.status,
         latest=storage.latest,
         telemetry=telemetry,
     )
-    rewind_renderer = providers.Factory(
+    renderer = providers.Factory(
         RewindRenderer,
         restorer=view_support.restorer,
         planner=view_support.planner,
     )
-    rewind_mutator = providers.Factory(RewindMutator)
-    rewind_finalizer = providers.Factory(
+    mutator = providers.Factory(RewindMutator)
+    finalizer = providers.Factory(
         RewindFinalizer,
-        writer=rewind_writer,
-        mutator=rewind_mutator,
+        writer=writer,
+        mutator=mutator,
         telemetry=telemetry,
     )
-    rewinder = providers.Factory(
+    usecase = providers.Factory(
         Rewinder,
-        history=rewind_reader,
-        writer=rewind_writer,
-        renderer=rewind_renderer,
-        mutator=rewind_mutator,
-        finalizer=rewind_finalizer,
+        history=reader,
+        writer=writer,
+        renderer=renderer,
+        mutator=mutator,
+        finalizer=finalizer,
         telemetry=telemetry,
     )
-    state_sync = providers.Factory(StateSynchronizer, state=storage.status, telemetry=telemetry)
-    restoration_planner = providers.Factory(
+
+
+class StateUseCaseContainer(containers.DeclarativeContainer):
+    """Compose setter-related collaborators behind a focused container."""
+
+    storage = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+    view_support = providers.DependenciesContainer()
+
+    synchronizer = providers.Factory(StateSynchronizer, state=storage.status, telemetry=telemetry)
+    planner = providers.Factory(
         HistoryRestorationPlanner,
         ledger=storage.chronicle,
         telemetry=telemetry,
     )
-    payload_reviver = providers.Factory(
+    reviver = providers.Factory(
         PayloadReviver,
-        synchronizer=state_sync,
+        synchronizer=synchronizer,
         restorer=view_support.restorer,
     )
-    history_reconciler = providers.Factory(
+    reconciler = providers.Factory(
         HistoryReconciler,
         ledger=storage.chronicle,
         latest=storage.latest,
@@ -150,13 +180,21 @@ class HistoryUseCaseContainer(containers.DeclarativeContainer):
     )
     setter = providers.Factory(
         Setter,
-        planner=restoration_planner,
-        state=state_sync,
-        reviver=payload_reviver,
+        planner=planner,
+        state=synchronizer,
+        reviver=reviver,
         renderer=view_support.planner,
-        reconciler=history_reconciler,
+        reconciler=reconciler,
         telemetry=telemetry,
     )
+
+
+class MaintenanceUseCaseContainer(containers.DeclarativeContainer):
+    """Provide history maintenance helpers (trim and shift)."""
+
+    storage = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+
     trimmer = providers.Factory(
         Trimmer,
         ledger=storage.chronicle,
@@ -169,5 +207,73 @@ class HistoryUseCaseContainer(containers.DeclarativeContainer):
         latest=storage.latest,
         telemetry=telemetry,
     )
+
+
+class HistoryUseCaseContainer(containers.DeclarativeContainer):
+    """Compose history-oriented use cases from storage and view helpers."""
+
+    core = providers.DependenciesContainer()
+    storage = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+    view_support = providers.DependenciesContainer()
+
+    append = providers.Container(
+        AppendUseCaseContainer,
+        storage=storage,
+        telemetry=telemetry,
+        view_support=view_support,
+        history_limit=core.settings.provided.historylimit,
+    )
+    replace = providers.Container(
+        ReplaceUseCaseContainer,
+        storage=storage,
+        telemetry=telemetry,
+        view_support=view_support,
+        history_limit=core.settings.provided.historylimit,
+    )
+    rewind = providers.Container(
+        RewindUseCaseContainer,
+        storage=storage,
+        telemetry=telemetry,
+        view_support=view_support,
+    )
+    state_ops = providers.Container(
+        StateUseCaseContainer,
+        storage=storage,
+        telemetry=telemetry,
+        view_support=view_support,
+    )
+    maintenance = providers.Container(
+        MaintenanceUseCaseContainer,
+        storage=storage,
+        telemetry=telemetry,
+    )
+
+    append_history = append.provided.history
+    append_preparation = append.provided.preparation
+    append_writer = append.provided.writer
+    append_dependencies = append.provided.bundle
+    appender = append.provided.usecase
+
+    replace_history = replace.provided.history
+    replace_preparation = replace.provided.preparation
+    replace_writer = replace.provided.writer
+    swapper = replace.provided.usecase
+
+    rewind_reader = rewind.provided.reader
+    rewind_writer = rewind.provided.writer
+    rewind_renderer = rewind.provided.renderer
+    rewind_mutator = rewind.provided.mutator
+    rewind_finalizer = rewind.provided.finalizer
+    rewinder = rewind.provided.usecase
+
+    state_sync = state_ops.provided.synchronizer
+    restoration_planner = state_ops.provided.planner
+    payload_reviver = state_ops.provided.reviver
+    history_reconciler = state_ops.provided.reconciler
+    setter = state_ops.provided.setter
+
+    trimmer = maintenance.provided.trimmer
+    shifter = maintenance.provided.shifter
 
 __all__ = ["HistoryUseCaseContainer"]
