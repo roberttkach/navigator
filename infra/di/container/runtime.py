@@ -15,7 +15,7 @@ class NavigatorRuntimeContainer(containers.DeclarativeContainer):
     usecases = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
-    dependencies = providers.Factory(
+    navigator_bundle = providers.Factory(
         NavigatorDependencies,
         usecases=usecases.provided.navigator,
         guard=core.provided.guard,

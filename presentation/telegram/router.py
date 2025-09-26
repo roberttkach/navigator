@@ -13,6 +13,7 @@ from navigator.presentation.telegram.back import (
     Translator,
     RetreatHandler,
     RetreatOutcome,
+    create_retreat_handler,
 )
 
 router = Router(name="navigator_handlers")
@@ -40,7 +41,7 @@ class RetreatCallback(Protocol):
 def build_retreat_handler(dependencies: RetreatDependencies) -> RetreatHandler:
     """Create a retreat handler with explicit dependencies."""
 
-    return RetreatHandler(dependencies.telemetry, dependencies.translator)
+    return create_retreat_handler(dependencies.telemetry, dependencies.translator)
 
 
 def _retreat_callback(handler: RetreatHandler) -> RetreatCallback:

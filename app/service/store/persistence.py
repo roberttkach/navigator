@@ -1,35 +1,13 @@
-"""Persist conversation history with telemetry instrumentation."""
-
+"""History persistence pipeline components."""
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Sequence
-from dataclasses import replace
 
-from ...core.entity.history import Entry, Message
-from ...core.port.history import HistoryRepository
-from ...core.port.last import LatestRepository
-from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
-from ...core.value.content import Payload
-
-
-def preserve(payload: Payload, entry: Message | None) -> Payload:
-    """Return ``payload`` with preview and extra inherited from ``entry``."""
-
-    if entry is None:
-        return payload
-
-    preview = _inherit(payload.preview, entry.preview)
-    extra = _inherit(payload.extra, entry.extra)
-    if preview is payload.preview and extra is payload.extra:
-        return payload
-    return replace(payload, preview=preview, extra=extra)
-
-
-def _inherit(current: object | None, fallback: object | None) -> object | None:
-    """Return ``current`` unless it is ``None``, falling back to ``fallback``."""
-
-    return current if current is not None else fallback
+from ....core.entity.history import Entry
+from ....core.port.history import HistoryRepository
+from ....core.port.last import LatestRepository
+from ....core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 
 def _channel_for(telemetry: Telemetry | None) -> TelemetryChannel | None:
@@ -39,12 +17,13 @@ def _channel_for(telemetry: Telemetry | None) -> TelemetryChannel | None:
 
 
 def _emit(
-        channel: TelemetryChannel | None,
-        level: int,
-        code: LogCode,
-        **payload: object,
+    channel: TelemetryChannel | None,
+    level: int,
+    code: LogCode,
+    **payload: object,
 ) -> None:
     """Emit a telemetry envelope if ``channel`` is configured."""
+
     if channel is None:
         return
     channel.emit(level, code, **payload)
@@ -65,10 +44,10 @@ class HistoryTrimmer:
     """Trim history snapshots according to the configured policy."""
 
     def __init__(
-            self,
-            policy: Callable[[list[Entry], int], list[Entry]],
-            limit: int,
-            channel: TelemetryChannel | None,
+        self,
+        policy: Callable[[list[Entry], int], list[Entry]],
+        limit: int,
+        channel: TelemetryChannel | None,
     ) -> None:
         self._policy = policy
         self._limit = limit
@@ -94,9 +73,9 @@ class HistoryArchiver:
     """Persist history snapshots into the archive repository."""
 
     def __init__(
-            self,
-            archive: HistoryRepository,
-            channel: TelemetryChannel | None,
+        self,
+        archive: HistoryRepository,
+        channel: TelemetryChannel | None,
     ) -> None:
         self._archive = archive
         self._channel = channel
@@ -119,9 +98,9 @@ class LatestMarkerUpdater:
     """Refresh the latest message marker after persisting history."""
 
     def __init__(
-            self,
-            ledger: LatestRepository,
-            channel: TelemetryChannel | None,
+        self,
+        ledger: LatestRepository,
+        channel: TelemetryChannel | None,
     ) -> None:
         self._ledger = ledger
         self._channel = channel
@@ -146,12 +125,12 @@ class HistoryPersistencePipeline:
     """Coordinate history trimming, archiving, and marker updates."""
 
     def __init__(
-            self,
-            archive: HistoryRepository,
-            ledger: LatestRepository,
-            prune_history: Callable[[list[Entry], int], list[Entry]],
-            limit: int,
-            telemetry: Telemetry | None = None,
+        self,
+        archive: HistoryRepository,
+        ledger: LatestRepository,
+        prune_history: Callable[[list[Entry], int], list[Entry]],
+        limit: int,
+        telemetry: Telemetry | None = None,
     ) -> None:
         channel = _channel_for(telemetry)
         self._trimmer = HistoryTrimmer(prune_history, limit, channel)
@@ -167,14 +146,14 @@ class HistoryPersistencePipeline:
 
 
 async def persist(
-        archive: HistoryRepository,
-        ledger: LatestRepository,
-        prune_history: Callable[[list[Entry], int], list[Entry]],
-        limit: int,
-        history: Sequence[Entry],
-        *,
-        operation: str,
-        telemetry: Telemetry | None = None,
+    archive: HistoryRepository,
+    ledger: LatestRepository,
+    prune_history: Callable[[list[Entry], int], list[Entry]],
+    limit: int,
+    history: Sequence[Entry],
+    *,
+    operation: str,
+    telemetry: Telemetry | None = None,
 ) -> None:
     """Persist the supplied ``history`` snapshot and update ``ledger``."""
 
@@ -186,3 +165,12 @@ async def persist(
         telemetry=telemetry,
     )
     await pipeline.persist(history, operation=operation)
+
+
+__all__ = [
+    "HistoryArchiver",
+    "HistoryPersistencePipeline",
+    "HistoryTrimmer",
+    "LatestMarkerUpdater",
+    "persist",
+]

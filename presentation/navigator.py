@@ -5,6 +5,10 @@ from typing import Any, SupportsInt
 
 from navigator.app.dto.content import Content, Node
 from navigator.app.service import NavigatorRuntime
+from navigator.app.service.navigator_runtime.bundler import bundle_from_dto
+from navigator.app.service.navigator_runtime.tail_components import (
+    dto_edit_request,
+)
 from navigator.presentation.types import StateLike
 
 
@@ -23,10 +27,10 @@ class Navigator:
         key: str | None = None,
         root: bool = False,
     ) -> None:
-        await self._history.add(content, key=key, root=root)
+        await self._history.add(bundle_from_dto(content), key=key, root=root)
 
     async def replace(self, content: Content | Node) -> None:
-        await self._history.replace(content)
+        await self._history.replace(bundle_from_dto(content))
 
     async def rebase(self, message: int | SupportsInt) -> None:
         await self._history.rebase(message)
@@ -46,6 +50,11 @@ class Navigator:
 
     async def alert(self) -> None:
         await self._state.alert()
+
+    async def edit_last(self, content: Content) -> int | None:
+        """Edit the last navigator message using DTO ``content``."""
+
+        return await self.last.edit(dto_edit_request(content))
 
 
 __all__ = ["Navigator"]

@@ -19,7 +19,7 @@ def inspect_container(container: AppContainer) -> NavigatorContainerSnapshot:
     """Collect runtime dependencies and configuration from the container."""
 
     runtime = container.runtime()
-    dependencies = runtime.dependencies()
+    dependencies = runtime.navigator_bundle()
     return NavigatorContainerSnapshot(
         dependencies=dependencies,
         redaction=runtime.redaction(),

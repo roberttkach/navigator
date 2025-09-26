@@ -1,9 +1,12 @@
 """Tail-related helpers used by the navigator runtime."""
 from __future__ import annotations
 
-from navigator.app.dto.content import Content
-
-from .tail_components import TailGateway, TailLocker, TailTelemetry
+from .tail_components import (
+    TailEditRequest,
+    TailGateway,
+    TailLocker,
+    TailTelemetry,
+)
 
 
 class NavigatorTail:
@@ -37,17 +40,18 @@ class NavigatorTail:
         async with self._locker.acquire() as scope:
             await self._gateway.delete(scope)
 
-    async def edit(self, content: Content) -> int | None:
+    async def edit(self, request: TailEditRequest) -> int | None:
+        description = request.describe()
         self._telemetry.emit(
             "last.edit",
             payload={
-                "text": bool(content.text),
-                "media": bool(content.media),
-                "group": bool(content.group),
+                "text": description.text,
+                "media": description.media,
+                "group": description.group,
             },
         )
         async with self._locker.acquire() as scope:
-            result = await self._gateway.edit(scope, content)
+            result = await self._gateway.edit(scope, request)
         return result
 
 

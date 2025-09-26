@@ -1,19 +1,72 @@
 """Supporting collaborators for navigator tail operations."""
-
 from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from dataclasses import dataclass
+from typing import AsyncIterator, Protocol
 
 from navigator.app.dto.content import Content
 from navigator.app.locks.guard import Guardian
 from navigator.app.map.payload import convert
 from navigator.app.usecase.last import Tailer
-from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.service.scope import profile
+from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+
+
+@dataclass(frozen=True)
+class TailEditDescription:
+    """Describe structural properties of a tail edit request."""
+
+    text: bool
+    media: bool
+    group: bool
+
+
+class TailEditRequest(Protocol):
+    """Represent edit requests accepted by tail gateways."""
+
+    def describe(self) -> TailEditDescription:
+        """Return boolean feature flags describing the payload."""
+
+    def payload(self, converter: "TailPayloadConverter") -> Payload:
+        """Return payload representation for downstream use cases."""
+
+
+@dataclass(frozen=True)
+class TailContentEditRequest:
+    """Adapter wrapping DTO ``Content`` for tail edits."""
+
+    content: Content
+
+    def describe(self) -> TailEditDescription:
+        return TailEditDescription(
+            text=bool(self.content.text),
+            media=bool(self.content.media),
+            group=bool(self.content.group),
+        )
+
+    def payload(self, converter: "TailPayloadConverter") -> Payload:
+        return converter.convert(self.content)
+
+
+@dataclass(frozen=True)
+class TailPayloadEditRequest:
+    """Adapter wrapping pre-built payloads for tail edits."""
+
+    entry: Payload
+
+    def describe(self) -> TailEditDescription:
+        return TailEditDescription(
+            text=bool(self.entry.text),
+            media=bool(self.entry.media),
+            group=bool(self.entry.group),
+        )
+
+    def payload(self, converter: "TailPayloadConverter") -> Payload:
+        return self.entry
 
 
 class TailPayloadConverter:
@@ -36,8 +89,8 @@ class TailGateway:
     async def delete(self, scope: Scope) -> None:
         await self._flow.delete(scope)
 
-    async def edit(self, scope: Scope, content: Content) -> int | None:
-        payload = self._converter.convert(content)
+    async def edit(self, scope: Scope, request: TailEditRequest) -> int | None:
+        payload = request.payload(self._converter)
         return await self._flow.edit(scope, payload)
 
 
@@ -80,10 +133,27 @@ class TailLocker:
             yield self._scope
 
 
+def dto_edit_request(content: Content) -> TailEditRequest:
+    """Create a tail edit request from ``Content`` DTO objects."""
+
+    return TailContentEditRequest(content)
+
+
+def payload_edit_request(entry: Payload) -> TailEditRequest:
+    """Create a tail edit request from an existing payload."""
+
+    return TailPayloadEditRequest(entry)
+
+
 __all__ = [
+    "TailEditDescription",
+    "TailEditRequest",
     "TailGateway",
     "TailLocker",
     "TailPayloadConverter",
     "TailTelemetry",
+    "TailContentEditRequest",
+    "TailPayloadEditRequest",
+    "dto_edit_request",
+    "payload_edit_request",
 ]
-

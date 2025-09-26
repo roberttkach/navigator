@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -148,25 +149,49 @@ class RetreatWorkflow:
         return RetreatResult.ok()
 
 
+class RetreatOrchestrator:
+    """Drive retreat workflow execution with telemetry orchestration."""
+
+    def __init__(
+        self,
+        *,
+        telemetry: RetreatTelemetry,
+        workflow: RetreatWorkflow,
+    ) -> None:
+        self._telemetry = telemetry
+        self._workflow = workflow
+
+    async def execute(
+        self,
+        cb: CallbackQuery,
+        navigator: NavigatorBack,
+        payload: dict[str, Any],
+    ) -> RetreatResult:
+        scope = self._telemetry.scope(cb)
+        self._telemetry.entered(scope)
+        try:
+            result = await self._workflow.execute(cb, navigator, payload)
+        except Exception:  # pragma: no cover - defensive net for logging
+            self._telemetry.failed("generic", scope)
+            return RetreatResult.failed("generic")
+
+        if result.success:
+            self._telemetry.completed(scope)
+        else:
+            self._telemetry.failed(result.note or "generic", scope)
+        return result
+
+
 class RetreatHandler:
     """Adapt retreat workflow results to Telegram specific outcomes."""
 
     def __init__(
         self,
-        telemetry: Telemetry,
-        translator: Translator,
-        *,
-        workflow: RetreatWorkflow | None = None,
-        instrumentation: RetreatTelemetry | None = None,
-        context: RetreatContextBuilder | None = None,
-        outcomes: RetreatOutcomeFactory | None = None,
+        orchestrator: RetreatOrchestrator,
+        outcomes: RetreatOutcomeFactory,
     ) -> None:
-        self._telemetry = instrumentation or RetreatTelemetry(telemetry)
-        context_builder = context or RetreatContextBuilder()
-        self._workflow = workflow or RetreatWorkflow(
-            context=context_builder,
-        )
-        self._outcomes = outcomes or RetreatOutcomeFactory(translator)
+        self._orchestrator = orchestrator
+        self._outcomes = outcomes
 
     async def __call__(
         self,
@@ -174,26 +199,27 @@ class RetreatHandler:
         navigator: NavigatorBack,
         payload: dict[str, Any],
     ) -> RetreatOutcome:
-        scope = self._telemetry.scope(cb)
-        self._telemetry.entered(scope)
-        try:
-            result = await self._workflow.execute(cb, navigator, payload)
-        except Exception:  # pragma: no cover - defensive net for logging
-            self._telemetry.failed("generic", scope)
-            failure = RetreatResult.failed("generic")
-            return self._outcomes.render(failure, cb)
-
-        if result.success:
-            self._telemetry.completed(scope)
-        else:
-            self._telemetry.failed(result.note or "generic", scope)
+        result = await self._orchestrator.execute(cb, navigator, payload)
         return self._outcomes.render(result, cb)
+
+
+def create_retreat_handler(telemetry: Telemetry, translator: Translator) -> RetreatHandler:
+    """Return a retreat handler with default orchestration components."""
+
+    instrumentation = RetreatTelemetry(telemetry)
+    context = RetreatContextBuilder()
+    workflow = RetreatWorkflow(context=context)
+    orchestrator = RetreatOrchestrator(telemetry=instrumentation, workflow=workflow)
+    outcomes = RetreatOutcomeFactory(translator)
+    return RetreatHandler(orchestrator=orchestrator, outcomes=outcomes)
 
 
 __all__ = [
     "NavigatorBack",
     "RetreatHandler",
+    "RetreatOrchestrator",
     "RetreatOutcome",
     "RetreatResult",
     "RetreatWorkflow",
+    "create_retreat_handler",
 ]
