@@ -16,6 +16,12 @@ from navigator.app.usecase.last.context import TailDecisionService, TailTelemetr
 from navigator.app.usecase.last.inline import InlineEditCoordinator
 from navigator.app.usecase.last.mutation import MessageEditCoordinator
 from navigator.app.usecase.set import Setter
+from navigator.app.usecase.set_components import (
+    HistoryReconciler,
+    HistoryRestorationPlanner,
+    PayloadReviver,
+    StateSynchronizer,
+)
 from navigator.core.entity.history import Entry
 from navigator.core.entity.media import MediaItem, MediaType
 from navigator.core.error import InlineUnsupported, StateNotFound
@@ -91,20 +97,21 @@ def absence() -> None:
     scope = Scope(chat=5, lang="ru")
     ledger = SimpleNamespace(recall=AsyncMock(return_value=[]), archive=AsyncMock())
     status = SimpleNamespace(assign=AsyncMock(), payload=AsyncMock())
-    gateway = Mock()
-    gateway.alert = AsyncMock()
     restorer = SimpleNamespace(revive=AsyncMock())
     planner = SimpleNamespace(render=AsyncMock())
     latest = SimpleNamespace(mark=AsyncMock())
-
+    telemetry = monitor()
+    state = StateSynchronizer(state=status, telemetry=telemetry)
+    reviver = PayloadReviver(state, restorer)
+    reconciliation = HistoryReconciler(ledger=ledger, latest=latest, telemetry=telemetry)
+    plan_builder = HistoryRestorationPlanner(ledger=ledger, telemetry=telemetry)
     setter = Setter(
-        ledger=ledger,
-        status=status,
-        gateway=gateway,
-        restorer=restorer,
-        planner=planner,
-        latest=latest,
-        telemetry=monitor(),
+        planner=plan_builder,
+        state=state,
+        reviver=reviver,
+        renderer=planner,
+        reconciler=reconciliation,
+        telemetry=telemetry,
     )
 
     try:
@@ -114,7 +121,6 @@ def absence() -> None:
     else:
         raise AssertionError("StateNotFound was not raised")
 
-    gateway.alert.assert_not_awaited()
     ledger.archive.assert_not_awaited()
     planner.render.assert_not_awaited()
 
@@ -170,22 +176,23 @@ def surface() -> None:
     tail = Entry(state="tail", view=None, messages=[])
     ledger = SimpleNamespace(recall=AsyncMock(return_value=[target, tail]), archive=AsyncMock())
     status = SimpleNamespace(assign=AsyncMock(), payload=AsyncMock(return_value={}))
-    gateway = Mock()
-    gateway.alert = AsyncMock()
     restorer = SimpleNamespace(
         revive=AsyncMock(side_effect=InlineUnsupported("inline_dynamic_multi_payload"))
     )
     planner = SimpleNamespace(render=AsyncMock())
     latest = SimpleNamespace(mark=AsyncMock())
-
+    telemetry = monitor()
+    state = StateSynchronizer(state=status, telemetry=telemetry)
+    reviver = PayloadReviver(state, restorer)
+    reconciliation = HistoryReconciler(ledger=ledger, latest=latest, telemetry=telemetry)
+    plan_builder = HistoryRestorationPlanner(ledger=ledger, telemetry=telemetry)
     setter = Setter(
-        ledger=ledger,
-        status=status,
-        gateway=gateway,
-        restorer=restorer,
-        planner=planner,
-        latest=latest,
-        telemetry=monitor(),
+        planner=plan_builder,
+        state=state,
+        reviver=reviver,
+        renderer=planner,
+        reconciler=reconciliation,
+        telemetry=telemetry,
     )
 
     try:

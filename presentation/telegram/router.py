@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
-from navigator.bootstrap.navigator import NavigatorRuntimeBundle
+from navigator.core.telemetry import Telemetry
 from navigator.presentation.alerts import lexeme
 from navigator.presentation.telegram.back import (
     NavigatorBack,
+    Translator,
     RetreatHandler,
     RetreatOutcome,
 )
@@ -18,11 +20,22 @@ router = Router(name="navigator_handlers")
 BACK_CALLBACK_DATA = "back"
 
 
-def instrument(bundle: NavigatorRuntimeBundle) -> None:
+@dataclass(frozen=True)
+class RetreatDependencies:
+    """Dependencies required to configure retreat handling."""
+
+    telemetry: Telemetry
+    translator: Translator = lexeme
+
+
+def configure_retreat(dependencies: RetreatDependencies) -> None:
     """Attach runtime helpers to the router data."""
 
-    router.data["telemetry"] = bundle.telemetry
-    router.data["retreat_handler"] = RetreatHandler(bundle.telemetry, lexeme)
+    router.data["telemetry"] = dependencies.telemetry
+    router.data["retreat_handler"] = RetreatHandler(
+        dependencies.telemetry,
+        dependencies.translator,
+    )
 
 
 def _handler() -> RetreatHandler:
@@ -44,4 +57,11 @@ async def retreat(cb: CallbackQuery, navigator: NavigatorBack, **data: dict[str,
     await cb.answer(outcome.text, show_alert=outcome.show_alert)
 
 
-__all__ = ["router", "NavigatorBack", "retreat", "BACK_CALLBACK_DATA", "instrument"]
+__all__ = [
+    "router",
+    "NavigatorBack",
+    "retreat",
+    "BACK_CALLBACK_DATA",
+    "RetreatDependencies",
+    "configure_retreat",
+]

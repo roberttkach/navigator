@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Protocol, SupportsInt
+from typing import Any, Awaitable, Callable, Protocol, SupportsInt
 
 from navigator.app.dto.content import Content, Node
 from navigator.app.locks.guard import Guardian
@@ -44,6 +44,161 @@ class PayloadBundler:
     def bundle(self, content: Content | Node) -> list[Payload]:
         node = content if isinstance(content, Node) else Node(messages=[content])
         return collect(node)
+
+
+class _HistoryOperation:
+    """Base helper coordinating guard and telemetry for history actions."""
+
+    def __init__(
+        self,
+        *,
+        guard: Guardian,
+        scope: Scope,
+        reporter: NavigatorReporter,
+    ) -> None:
+        self._guard = guard
+        self._scope = scope
+        self._reporter = reporter
+
+    async def _run(
+        self,
+        method: str,
+        action: Callable[[], Awaitable[None]],
+        **fields: object,
+    ) -> None:
+        self._reporter.emit(method, **fields)
+        async with self._guard(self._scope):
+            await action()
+
+
+class HistoryAddOperation(_HistoryOperation):
+    """Append payloads to history while guarding shared resources."""
+
+    def __init__(
+        self,
+        *,
+        appender: Appender,
+        bundler: PayloadBundler,
+        guard: Guardian,
+        scope: Scope,
+        reporter: NavigatorReporter,
+    ) -> None:
+        super().__init__(guard=guard, scope=scope, reporter=reporter)
+        self._appender = appender
+        self._bundler = bundler
+
+    async def __call__(
+        self,
+        content: Content | Node,
+        *,
+        key: str | None = None,
+        root: bool = False,
+    ) -> None:
+        payloads = self._bundler.bundle(content)
+
+        async def action() -> None:
+            await self._appender.execute(self._scope, payloads, key, root=root)
+
+        await self._run(
+            "add",
+            action,
+            key=key,
+            root=root,
+            payload={"count": len(payloads)},
+        )
+
+
+class HistoryReplaceOperation(_HistoryOperation):
+    """Replace tail payloads with new content."""
+
+    def __init__(
+        self,
+        *,
+        swapper: Swapper,
+        bundler: PayloadBundler,
+        guard: Guardian,
+        scope: Scope,
+        reporter: NavigatorReporter,
+    ) -> None:
+        super().__init__(guard=guard, scope=scope, reporter=reporter)
+        self._swapper = swapper
+        self._bundler = bundler
+
+    async def __call__(self, content: Content | Node) -> None:
+        payloads = self._bundler.bundle(content)
+
+        async def action() -> None:
+            await self._swapper.execute(self._scope, payloads)
+
+        await self._run("replace", action, payload={"count": len(payloads)})
+
+
+class HistoryRebaseOperation(_HistoryOperation):
+    """Rebase history markers around a specific message identifier."""
+
+    def __init__(
+        self,
+        *,
+        shifter: Shifter,
+        guard: Guardian,
+        scope: Scope,
+        reporter: NavigatorReporter,
+    ) -> None:
+        super().__init__(guard=guard, scope=scope, reporter=reporter)
+        self._shifter = shifter
+
+    async def __call__(self, message: int | SupportsInt) -> None:
+        identifier = getattr(message, "id", message)
+
+        async def action() -> None:
+            await self._shifter.execute(int(identifier))
+
+        await self._run("rebase", action, message={"id": int(identifier)})
+
+
+class HistoryBackOperation(_HistoryOperation):
+    """Drive backtracking with guard and telemetry instrumentation."""
+
+    def __init__(
+        self,
+        *,
+        rewinder: Rewinder,
+        guard: Guardian,
+        scope: Scope,
+        reporter: NavigatorReporter,
+    ) -> None:
+        super().__init__(guard=guard, scope=scope, reporter=reporter)
+        self._rewinder = rewinder
+
+    async def __call__(self, context: dict[str, Any]) -> None:
+        handlers = sorted(context.keys()) if isinstance(context, Mapping) else None
+
+        async def action() -> None:
+            await self._rewinder.execute(self._scope, context)
+
+        await self._run("back", action, handlers=handlers)
+
+
+class HistoryTrimOperation(_HistoryOperation):
+    """Trim history entries with guard orchestration."""
+
+    def __init__(
+        self,
+        *,
+        trimmer: Trimmer,
+        guard: Guardian,
+        scope: Scope,
+        reporter: NavigatorReporter,
+    ) -> None:
+        super().__init__(guard=guard, scope=scope, reporter=reporter)
+        self._trimmer = trimmer
+
+    async def __call__(self, count: int = 1) -> None:
+
+        async def action() -> None:
+            await self._trimmer.execute(count)
+
+        await self._run("pop", action, count=count)
 
 
 class NavigatorReporter:
@@ -121,30 +276,22 @@ class NavigatorTail:
 
 
 class NavigatorHistoryService:
-    """Coordinate history-centric operations behind guard locking."""
+    """Coordinate history-centric operations via dedicated actions."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
-        appender: Appender,
-        swapper: Swapper,
-        rewinder: Rewinder,
-        trimmer: Trimmer,
-        shifter: Shifter,
-        guard: Guardian,
-        scope: Scope,
-        reporter: NavigatorReporter,
-        bundler: PayloadBundler,
+        add: HistoryAddOperation,
+        replace: HistoryReplaceOperation,
+        rebase: HistoryRebaseOperation,
+        back: HistoryBackOperation,
+        pop: HistoryTrimOperation,
     ) -> None:
-        self._appender = appender
-        self._swapper = swapper
-        self._rewinder = rewinder
-        self._trimmer = trimmer
-        self._shifter = shifter
-        self._guard = guard
-        self._scope = scope
-        self._reporter = reporter
-        self._bundler = bundler
+        self._add = add
+        self._replace = replace
+        self._rebase = rebase
+        self._back = back
+        self._pop = pop
 
     async def add(
         self,
@@ -153,38 +300,19 @@ class NavigatorHistoryService:
         key: str | None = None,
         root: bool = False,
     ) -> None:
-        payloads = self._bundler.bundle(content)
-        self._reporter.emit(
-            "add",
-            key=key,
-            root=root,
-            payload={"count": len(payloads)},
-        )
-        async with self._guard(self._scope):
-            await self._appender.execute(self._scope, payloads, key, root=root)
+        await self._add(content, key=key, root=root)
 
     async def replace(self, content: Content | Node) -> None:
-        payloads = self._bundler.bundle(content)
-        self._reporter.emit("replace", payload={"count": len(payloads)})
-        async with self._guard(self._scope):
-            await self._swapper.execute(self._scope, payloads)
+        await self._replace(content)
 
     async def rebase(self, message: int | SupportsInt) -> None:
-        identifier = getattr(message, "id", message)
-        self._reporter.emit("rebase", message={"id": int(identifier)})
-        async with self._guard(self._scope):
-            await self._shifter.execute(int(identifier))
+        await self._rebase(message)
 
     async def back(self, context: dict[str, Any]) -> None:
-        handlers = sorted(context.keys()) if isinstance(context, Mapping) else None
-        self._reporter.emit("back", handlers=handlers)
-        async with self._guard(self._scope):
-            await self._rewinder.execute(self._scope, context)
+        await self._back(context)
 
     async def pop(self, count: int = 1) -> None:
-        self._reporter.emit("pop", count=count)
-        async with self._guard(self._scope):
-            await self._trimmer.execute(count)
+        await self._pop(count)
 
 
 class NavigatorStateService:
@@ -264,16 +392,44 @@ def build_navigator_runtime(
 
     bundler = bundler or PayloadBundler()
     reporter = reporter or NavigatorReporter(telemetry, scope)
-    history = NavigatorHistoryService(
+    add_operation = HistoryAddOperation(
         appender=usecases.appender,
+        bundler=bundler,
+        guard=guard,
+        scope=scope,
+        reporter=reporter,
+    )
+    replace_operation = HistoryReplaceOperation(
         swapper=usecases.swapper,
-        rewinder=usecases.rewinder,
-        trimmer=usecases.trimmer,
+        bundler=bundler,
+        guard=guard,
+        scope=scope,
+        reporter=reporter,
+    )
+    rebase_operation = HistoryRebaseOperation(
         shifter=usecases.shifter,
         guard=guard,
         scope=scope,
         reporter=reporter,
-        bundler=bundler,
+    )
+    back_operation = HistoryBackOperation(
+        rewinder=usecases.rewinder,
+        guard=guard,
+        scope=scope,
+        reporter=reporter,
+    )
+    trim_operation = HistoryTrimOperation(
+        trimmer=usecases.trimmer,
+        guard=guard,
+        scope=scope,
+        reporter=reporter,
+    )
+    history = NavigatorHistoryService(
+        add=add_operation,
+        replace=replace_operation,
+        rebase=rebase_operation,
+        back=back_operation,
+        pop=trim_operation,
     )
     state = NavigatorStateService(
         setter=usecases.setter,
