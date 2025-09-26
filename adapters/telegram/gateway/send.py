@@ -15,6 +15,7 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, Meta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from dataclasses import dataclass
 from typing import Dict
 
 from . import util
@@ -39,54 +40,25 @@ async def send(
         channel: TelemetryChannel,
         telemetry: Telemetry,
 ) -> tuple[Message, list[int], Meta]:
-    _ensure_inline_supported(scope)
+    context = _SendContext.create(
+        codec=codec,
+        scope=scope,
+        payload=payload,
+        preview=preview,
+        channel=channel,
+    )
 
-    markup = textkit.decode(codec, payload.reply)
-    preview_options = _preview_options(preview, payload)
-    targets = util.targets(scope)
-    reporter = _SendTelemetry(channel, scope, payload)
-
-    if payload.group:
-        return await _send_group(
-            bot,
-            payload,
-            targets=targets,
-            schema=schema,
-            screen=screen,
-            policy=policy,
-            limits=limits,
-            telemetry=telemetry,
-            scope=scope,
-            reporter=reporter,
-        )
-
-    if payload.media:
-        return await _send_media(
-            bot,
-            payload,
-            markup=markup,
-            targets=targets,
-            schema=schema,
-            screen=screen,
-            policy=policy,
-            limits=limits,
-            truncate=truncate,
-            scope=scope,
-            reporter=reporter,
-        )
-
-    return await _send_text(
+    return await _dispatch(
         bot,
         payload,
-        markup=markup,
-        targets=targets,
+        context=context,
         schema=schema,
         screen=screen,
+        policy=policy,
         limits=limits,
         truncate=truncate,
-        preview=preview_options,
+        telemetry=telemetry,
         scope=scope,
-        reporter=reporter,
     )
 
 
@@ -99,6 +71,38 @@ def _preview_options(preview: LinkPreviewCodec | None, payload: Payload) -> obje
     if preview is None or payload.preview is None:
         return None
     return preview.encode(payload.preview)
+
+
+@dataclass(frozen=True)
+class _SendContext:
+    """Bundle prepared data required to send a payload."""
+
+    markup: object | None
+    preview: object | None
+    targets: Dict[str, object]
+    reporter: "_SendTelemetry"
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        codec: MarkupCodec,
+        scope: Scope,
+        payload: Payload,
+        preview: LinkPreviewCodec | None,
+        channel: TelemetryChannel,
+    ) -> "_SendContext":
+        _ensure_inline_supported(scope)
+        markup = textkit.decode(codec, payload.reply)
+        preview_options = _preview_options(preview, payload)
+        targets = util.targets(scope)
+        reporter = _SendTelemetry(channel, scope, payload)
+        return cls(
+            markup=markup,
+            preview=preview_options,
+            targets=targets,
+            reporter=reporter,
+        )
 
 
 class _SendTelemetry:
@@ -129,14 +133,13 @@ async def _send_group(
         bot: Bot,
         payload: Payload,
         *,
-        targets: Dict[str, object],
+        context: _SendContext,
         schema: ExtraSchema,
         screen: SignatureScreen,
         policy: MediaPathPolicy,
         limits: Limits,
         telemetry: Telemetry,
         scope: Scope,
-        reporter: _SendTelemetry,
 ) -> tuple[Message, list[int], GroupMeta]:
     caption = captionkit.caption(payload)
     extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
@@ -157,45 +160,94 @@ async def _send_group(
 
     messages = await bot.send_media_group(
         media=bundle,
-        **targets,
+        **context.targets,
         **addition,
     )
     head = messages[0]
-    reporter.success(head.message_id, len(messages) - 1)
+    context.reporter.success(head.message_id, len(messages) - 1)
     meta = GroupMeta(clusters=_group_clusters(messages, payload), inline=scope.inline)
     extras_ids = [message.message_id for message in messages[1:]]
     return head, extras_ids, meta
+
+
+async def _dispatch(
+        bot: Bot,
+        payload: Payload,
+        *,
+        context: _SendContext,
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        policy: MediaPathPolicy,
+        limits: Limits,
+        truncate: bool,
+        telemetry: Telemetry,
+        scope: Scope,
+) -> tuple[Message, list[int], Meta]:
+    if payload.group:
+        return await _send_group(
+            bot,
+            payload,
+            context=context,
+            schema=schema,
+            screen=screen,
+            policy=policy,
+            limits=limits,
+            telemetry=telemetry,
+            scope=scope,
+        )
+
+    if payload.media:
+        return await _send_media(
+            bot,
+            payload,
+            context=context,
+            schema=schema,
+            screen=screen,
+            policy=policy,
+            limits=limits,
+            truncate=truncate,
+            scope=scope,
+        )
+
+    return await _send_text(
+        bot,
+        payload,
+        context=context,
+        schema=schema,
+        screen=screen,
+        limits=limits,
+        truncate=truncate,
+        scope=scope,
+    )
 
 
 async def _send_media(
         bot: Bot,
         payload: Payload,
         *,
-        markup,
-        targets: Dict[str, object],
+        context: _SendContext,
         schema: ExtraSchema,
         screen: SignatureScreen,
         policy: MediaPathPolicy,
         limits: Limits,
         truncate: bool,
         scope: Scope,
-        reporter: _SendTelemetry,
 ) -> tuple[Message, list[int], Meta]:
     caption = captionkit.caption(payload)
-    caption = _enforce_caption_limit(caption, limits, truncate, reporter)
+    caption = _enforce_caption_limit(caption, limits, truncate, context.reporter)
     extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
     sender = getattr(bot, f"send_{payload.media.type.value}")
     arguments = {
-        **targets,
+        **context.targets,
         payload.media.type.value: policy.adapt(payload.media.path, native=True),
-        "reply_markup": markup,
+        "reply_markup": context.markup,
     }
     if caption is not None:
         arguments["caption"] = caption
     arguments.update(screen.filter(sender, extras.get("caption", {})))
     arguments.update(screen.filter(sender, extras.get("media", {})))
     message = await sender(**arguments)
-    reporter.success(message.message_id, 0)
+    context.reporter.success(message.message_id, 0)
     meta = util.extract(message, payload, scope)
     return message, [], meta
 
@@ -204,26 +256,23 @@ async def _send_text(
         bot: Bot,
         payload: Payload,
         *,
-        markup,
-        targets: Dict[str, object],
+        context: _SendContext,
         schema: ExtraSchema,
         screen: SignatureScreen,
         limits: Limits,
         truncate: bool,
-        preview: object | None,
         scope: Scope,
-        reporter: _SendTelemetry,
 ) -> tuple[Message, list[int], Meta]:
-    text = _normalise_text(payload.text, limits, truncate, reporter)
+    text = _normalise_text(payload.text, limits, truncate, context.reporter)
     extras = schema.send(scope, payload.extra, span=len(text), media=False)
     message = await bot.send_message(
-        **targets,
+        **context.targets,
         text=text,
-        reply_markup=markup,
-        link_preview_options=preview,
+        reply_markup=context.markup,
+        link_preview_options=context.preview,
         **screen.filter(bot.send_message, extras.get("text", {})),
     )
-    reporter.success(message.message_id, 0)
+    context.reporter.success(message.message_id, 0)
     meta = util.extract(message, payload, scope)
     return message, [], meta
 

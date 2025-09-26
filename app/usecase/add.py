@@ -9,6 +9,7 @@ from ..log import events
 from ..log.aspect import TraceAspect
 from dataclasses import dataclass
 
+from ...core.entity.history import Entry
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload
 from ...core.value.message import Scope
@@ -30,6 +31,81 @@ class AppendDependencies:
     writer: AppendHistoryWriter
 
 
+@dataclass(frozen=True)
+class AppendPreparationResult:
+    """Collect data required for later append pipeline stages."""
+
+    adjusted: List[Payload]
+    records: List[Entry]
+    trail: Entry | None
+
+
+class AppendPreparation:
+    """Prepare normalized payload bundles and history snapshots."""
+
+    def __init__(self, history: AppendHistoryAccess, payloads: AppendPayloadAdapter) -> None:
+        self._history = history
+        self._payloads = payloads
+
+    async def prepare(self, scope: Scope, bundle: List[Payload]) -> AppendPreparationResult:
+        adjusted = self._payloads.normalize(scope, bundle)
+        records = await self._history.snapshot(scope)
+        trail = records[-1] if records else None
+        return AppendPreparationResult(adjusted=adjusted, records=records, trail=trail)
+
+
+class AppendRendering:
+    """Coordinate render planning and skip detection."""
+
+    def __init__(self, planner: AppendRenderPlanner, channel: TelemetryChannel) -> None:
+        self._planner = planner
+        self._channel = channel
+
+    async def plan(
+        self,
+        scope: Scope,
+        prepared: AppendPreparationResult,
+    ) -> object | None:
+        render = await self._planner.plan(scope, prepared.adjusted, prepared.trail)
+        if not render or not getattr(render, "ids", None) or not getattr(render, "changed", False):
+            self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="add")
+            return None
+        return render
+
+
+class AppendPersistence:
+    """Persist append results once rendering succeeds."""
+
+    def __init__(
+        self,
+        history: AppendHistoryAccess,
+        assembler: AppendEntryAssembler,
+        writer: AppendHistoryWriter,
+    ) -> None:
+        self._history = history
+        self._assembler = assembler
+        self._writer = writer
+
+    async def persist(
+        self,
+        prepared: AppendPreparationResult,
+        render: object,
+        view: Optional[str],
+        *,
+        root: bool = False,
+    ) -> None:
+        status = await self._history.status()
+        entry = self._assembler.build_entry(
+            prepared.adjusted,
+            render,
+            status,
+            view,
+            root,
+        )
+        timeline = self._assembler.extend_timeline(prepared.records, entry, root)
+        await self._writer.persist(timeline)
+
+
 class Appender:
     """Manage append operations against conversation history."""
 
@@ -39,13 +115,15 @@ class Appender:
             telemetry: Telemetry,
             dependencies: AppendDependencies,
     ) -> None:
-        self._history = dependencies.history
-        self._payloads = dependencies.payloads
-        self._planner = dependencies.planner
-        self._assembler = dependencies.assembler
-        self._writer = dependencies.writer
         self._channel: TelemetryChannel = telemetry.channel(__name__)
         self._trace = TraceAspect(telemetry)
+        self._preparation = AppendPreparation(dependencies.history, dependencies.payloads)
+        self._rendering = AppendRendering(dependencies.planner, self._channel)
+        self._persistence = AppendPersistence(
+            dependencies.history,
+            dependencies.assembler,
+            dependencies.writer,
+        )
 
     @classmethod
     def build(
@@ -93,15 +171,8 @@ class Appender:
             *,
             root: bool = False,
     ) -> None:
-        adjusted = self._payloads.normalize(scope, bundle)
-        records = await self._history.snapshot(scope)
-        trail = records[-1] if records else None
-        render = await self._planner.plan(scope, adjusted, trail)
-        if not render or not render.ids or not render.changed:
-            self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="add")
+        prepared = await self._preparation.prepare(scope, bundle)
+        render = await self._rendering.plan(scope, prepared)
+        if render is None:
             return
-        status = await self._history.status()
-
-        entry = self._assembler.build_entry(adjusted, render, status, view, root)
-        timeline = self._assembler.extend_timeline(records, entry, root)
-        await self._writer.persist(timeline)
+        await self._persistence.persist(prepared, render, view, root=root)

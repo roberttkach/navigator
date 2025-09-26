@@ -4,6 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from navigator.app.locks.guard import Guardian
+from navigator.app.usecase.alarm import Alarm
+from navigator.app.usecase.last import Tailer
+from navigator.app.usecase.set import Setter
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
 
@@ -23,6 +26,67 @@ from .tail import NavigatorTail
 from .tail_components import TailGateway, TailLocker, TailTelemetry
 from .types import MissingAlert
 from .usecases import NavigatorUseCases
+from .ports import (
+    AppendHistoryUseCase,
+    ReplaceHistoryUseCase,
+    RebaseHistoryUseCase,
+    RewindHistoryUseCase,
+    TrimHistoryUseCase,
+)
+
+
+@dataclass(frozen=True)
+class HistoryContracts:
+    """Expose the history-specific collaborators required by the runtime."""
+
+    appender: AppendHistoryUseCase
+    swapper: ReplaceHistoryUseCase
+    shifter: RebaseHistoryUseCase
+    rewinder: RewindHistoryUseCase
+    trimmer: TrimHistoryUseCase
+
+
+@dataclass(frozen=True)
+class StateContracts:
+    """Expose state-oriented use cases required by the runtime."""
+
+    setter: Setter
+    alarm: Alarm
+
+
+@dataclass(frozen=True)
+class TailContracts:
+    """Expose tail-specific collaborators required by the runtime."""
+
+    tailer: Tailer
+
+
+@dataclass(frozen=True)
+class NavigatorRuntimeContracts:
+    """Group per-service contracts consumed by the runtime builder."""
+
+    history: HistoryContracts
+    state: StateContracts
+    tail: TailContracts
+
+    @classmethod
+    def from_usecases(cls, usecases: NavigatorUseCases) -> "NavigatorRuntimeContracts":
+        return cls(
+            history=HistoryContracts(
+                appender=usecases.appender,
+                swapper=usecases.swapper,
+                shifter=usecases.shifter,
+                rewinder=usecases.rewinder,
+                trimmer=usecases.trimmer,
+            ),
+            state=StateContracts(
+                setter=usecases.setter,
+                alarm=usecases.alarm,
+            ),
+            tail=TailContracts(
+                tailer=usecases.tailer,
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -38,8 +102,8 @@ class _HistoryAssemblyContext:
 class _HistoryServiceAssembler:
     """Create history operations using dedicated assembly context."""
 
-    def __init__(self, usecases: NavigatorUseCases, context: _HistoryAssemblyContext) -> None:
-        self._usecases = usecases
+    def __init__(self, contracts: HistoryContracts, context: _HistoryAssemblyContext) -> None:
+        self._contracts = contracts
         self._context = context
 
     def create(self) -> NavigatorHistoryService:
@@ -53,7 +117,7 @@ class _HistoryServiceAssembler:
 
     def _build_add(self) -> HistoryAddOperation:
         return HistoryAddOperation(
-            appender=self._usecases.appender,
+            appender=self._contracts.appender,
             bundler=self._context.bundler,
             guard=self._context.guard,
             scope=self._context.scope,
@@ -62,7 +126,7 @@ class _HistoryServiceAssembler:
 
     def _build_replace(self) -> HistoryReplaceOperation:
         return HistoryReplaceOperation(
-            swapper=self._usecases.swapper,
+            swapper=self._contracts.swapper,
             bundler=self._context.bundler,
             guard=self._context.guard,
             scope=self._context.scope,
@@ -71,7 +135,7 @@ class _HistoryServiceAssembler:
 
     def _build_rebase(self) -> HistoryRebaseOperation:
         return HistoryRebaseOperation(
-            shifter=self._usecases.shifter,
+            shifter=self._contracts.shifter,
             guard=self._context.guard,
             scope=self._context.scope,
             reporter=self._context.reporter,
@@ -79,7 +143,7 @@ class _HistoryServiceAssembler:
 
     def _build_back(self) -> HistoryBackOperation:
         return HistoryBackOperation(
-            rewinder=self._usecases.rewinder,
+            rewinder=self._contracts.rewinder,
             guard=self._context.guard,
             scope=self._context.scope,
             reporter=self._context.reporter,
@@ -87,7 +151,7 @@ class _HistoryServiceAssembler:
 
     def _build_trim(self) -> HistoryTrimOperation:
         return HistoryTrimOperation(
-            trimmer=self._usecases.trimmer,
+            trimmer=self._contracts.trimmer,
             guard=self._context.guard,
             scope=self._context.scope,
             reporter=self._context.reporter,
@@ -107,19 +171,19 @@ class _StateAssemblyContext:
 class _StateServiceAssembler:
     """Create navigator state services with explicit dependencies."""
 
-    def __init__(self, usecases: NavigatorUseCases, context: _StateAssemblyContext) -> None:
-        self._usecases = usecases
+    def __init__(self, contracts: StateContracts, context: _StateAssemblyContext) -> None:
+        self._contracts = contracts
         self._context = context
 
     def create(self) -> NavigatorStateService:
         alarm = MissingStateAlarm(
-            alarm=self._usecases.alarm,
+            alarm=self._contracts.alarm,
             scope=self._context.scope,
             factory=self._context.missing_alert,
         )
         return NavigatorStateService(
-            setter=self._usecases.setter,
-            alarm=self._usecases.alarm,
+            setter=self._contracts.setter,
+            alarm=self._contracts.alarm,
             guard=self._context.guard,
             scope=self._context.scope,
             reporter=self._context.reporter,
@@ -139,12 +203,12 @@ class _TailAssemblyContext:
 class _TailServiceAssembler:
     """Assemble tail services decoupled from other contexts."""
 
-    def __init__(self, usecases: NavigatorUseCases, context: _TailAssemblyContext) -> None:
-        self._usecases = usecases
+    def __init__(self, contracts: TailContracts, context: _TailAssemblyContext) -> None:
+        self._contracts = contracts
         self._context = context
 
     def create(self) -> NavigatorTail:
-        gateway = TailGateway(self._usecases.tailer)
+        gateway = TailGateway(self._contracts.tailer)
         locker = TailLocker(self._context.guard, self._context.scope)
         telemetry = TailTelemetry.from_telemetry(
             self._context.telemetry,
@@ -155,7 +219,8 @@ class _TailServiceAssembler:
 
 def build_navigator_runtime(
     *,
-    usecases: NavigatorUseCases,
+    usecases: NavigatorUseCases | None = None,
+    contracts: NavigatorRuntimeContracts | None = None,
     scope: Scope,
     guard: Guardian,
     telemetry: Telemetry,
@@ -164,6 +229,11 @@ def build_navigator_runtime(
     missing_alert: MissingAlert | None = None,
 ) -> NavigatorRuntime:
     """Create a navigator runtime wiring use cases with cross-cutting tools."""
+
+    if contracts is None:
+        if usecases is None:
+            raise ValueError("either usecases or contracts must be provided")
+        contracts = NavigatorRuntimeContracts.from_usecases(usecases)
 
     bundler = bundler or PayloadBundler()
     reporter = reporter or NavigatorReporter(telemetry, scope)
@@ -184,10 +254,16 @@ def build_navigator_runtime(
         scope=scope,
         telemetry=telemetry,
     )
-    history = _HistoryServiceAssembler(usecases, history_context).create()
-    state = _StateServiceAssembler(usecases, state_context).create()
-    tail = _TailServiceAssembler(usecases, tail_context).create()
+    history = _HistoryServiceAssembler(contracts.history, history_context).create()
+    state = _StateServiceAssembler(contracts.state, state_context).create()
+    tail = _TailServiceAssembler(contracts.tail, tail_context).create()
     return NavigatorRuntime(history=history, state=state, tail=tail)
 
 
-__all__ = ["build_navigator_runtime"]
+__all__ = [
+    "HistoryContracts",
+    "NavigatorRuntimeContracts",
+    "StateContracts",
+    "TailContracts",
+    "build_navigator_runtime",
+]
