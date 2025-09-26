@@ -1,15 +1,9 @@
 """Tail-related helpers used by the navigator runtime."""
 from __future__ import annotations
 
-import logging
-
 from navigator.app.dto.content import Content
-from navigator.app.locks.guard import Guardian
-from navigator.app.usecase.last import Tailer
-from navigator.app.map.payload import convert
-from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
-from navigator.core.service.scope import profile
-from navigator.core.value.message import Scope
+
+from .tail_components import TailGateway, TailLocker, TailTelemetry
 
 
 class NavigatorTail:
@@ -18,36 +12,33 @@ class NavigatorTail:
     def __init__(
         self,
         *,
-        flow: Tailer,
-        scope: Scope,
-        guard: Guardian,
-        telemetry: Telemetry,
+        gateway: TailGateway,
+        locker: TailLocker,
+        telemetry: TailTelemetry,
     ) -> None:
-        self._tailer = flow
-        self._scope = scope
-        self._guard = guard
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
-        self._profile = profile(scope)
+        self._gateway = gateway
+        self._locker = locker
+        self._telemetry = telemetry
 
     async def get(self) -> dict[str, object] | None:
-        self._emit("last.get")
-        async with self._guard(self._scope):
-            identifier = await self._tailer.peek()
+        self._telemetry.emit("last.get")
+        async with self._locker.acquire():
+            identifier = await self._gateway.peek()
         if identifier is None:
             return None
         return {
             "id": identifier,
-            "inline": bool(self._scope.inline),
-            "chat": self._scope.chat,
+            "inline": bool(self._locker.scope.inline),
+            "chat": self._locker.scope.chat,
         }
 
     async def delete(self) -> None:
-        self._emit("last.delete")
-        async with self._guard(self._scope):
-            await self._tailer.delete(self._scope)
+        self._telemetry.emit("last.delete")
+        async with self._locker.acquire() as scope:
+            await self._gateway.delete(scope)
 
     async def edit(self, content: Content) -> int | None:
-        self._emit(
+        self._telemetry.emit(
             "last.edit",
             payload={
                 "text": bool(content.text),
@@ -55,18 +46,9 @@ class NavigatorTail:
                 "group": bool(content.group),
             },
         )
-        async with self._guard(self._scope):
-            result = await self._tailer.edit(self._scope, convert(content))
+        async with self._locker.acquire() as scope:
+            result = await self._gateway.edit(scope, content)
         return result
-
-    def _emit(self, method: str, **fields: object) -> None:
-        self._channel.emit(
-            logging.INFO,
-            LogCode.NAVIGATOR_API,
-            method=method,
-            scope=self._profile,
-            **fields,
-        )
 
 
 __all__ = ["NavigatorTail"]

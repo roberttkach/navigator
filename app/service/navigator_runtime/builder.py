@@ -20,6 +20,7 @@ from .reporter import NavigatorReporter
 from .runtime import NavigatorRuntime
 from .state import MissingStateAlarm, NavigatorStateService
 from .tail import NavigatorTail
+from .tail_components import TailGateway, TailLocker, TailTelemetry
 from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
@@ -68,12 +69,13 @@ class _NavigatorRuntimeAssembler:
         )
 
     def tail(self) -> NavigatorTail:
-        return NavigatorTail(
-            flow=self._usecases.tailer,
-            scope=self._context.scope,
-            guard=self._context.guard,
-            telemetry=self._context.telemetry,
+        gateway = TailGateway(self._usecases.tailer)
+        locker = TailLocker(self._context.guard, self._context.scope)
+        telemetry = TailTelemetry.from_telemetry(
+            self._context.telemetry,
+            self._context.scope,
         )
+        return NavigatorTail(gateway=gateway, locker=locker, telemetry=telemetry)
 
     def _create_add_operation(self) -> HistoryAddOperation:
         return HistoryAddOperation(

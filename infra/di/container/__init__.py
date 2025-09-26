@@ -9,6 +9,7 @@ from navigator.core.telemetry import Telemetry
 from .core import CoreContainer
 from .storage import StorageContainer
 from .telegram import TelegramContainer
+from .runtime import NavigatorRuntimeContainer
 from .usecases import UseCaseContainer
 
 
@@ -34,6 +35,12 @@ class AppContainer(containers.DeclarativeContainer):
         core=core,
         storage=storage,
         view=view,
+        telemetry=telemetry,
+    )
+    runtime = providers.Container(
+        NavigatorRuntimeContainer,
+        core=core,
+        usecases=usecases,
         telemetry=telemetry,
     )
 

@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from navigator.app.service.navigator_runtime import MissingAlert
-from navigator.core.telemetry import Telemetry
 from navigator.infra.di.container import AppContainer
 from navigator.presentation.bootstrap.navigator import NavigatorDependencies
 
@@ -20,21 +18,11 @@ class NavigatorContainerSnapshot:
 def inspect_container(container: AppContainer) -> NavigatorContainerSnapshot:
     """Collect runtime dependencies and configuration from the container."""
 
-    core = container.core()
-    telemetry: Telemetry = core.telemetry()
-    guard = core.guard()
-    alert: MissingAlert = core.alert()
-    settings = core.settings()
-    usecases = container.usecases().navigator()
-    dependencies = NavigatorDependencies(
-        usecases=usecases,
-        guard=guard,
-        telemetry=telemetry,
-        missing_alert=alert,
-    )
+    runtime = container.runtime()
+    dependencies = runtime.dependencies()
     return NavigatorContainerSnapshot(
         dependencies=dependencies,
-        redaction=getattr(settings, "redaction", ""),
+        redaction=runtime.redaction(),
     )
 
 
