@@ -4,11 +4,11 @@ from __future__ import annotations
 from aiogram import BaseMiddleware
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
-from navigator.api import assemble as assemble_navigator
-from navigator.core.port.factory import ViewLedger
 from typing import Any, Awaitable, Callable, Dict
 
-from .scope import outline
+from navigator.core.port.factory import ViewLedger
+
+from .assembly import NavigatorAssembler, TelegramNavigatorAssembler
 
 Handler = Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]]
 
@@ -16,8 +16,14 @@ Handler = Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]]
 class NavigatorMiddleware(BaseMiddleware):
     """Construct and attach Navigator facades for every incoming event."""
 
-    def __init__(self, ledger: ViewLedger) -> None:
-        self._ledger = ledger
+    def __init__(self, assembler: NavigatorAssembler) -> None:
+        self._assembler = assembler
+
+    @classmethod
+    def from_ledger(cls, ledger: ViewLedger) -> "NavigatorMiddleware":
+        """Provide a convenient constructor for the default assembler."""
+
+        return cls(TelegramNavigatorAssembler(ledger))
 
     async def __call__(
             self,
@@ -28,12 +34,7 @@ class NavigatorMiddleware(BaseMiddleware):
         state = data.get("state")
         if not isinstance(state, FSMContext):  # pragma: no cover - runtime guard
             raise RuntimeError("FSMContext instance is required to assemble Navigator")
-        navigator = await assemble_navigator(
-            event=event,
-            state=state,
-            ledger=self._ledger,
-            scope=outline(event),
-        )
+        navigator = await self._assembler.assemble(event, state)
         data["navigator"] = navigator
         return await handler(event, data)
 

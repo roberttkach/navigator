@@ -100,39 +100,23 @@ class PayloadReviver:
         return [normalize(payload) for payload in restored]
 
 
-class HistoryReconciler:
-    """Persist render results and telemetry associated with reconciliation."""
+class HistoryTailWriter:
+    """Handle persistence of history modifications during reconciliation."""
 
-    def __init__(
-        self,
-        ledger: HistoryRepository,
-        latest: LatestRepository,
-        telemetry: Telemetry,
-    ) -> None:
+    def __init__(self, ledger: HistoryRepository) -> None:
         self._ledger = ledger
-        self._latest = latest
-        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.reconcile")
 
     async def truncate(self, plan: RestorationPlan) -> None:
         trimmed = plan.history[: plan.cursor + 1]
         await self._ledger.archive(trimmed)
 
-    async def apply(self, scope: Scope, render: RenderNode) -> None:
+    async def apply(self, render: RenderNode) -> None:
         current = await self._ledger.recall()
-        if current:
-            tail = current[-1]
-            patched = self._patch(tail, render)
-            await self._ledger.archive([*current[:-1], patched])
-        await self._latest.mark(render.ids[0])
-        self._channel.emit(
-            logging.INFO,
-            LogCode.LAST_SET,
-            op="set",
-            message={"id": render.ids[0]},
-        )
-
-    async def skip(self) -> None:
-        self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="set")
+        if not current:
+            return
+        tail = current[-1]
+        patched = self._patch(tail, render)
+        await self._ledger.archive([*current[:-1], patched])
 
     @staticmethod
     def _patch(entry: Entry, render: RenderNode) -> Entry:
@@ -148,10 +132,78 @@ class HistoryReconciler:
         return replace(entry, messages=messages)
 
 
+class TailMarkerAccess:
+    """Persist last marker updates produced during reconciliation."""
+
+    def __init__(self, latest: LatestRepository) -> None:
+        self._latest = latest
+
+    async def mark(self, marker: int) -> None:
+        await self._latest.mark(marker)
+
+
+class ReconciliationJournal:
+    """Emit telemetry events describing reconciliation lifecycle."""
+
+    def __init__(self, telemetry: Telemetry) -> None:
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.reconcile")
+
+    def record_mark(self, marker: int) -> None:
+        self._channel.emit(
+            logging.INFO,
+            LogCode.LAST_SET,
+            op="set",
+            message={"id": marker},
+        )
+
+    def record_skip(self) -> None:
+        self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="set")
+
+
+class HistoryReconciler:
+    """Coordinate reconciliation between history, markers and telemetry."""
+
+    def __init__(
+        self,
+        writer: HistoryTailWriter,
+        marker: TailMarkerAccess,
+        journal: ReconciliationJournal,
+    ) -> None:
+        self._writer = writer
+        self._marker = marker
+        self._journal = journal
+
+    @classmethod
+    def from_components(
+        cls,
+        ledger: HistoryRepository,
+        latest: LatestRepository,
+        telemetry: Telemetry,
+    ) -> "HistoryReconciler":
+        writer = HistoryTailWriter(ledger)
+        marker = TailMarkerAccess(latest)
+        journal = ReconciliationJournal(telemetry)
+        return cls(writer, marker, journal)
+
+    async def truncate(self, plan: RestorationPlan) -> None:
+        await self._writer.truncate(plan)
+
+    async def apply(self, _scope: Scope, render: RenderNode) -> None:
+        await self._writer.apply(render)
+        await self._marker.mark(render.ids[0])
+        self._journal.record_mark(render.ids[0])
+
+    async def skip(self) -> None:
+        self._journal.record_skip()
+
+
 __all__ = [
     "HistoryReconciler",
+    "HistoryTailWriter",
+    "ReconciliationJournal",
     "HistoryRestorationPlanner",
     "PayloadReviver",
+    "TailMarkerAccess",
     "RestorationPlan",
     "StateSynchronizer",
 ]

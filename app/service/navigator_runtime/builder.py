@@ -25,35 +25,93 @@ from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
 
-@dataclass
-class _RuntimeContext:
-    """Aggregate cross-cutting collaborators shared across runtime services."""
+@dataclass(frozen=True)
+class _HistoryAssemblyContext:
+    """Share cross-cutting concerns required for history operations."""
 
     guard: Guardian
     scope: Scope
-    telemetry: Telemetry
     reporter: NavigatorReporter
     bundler: PayloadBundler
-    missing_alert: MissingAlert | None = None
 
 
-class _NavigatorRuntimeAssembler:
-    """Compose runtime services from use cases and shared collaborators."""
+class _HistoryServiceAssembler:
+    """Create history operations using dedicated assembly context."""
 
-    def __init__(self, *, usecases: NavigatorUseCases, context: _RuntimeContext) -> None:
+    def __init__(self, usecases: NavigatorUseCases, context: _HistoryAssemblyContext) -> None:
         self._usecases = usecases
         self._context = context
 
-    def history(self) -> NavigatorHistoryService:
+    def create(self) -> NavigatorHistoryService:
         return NavigatorHistoryService(
-            add=self._create_add_operation(),
-            replace=self._create_replace_operation(),
-            rebase=self._create_rebase_operation(),
-            back=self._create_back_operation(),
-            pop=self._create_trim_operation(),
+            add=self._build_add(),
+            replace=self._build_replace(),
+            rebase=self._build_rebase(),
+            back=self._build_back(),
+            pop=self._build_trim(),
         )
 
-    def state(self) -> NavigatorStateService:
+    def _build_add(self) -> HistoryAddOperation:
+        return HistoryAddOperation(
+            appender=self._usecases.appender,
+            bundler=self._context.bundler,
+            guard=self._context.guard,
+            scope=self._context.scope,
+            reporter=self._context.reporter,
+        )
+
+    def _build_replace(self) -> HistoryReplaceOperation:
+        return HistoryReplaceOperation(
+            swapper=self._usecases.swapper,
+            bundler=self._context.bundler,
+            guard=self._context.guard,
+            scope=self._context.scope,
+            reporter=self._context.reporter,
+        )
+
+    def _build_rebase(self) -> HistoryRebaseOperation:
+        return HistoryRebaseOperation(
+            shifter=self._usecases.shifter,
+            guard=self._context.guard,
+            scope=self._context.scope,
+            reporter=self._context.reporter,
+        )
+
+    def _build_back(self) -> HistoryBackOperation:
+        return HistoryBackOperation(
+            rewinder=self._usecases.rewinder,
+            guard=self._context.guard,
+            scope=self._context.scope,
+            reporter=self._context.reporter,
+        )
+
+    def _build_trim(self) -> HistoryTrimOperation:
+        return HistoryTrimOperation(
+            trimmer=self._usecases.trimmer,
+            guard=self._context.guard,
+            scope=self._context.scope,
+            reporter=self._context.reporter,
+        )
+
+
+@dataclass(frozen=True)
+class _StateAssemblyContext:
+    """Collect collaborators shared by state services."""
+
+    guard: Guardian
+    scope: Scope
+    reporter: NavigatorReporter
+    missing_alert: MissingAlert | None
+
+
+class _StateServiceAssembler:
+    """Create navigator state services with explicit dependencies."""
+
+    def __init__(self, usecases: NavigatorUseCases, context: _StateAssemblyContext) -> None:
+        self._usecases = usecases
+        self._context = context
+
+    def create(self) -> NavigatorStateService:
         alarm = MissingStateAlarm(
             alarm=self._usecases.alarm,
             scope=self._context.scope,
@@ -68,7 +126,24 @@ class _NavigatorRuntimeAssembler:
             missing_alarm=alarm,
         )
 
-    def tail(self) -> NavigatorTail:
+
+@dataclass(frozen=True)
+class _TailAssemblyContext:
+    """Provide the shared dependencies required for tail assembly."""
+
+    guard: Guardian
+    scope: Scope
+    telemetry: Telemetry
+
+
+class _TailServiceAssembler:
+    """Assemble tail services decoupled from other contexts."""
+
+    def __init__(self, usecases: NavigatorUseCases, context: _TailAssemblyContext) -> None:
+        self._usecases = usecases
+        self._context = context
+
+    def create(self) -> NavigatorTail:
         gateway = TailGateway(self._usecases.tailer)
         locker = TailLocker(self._context.guard, self._context.scope)
         telemetry = TailTelemetry.from_telemetry(
@@ -76,48 +151,6 @@ class _NavigatorRuntimeAssembler:
             self._context.scope,
         )
         return NavigatorTail(gateway=gateway, locker=locker, telemetry=telemetry)
-
-    def _create_add_operation(self) -> HistoryAddOperation:
-        return HistoryAddOperation(
-            appender=self._usecases.appender,
-            bundler=self._context.bundler,
-            guard=self._context.guard,
-            scope=self._context.scope,
-            reporter=self._context.reporter,
-        )
-
-    def _create_replace_operation(self) -> HistoryReplaceOperation:
-        return HistoryReplaceOperation(
-            swapper=self._usecases.swapper,
-            bundler=self._context.bundler,
-            guard=self._context.guard,
-            scope=self._context.scope,
-            reporter=self._context.reporter,
-        )
-
-    def _create_rebase_operation(self) -> HistoryRebaseOperation:
-        return HistoryRebaseOperation(
-            shifter=self._usecases.shifter,
-            guard=self._context.guard,
-            scope=self._context.scope,
-            reporter=self._context.reporter,
-        )
-
-    def _create_back_operation(self) -> HistoryBackOperation:
-        return HistoryBackOperation(
-            rewinder=self._usecases.rewinder,
-            guard=self._context.guard,
-            scope=self._context.scope,
-            reporter=self._context.reporter,
-        )
-
-    def _create_trim_operation(self) -> HistoryTrimOperation:
-        return HistoryTrimOperation(
-            trimmer=self._usecases.trimmer,
-            guard=self._context.guard,
-            scope=self._context.scope,
-            reporter=self._context.reporter,
-        )
 
 
 def build_navigator_runtime(
@@ -134,20 +167,27 @@ def build_navigator_runtime(
 
     bundler = bundler or PayloadBundler()
     reporter = reporter or NavigatorReporter(telemetry, scope)
-    context = _RuntimeContext(
+    history_context = _HistoryAssemblyContext(
+        guard=guard,
+        scope=scope,
+        reporter=reporter,
+        bundler=bundler,
+    )
+    state_context = _StateAssemblyContext(
+        guard=guard,
+        scope=scope,
+        reporter=reporter,
+        missing_alert=missing_alert,
+    )
+    tail_context = _TailAssemblyContext(
         guard=guard,
         scope=scope,
         telemetry=telemetry,
-        reporter=reporter,
-        bundler=bundler,
-        missing_alert=missing_alert,
     )
-    assembler = _NavigatorRuntimeAssembler(usecases=usecases, context=context)
-    return NavigatorRuntime(
-        history=assembler.history(),
-        state=assembler.state(),
-        tail=assembler.tail(),
-    )
+    history = _HistoryServiceAssembler(usecases, history_context).create()
+    state = _StateServiceAssembler(usecases, state_context).create()
+    tail = _TailServiceAssembler(usecases, tail_context).create()
+    return NavigatorRuntime(history=history, state=state, tail=tail)
 
 
 __all__ = ["build_navigator_runtime"]

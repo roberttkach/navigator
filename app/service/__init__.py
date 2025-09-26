@@ -1,6 +1,10 @@
 """Application service layer."""
 
-from .history_access import TailHistoryAccess
+from .history_access import (
+    TailHistoryAccess,
+    TailHistoryJournal,
+    TailHistoryScopeFormatter,
+)
 from .history_mutation import TailHistoryMutator
 from .navigator_runtime import (
     NavigatorHistoryService,
@@ -13,6 +17,8 @@ from .navigator_runtime import (
 
 __all__ = [
     "TailHistoryAccess",
+    "TailHistoryJournal",
+    "TailHistoryScopeFormatter",
     "TailHistoryMutator",
     "NavigatorRuntime",
     "NavigatorHistoryService",
