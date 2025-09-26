@@ -1,6 +1,12 @@
 """Telegram retreat orchestration package."""
 
-from .handler import RetreatHandler, create_retreat_handler
+from .factory import (
+    RetreatHandlerFactory,
+    RetreatHandlerOverrides,
+    RetreatHandlerProviders,
+    create_retreat_handler,
+)
+from .handler import RetreatHandler
 from .orchestrator import RetreatOrchestrator
 from .outcome import RetreatOutcome
 from .protocols import NavigatorBack, Translator
@@ -11,6 +17,9 @@ from .workflow import RetreatWorkflow
 __all__ = [
     "NavigatorBack",
     "RetreatHandler",
+    "RetreatHandlerFactory",
+    "RetreatHandlerOverrides",
+    "RetreatHandlerProviders",
     "RetreatOrchestrator",
     "RetreatOutcome",
     "RetreatResult",

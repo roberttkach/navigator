@@ -23,6 +23,7 @@ from .runtime import NavigatorRuntime
 from .snapshot import NavigatorRuntimeSnapshot
 from .state import MissingStateAlarm, NavigatorStateService, StateDescriptor
 from .tail import NavigatorTail
+from .tail_view import TailView
 from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
@@ -49,4 +50,5 @@ __all__ = [
     "StateContracts",
     "StateDescriptor",
     "TailContracts",
+    "TailView",
 ]
