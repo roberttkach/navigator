@@ -13,6 +13,7 @@ from .history import (
 )
 from .reporter import NavigatorReporter
 from .runtime import NavigatorRuntime
+from .snapshot import NavigatorRuntimeSnapshot
 from .state import MissingStateAlarm, NavigatorStateService, StateDescriptor
 from .tail import NavigatorTail
 from .types import MissingAlert
@@ -30,6 +31,7 @@ __all__ = [
     "NavigatorHistoryService",
     "NavigatorReporter",
     "NavigatorRuntime",
+    "NavigatorRuntimeSnapshot",
     "NavigatorStateService",
     "NavigatorTail",
     "NavigatorUseCases",
