@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from dependency_injector import containers
+
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
 from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.value.message import Scope
@@ -22,6 +24,9 @@ def scope_from_dto(dto: ScopeDTO) -> Scope:
     )
 
 
+ViewContainerFactory = type[containers.DeclarativeContainer]
+
+
 @dataclass(frozen=True)
 class BootstrapContext:
     """Collect payloads required to assemble the navigator runtime."""
@@ -31,6 +36,7 @@ class BootstrapContext:
     ledger: ViewLedgerDTO
     scope: ScopeDTO
     missing_alert: MissingAlert | None = None
+    view_container: ViewContainerFactory | None = None
 
 
-__all__ = ["BootstrapContext", "scope_from_dto"]
+__all__ = ["BootstrapContext", "scope_from_dto", "ViewContainerFactory"]

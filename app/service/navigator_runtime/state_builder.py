@@ -6,7 +6,12 @@ from navigator.core.value.message import Scope
 
 from .contracts import StateContracts
 from .reporter import NavigatorReporter
-from .state import MissingStateAlarm, NavigatorStateService
+from .state import (
+    MissingStateAlarm,
+    NavigatorStateService,
+    StateAlertManager,
+    StateOperationExecutor,
+)
 from .types import MissingAlert
 
 
@@ -20,18 +25,29 @@ def build_state_service(
 ) -> NavigatorStateService:
     """Create navigator state services with explicit dependencies."""
 
-    alarm = MissingStateAlarm(
+    missing = (
+        MissingStateAlarm(
+            alarm=contracts.alarm,
+            scope=scope,
+            factory=missing_alert,
+        )
+        if missing_alert
+        else None
+    )
+    alerts = StateAlertManager(
         alarm=contracts.alarm,
         scope=scope,
-        factory=missing_alert,
+        missing_alarm=missing,
     )
-    return NavigatorStateService(
+    operations = StateOperationExecutor(
         setter=contracts.setter,
-        alarm=contracts.alarm,
         guard=guard,
         scope=scope,
+        alerts=alerts,
+    )
+    return NavigatorStateService(
+        operations=operations,
         reporter=reporter,
-        missing_alarm=alarm,
     )
 
 

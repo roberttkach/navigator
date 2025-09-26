@@ -9,7 +9,8 @@ from navigator.api.contracts import (
     ViewLedgerDTO,
 )
 from navigator.app.service.navigator_runtime import MissingAlert
-from .context import BootstrapContext
+from navigator.infra.di.container.telegram import TelegramContainer
+from .context import BootstrapContext, ViewContainerFactory
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
 
 
@@ -20,8 +21,10 @@ class NavigatorAssembler:
         self,
         runtime_factory: NavigatorFactory | None = None,
         instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
+        view_container: ViewContainerFactory = TelegramContainer,
     ) -> None:
-        self._runtime_factory = runtime_factory or ContainerRuntimeFactory()
+        factory = runtime_factory or ContainerRuntimeFactory(view_container=view_container)
+        self._runtime_factory = factory
         if instrumentation:
             self._instrumentation = tuple(instrumentation)
         else:
@@ -42,6 +45,7 @@ async def assemble(
     scope: ScopeDTO,
     instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
     missing_alert: MissingAlert | None = None,
+    view_container: ViewContainerFactory = TelegramContainer,
 ) -> NavigatorRuntimeBundle:
     """Construct a navigator runtime bundle from entrypoint payloads."""
 
@@ -51,13 +55,17 @@ async def assemble(
         ledger=ledger,
         scope=scope,
         missing_alert=missing_alert,
+        view_container=view_container,
     )
     instruments: Sequence[NavigatorRuntimeInstrument]
     if instrumentation:
         instruments = tuple(instrumentation)
     else:
         instruments = ()
-    assembler = NavigatorAssembler(instrumentation=instruments)
+    assembler = NavigatorAssembler(
+        instrumentation=instruments,
+        view_container=view_container,
+    )
     return await assembler.build(context)
 
 

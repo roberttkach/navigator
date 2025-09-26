@@ -9,7 +9,6 @@ from navigator.core.telemetry import Telemetry
 from .core import CoreContainer
 from .runtime import NavigatorRuntimeContainer
 from .storage import StorageContainer
-from .telegram import TelegramContainer
 from .usecases import UseCaseContainer
 from .usecases.view import ViewSupportContainer
 
@@ -38,7 +37,7 @@ class IntegrationBindings(containers.DeclarativeContainer):
 
     core = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
-    view_container = providers.Dependency(default=TelegramContainer)
+    view_container = providers.Dependency()
 
     storage = providers.Container(
         StorageContainer,
@@ -97,7 +96,7 @@ class AppContainer(containers.DeclarativeContainer):
     ledger = providers.Dependency(instance_of=ViewLedger)
     alert = providers.Dependency()
     telemetry = providers.Dependency(instance_of=Telemetry)
-    view_container = providers.Dependency(default=TelegramContainer)
+    view_container = providers.Dependency()
 
     _core = providers.Container(
         CoreBindings,

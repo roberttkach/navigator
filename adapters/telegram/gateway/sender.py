@@ -13,7 +13,11 @@ from navigator.core.telemetry import Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from .send import SendContextFactory, SendDispatcher
+from .send import (
+    SendContextFactory,
+    SendDependencies,
+    SendDispatcherFactory,
+)
 from ..serializer.screen import SignatureScreen
 
 
@@ -33,14 +37,14 @@ class TelegramMessageSender:
         truncate: bool,
         telemetry: Telemetry,
     ) -> None:
-        self._dispatcher = SendDispatcher(
-            bot,
+        dependencies = SendDependencies(
             schema=schema,
             screen=screen,
             policy=policy,
             limits=limits,
             telemetry=telemetry,
         )
+        self._dispatcher = SendDispatcherFactory(dependencies).create(bot)
         self._context_factory = SendContextFactory(codec=codec, preview=preview)
         self._truncate = truncate
         self._channel: TelemetryChannel = telemetry.channel(__name__)

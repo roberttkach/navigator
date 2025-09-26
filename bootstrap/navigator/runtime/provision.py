@@ -8,7 +8,7 @@ from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSna
 from navigator.core.telemetry import Telemetry
 from navigator.infra.di.container import AppContainer
 
-from ..context import BootstrapContext
+from ..context import BootstrapContext, ViewContainerFactory
 from ..container import ContainerFactory
 from ..inspection import inspect_container
 from ..telemetry import TelemetryFactory
@@ -36,11 +36,21 @@ class TelemetryInitializer:
 class ContainerAssembler:
     """Build dependency injection containers for navigator runtime."""
 
-    def __init__(self, *, missing_alert: MissingAlert | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        missing_alert: MissingAlert | None = None,
+        view_container: ViewContainerFactory | None = None,
+    ) -> None:
         self._missing_alert = missing_alert
+        self._view_container = view_container
 
     def assemble(self, telemetry: Telemetry, context: BootstrapContext) -> AppContainer:
-        factory = ContainerFactory(telemetry, alert=self._missing_alert)
+        factory = ContainerFactory(
+            telemetry,
+            alert=self._missing_alert,
+            view_container=self._view_container,
+        )
         return factory.create(context)
 
 
@@ -59,12 +69,16 @@ class RuntimeProvisioner:
         telemetry_factory: TelemetryFactory,
         *,
         missing_alert: MissingAlert | None = None,
+        view_container: ViewContainerFactory | None = None,
         initializer: TelemetryInitializer | None = None,
         assembler: ContainerAssembler | None = None,
         inspector: ContainerInspector | None = None,
     ) -> None:
         self._initializer = initializer or TelemetryInitializer(telemetry_factory)
-        self._assembler = assembler or ContainerAssembler(missing_alert=missing_alert)
+        self._assembler = assembler or ContainerAssembler(
+            missing_alert=missing_alert,
+            view_container=view_container,
+        )
         self._inspector = inspector or ContainerInspector()
 
     def provision(self, context: BootstrapContext) -> RuntimeProvision:
