@@ -9,6 +9,7 @@ from aiogram.types import TelegramObject
 
 from navigator.api import assemble as assemble_navigator
 from navigator.bootstrap.navigator import NavigatorAssembler as BootstrapNavigatorAssembler
+from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.presentation.navigator import Navigator
 
@@ -31,22 +32,23 @@ class TelegramNavigatorAssembler:
         ledger: ViewLedger,
         *,
         instrumentation: Iterable[BootstrapNavigatorAssembler.Instrument] | None = None,
+        missing_alert: MissingAlert | None = None,
     ) -> None:
         self._ledger = ledger
-        if instrumentation is None:
-            instrumentation = (default_instrument,)
-        self._instrumentation: Sequence[BootstrapNavigatorAssembler.Instrument] = tuple(
-            instrumentation
+        self._instrumentation: Sequence[BootstrapNavigatorAssembler.Instrument] | None = (
+            tuple(instrumentation) if instrumentation is not None else None
         )
+        self._missing_alert = missing_alert or missing
 
     async def assemble(self, event: TelegramObject, state: FSMContext) -> Navigator:
+        instrumentation = self._instrumentation or (default_instrument,)
         navigator = await assemble_navigator(
             event=event,
             state=state,
             ledger=self._ledger,
             scope=outline(event),
-            instrumentation=self._instrumentation,
-            missing_alert=missing,
+            instrumentation=instrumentation,
+            missing_alert=self._missing_alert,
         )
         return navigator
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import Iterable, Optional
+
 from navigator.core.entity.history import Message
 from navigator.core.entity.media import MediaItem
 from navigator.core.port.limits import Limits
@@ -15,7 +17,6 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
-from typing import Iterable, Optional
 
 from .executor import EditExecutor
 
@@ -26,6 +27,25 @@ class _AlbumDiff:
 
     retitled: bool
     reshaped: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AlbumMutation:
+    """Describe a single edit operation required to refresh an album."""
+
+    decision: Decision
+    payload: Payload
+    reference: Message
+
+
+@dataclass(frozen=True, slots=True)
+class AlbumRefreshPlan:
+    """Capture planned album mutations and resulting metadata."""
+
+    lineup: list[int]
+    extras: list[int]
+    meta: GroupMeta
+    mutations: list[AlbumMutation]
 
 
 def _lineup(message: Message) -> list[int]:
@@ -139,38 +159,25 @@ def _should_refresh_media(altered: bool, reshaped: bool, path_match: bool) -> bo
     return altered or (reshaped and path_match)
 
 
-class AlbumService:
-    def __init__(
-            self,
-            executor: EditExecutor,
-            *,
-            limits: Limits,
-            thumbguard: bool,
-            telemetry: Telemetry,
-    ) -> None:
-        self._executor = executor
+class AlbumRefreshPlanner:
+    """Derive album refresh plans without performing side effects."""
+
+    def __init__(self, *, limits: Limits, thumbguard: bool) -> None:
         self._limits = limits
         self._thumbguard = thumbguard
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
-    async def refresh(
-            self, scope: Scope, former: Message, latter: Payload
-    ) -> Optional[tuple[int, list[int], GroupMeta, bool]]:
-        """Refresh album state and emit edits when existing nodes diverge."""
-
+    def prepare(self, former: Message, latter: Payload) -> Optional[AlbumRefreshPlan]:
         formerband = former.group or []
         latterband = latter.group or []
 
         if not (
-                formerband
-                and latterband
-                and aligned(formerband, latterband, limits=self._limits)
+            formerband
+            and latterband
+            and aligned(formerband, latterband, limits=self._limits)
         ):
             return None
 
-        album = _lineup(former)
-        mutated = False
-
+        lineup = _lineup(former)
         formerinfo = former.extra or {}
         latterinfo = latter.extra or {}
         diff = _compare_album(
@@ -181,6 +188,8 @@ class AlbumService:
             thumbguard=self._thumbguard,
         )
 
+        mutations: list[AlbumMutation] = []
+
         if diff.retitled:
             cap = latterband[0].caption or ""
             captiondraft = latter.morph(
@@ -188,49 +197,104 @@ class AlbumService:
                 group=None,
                 text=("" if cap == "" else None),
             )
-            execution = await self._executor.execute(
-                scope,
-                Decision.EDIT_MEDIA_CAPTION,
-                captiondraft,
-                former,
+            mutations.append(
+                AlbumMutation(
+                    decision=Decision.EDIT_MEDIA_CAPTION,
+                    payload=captiondraft,
+                    reference=former,
+                )
             )
-            mutated = mutated or bool(execution)
 
         if not match(former.markup, latter.reply):
-            execution = await self._executor.execute(
-                scope,
-                Decision.EDIT_MARKUP,
-                latter,
-                former,
+            mutations.append(
+                AlbumMutation(
+                    decision=Decision.EDIT_MARKUP,
+                    payload=latter,
+                    reference=former,
+                )
             )
-            mutated = mutated or bool(execution)
 
         for index, pair in enumerate(zip(formerband, latterband)):
             past, latest = pair
-            target = album[0] if index == 0 else album[index]
+            target = lineup[0] if index == 0 else lineup[index]
             altered = _changed(past, latest)
             pathmatch = (
-                    isinstance(getattr(past, "path", None), str)
-                    and isinstance(getattr(latest, "path", None), str)
-                    and getattr(past, "path") == getattr(latest, "path")
+                isinstance(getattr(past, "path", None), str)
+                and isinstance(getattr(latest, "path", None), str)
+                and getattr(past, "path") == getattr(latest, "path")
             )
             if _should_refresh_media(altered, diff.reshaped, pathmatch):
                 head = former if index == 0 else _copy(former, target, past)
                 payload = latter.morph(media=latest, group=None)
-                execution = await self._executor.execute(
-                    scope,
-                    Decision.EDIT_MEDIA,
-                    payload,
-                    head,
+                mutations.append(
+                    AlbumMutation(
+                        decision=Decision.EDIT_MEDIA,
+                        payload=payload,
+                        reference=head,
+                    )
                 )
-                mutated = mutated or bool(execution)
 
         clusters = _collect(latterband)
-
-        self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_OK, count=len(album))
-
         meta = GroupMeta(clusters=clusters, inline=former.inline)
-        return album[0], list(former.extras or []), meta, mutated
+
+        return AlbumRefreshPlan(
+            lineup=lineup,
+            extras=list(former.extras or []),
+            meta=meta,
+            mutations=mutations,
+        )
+
+
+class AlbumMutationExecutor:
+    """Execute album mutations with shared edit executor."""
+
+    def __init__(self, executor: EditExecutor) -> None:
+        self._executor = executor
+
+    async def apply(self, scope: Scope, mutations: Iterable[AlbumMutation]) -> bool:
+        mutated = False
+        for mutation in mutations:
+            execution = await self._executor.execute(
+                scope,
+                mutation.decision,
+                mutation.payload,
+                mutation.reference,
+            )
+            mutated = mutated or bool(execution)
+        return mutated
+
+
+class AlbumService:
+    def __init__(
+            self,
+            executor: EditExecutor,
+            *,
+            limits: Limits,
+            thumbguard: bool,
+            telemetry: Telemetry,
+    ) -> None:
+        self._planner = AlbumRefreshPlanner(limits=limits, thumbguard=thumbguard)
+        self._mutations = AlbumMutationExecutor(executor)
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+
+    async def refresh(
+            self, scope: Scope, former: Message, latter: Payload
+    ) -> Optional[tuple[int, list[int], GroupMeta, bool]]:
+        """Refresh album state and emit edits when existing nodes diverge."""
+
+        plan = self._planner.prepare(former, latter)
+        if plan is None:
+            return None
+
+        mutated = await self._mutations.apply(scope, plan.mutations)
+
+        self._channel.emit(
+            logging.INFO,
+            LogCode.ALBUM_PARTIAL_OK,
+            count=len(plan.lineup),
+        )
+
+        return plan.lineup[0], plan.extras, plan.meta, mutated
 
 
 __all__ = ["AlbumService"]
