@@ -1,26 +1,14 @@
+"""Container building history-related navigator use cases."""
 from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Callable
 
 from dependency_injector import containers, providers
 
-from navigator.app.internal.policy import shield as inline_shield
-from navigator.app.service import TailHistoryAccess, TailHistoryMutator
-from navigator.app.service.navigator_runtime import NavigatorUseCases
-from navigator.app.service.view.planner import (
-    HeadAlignment,
-    InlineRenderPlanner,
-    RegularRenderPlanner,
-    RenderPreparer,
-    RenderSynchronizer,
-    TailOperations,
-    ViewPlanner,
-)
-from navigator.app.service.view.policy import adapt as adapt_payload
-from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.add import AppendDependencies, Appender
-from navigator.app.usecase.alarm import Alarm
+from navigator.app.usecase.add_components import (
+    AppendHistoryAccess,
+    AppendHistoryWriter,
+    AppendPreparation,
+)
 from navigator.app.usecase.back import Rewinder
 from navigator.app.usecase.back_access import (
     RewindFinalizer,
@@ -29,10 +17,6 @@ from navigator.app.usecase.back_access import (
     RewindMutator,
     RewindRenderer,
 )
-from navigator.app.usecase.last import Tailer
-from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
-from navigator.app.usecase.last.inline import InlineEditCoordinator
-from navigator.app.usecase.last.mutation import MessageEditCoordinator
 from navigator.app.usecase.pop import Trimmer
 from navigator.app.usecase.rebase import Shifter
 from navigator.app.usecase.replace import Swapper
@@ -51,69 +35,14 @@ from navigator.app.usecase.set_components import (
 from navigator.core.telemetry import Telemetry
 
 
-@dataclass(frozen=True)
-class NavigatorUsecaseProvider:
-    """Factory interface exposing navigator use case bundles."""
+class HistoryUseCaseContainer(containers.DeclarativeContainer):
+    """Compose history-oriented use cases from storage and view helpers."""
 
-    _appender: Callable[[], Appender]
-    _swapper: Callable[[], Swapper]
-    _rewinder: Callable[[], Rewinder]
-    _setter: Callable[[], Setter]
-    _trimmer: Callable[[], Trimmer]
-    _shifter: Callable[[], Shifter]
-    _tailer: Callable[[], Tailer]
-    _alarm: Callable[[], Alarm]
-
-    def navigator(self) -> NavigatorUseCases:
-        return NavigatorUseCases(
-            appender=self._appender(),
-            swapper=self._swapper(),
-            rewinder=self._rewinder(),
-            setter=self._setter(),
-            trimmer=self._trimmer(),
-            shifter=self._shifter(),
-            tailer=self._tailer(),
-            alarm=self._alarm(),
-        )
-
-
-class UseCaseContainer(containers.DeclarativeContainer):
     core = providers.DependenciesContainer()
     storage = providers.DependenciesContainer()
-    view = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
+    view_support = providers.DependenciesContainer()
 
-    render_synchronizer = providers.Factory(
-        RenderSynchronizer,
-        executor=view.executor,
-        inline=view.inline,
-        rendering=core.rendering,
-    )
-    tail_operations = providers.Factory(
-        TailOperations,
-        executor=view.executor,
-        rendering=core.rendering,
-    )
-    inline_planner = providers.Factory(InlineRenderPlanner, synchronizer=render_synchronizer)
-    head_alignment = providers.Factory(HeadAlignment, album=view.album, telemetry=telemetry)
-    regular_planner = providers.Factory(
-        RegularRenderPlanner,
-        head=head_alignment,
-        synchronizer=render_synchronizer,
-        tails=tail_operations,
-    )
-    render_preparer = providers.Factory(
-        RenderPreparer,
-        adapter=adapt_payload,
-        shielder=inline_shield,
-    )
-    planner = providers.Factory(
-        ViewPlanner,
-        inline=inline_planner,
-        regular=regular_planner,
-        preparer=render_preparer,
-    )
-    restorer = providers.Factory(ViewRestorer, ledger=core.ledger, telemetry=telemetry)
     append_history = providers.Factory(
         AppendHistoryAccess,
         archive=storage.chronicle,
@@ -122,7 +51,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
     )
     append_preparation = providers.Factory(
         AppendPreparation,
-        planner=planner,
+        planner=view_support.planner,
         mapper=storage.mapper,
     )
     append_writer = providers.Factory(
@@ -151,7 +80,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
     )
     replace_preparation = providers.Factory(
         ReplacePreparation,
-        planner=planner,
+        planner=view_support.planner,
         mapper=storage.mapper,
     )
     replace_writer = providers.Factory(
@@ -183,8 +112,8 @@ class UseCaseContainer(containers.DeclarativeContainer):
     )
     rewind_renderer = providers.Factory(
         RewindRenderer,
-        restorer=restorer,
-        planner=planner,
+        restorer=view_support.restorer,
+        planner=view_support.planner,
     )
     rewind_mutator = providers.Factory(RewindMutator)
     rewind_finalizer = providers.Factory(
@@ -211,7 +140,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
     payload_reviver = providers.Factory(
         PayloadReviver,
         synchronizer=state_sync,
-        restorer=restorer,
+        restorer=view_support.restorer,
     )
     history_reconciler = providers.Factory(
         HistoryReconciler,
@@ -224,7 +153,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         planner=restoration_planner,
         state=state_sync,
         reviver=payload_reviver,
-        renderer=planner,
+        renderer=view_support.planner,
         reconciler=history_reconciler,
         telemetry=telemetry,
     )
@@ -240,47 +169,5 @@ class UseCaseContainer(containers.DeclarativeContainer):
         latest=storage.latest,
         telemetry=telemetry,
     )
-    tail_history = providers.Factory(
-        TailHistoryAccess,
-        ledger=storage.chronicle,
-        latest=storage.latest,
-        telemetry=telemetry,
-    )
-    tail_mutator = providers.Factory(TailHistoryMutator)
-    tail_decision = providers.Factory(TailDecisionService, rendering=core.rendering)
-    tail_inline = providers.Factory(
-        InlineEditCoordinator,
-        handler=view.inline,
-        executor=view.executor,
-        rendering=core.rendering,
-    )
-    tail_mutation = providers.Factory(
-        MessageEditCoordinator,
-        executor=view.executor,
-        history=tail_history,
-        mutator=tail_mutator,
-    )
-    tail_telemetry = providers.Factory(TailTelemetry, telemetry=telemetry)
-    tailer = providers.Factory(
-        Tailer,
-        history=tail_history,
-        decision=tail_decision,
-        inline=tail_inline,
-        mutation=tail_mutation,
-        telemetry=tail_telemetry,
-    )
-    alarm = providers.Factory(Alarm, gateway=view.gateway, alert=core.alert, telemetry=telemetry)
-    navigator = providers.Factory(
-        NavigatorUsecaseProvider,
-        _appender=appender,
-        _swapper=swapper,
-        _rewinder=rewinder,
-        _setter=setter,
-        _trimmer=trimmer,
-        _shifter=shifter,
-        _tailer=tailer,
-        _alarm=alarm,
-    )
 
-
-__all__ = ["UseCaseContainer"]
+__all__ = ["HistoryUseCaseContainer"]
