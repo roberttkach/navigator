@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
-from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Any, Dict, List, Optional
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from typing import Any, Dict, List, Optional, Tuple
 
 from ....core.entity.history import Entry, Message
 from ....core.error import InlineUnsupported
@@ -14,6 +13,39 @@ from ....core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ....core.value.content import Payload
 
 _Forge = Callable[..., Awaitable[Optional[Payload | List[Payload]]]]
+_SUPPLIES_ATTR = "__navigator_supplies__"
+
+
+def forge_supplies(*names: str) -> Callable[[_Forge], _Forge]:
+    """Annotate ``forge`` with the context keys it expects."""
+
+    required = _normalize_supplies(names)
+
+    def decorator(forge: _Forge) -> _Forge:
+        setattr(forge, _SUPPLIES_ATTR, required)
+        return forge
+
+    return decorator
+
+
+def _normalize_supplies(names: Iterable[str]) -> Tuple[str, ...]:
+    """Return stable, de-duplicated supply names."""
+
+    unique: Dict[str, None] = {}
+    for name in names:
+        unique[str(name)] = None
+    return tuple(unique.keys())
+
+
+def _declared_supplies(forge: _Forge) -> Tuple[str, ...]:
+    """Fetch the supply declaration attached to ``forge`` if present."""
+
+    declared = getattr(forge, _SUPPLIES_ATTR, ())
+    if isinstance(declared, str):
+        return (declared,)
+    if isinstance(declared, Iterable):
+        return _normalize_supplies(declared)
+    return ()
 
 
 class StaticPayloadFactory:
@@ -65,8 +97,19 @@ class ForgeSuppliesExtractor:
     """Derive forge arguments from the provided context mapping."""
 
     def extract(self, forge: _Forge, context: Mapping[str, Any]) -> Dict[str, Any]:
-        parameters = inspect.signature(forge).parameters
-        return {name: context[name] for name in parameters if name in context}
+        required = _declared_supplies(forge)
+        if not required:
+            return {}
+        supplies: Dict[str, Any] = {}
+        missing: list[str] = []
+        for name in required:
+            if name in context:
+                supplies[name] = context[name]
+            else:
+                missing.append(name)
+        if missing:
+            raise KeyError(f"missing_supplies:{','.join(sorted(missing))}")
+        return supplies
 
 
 class ForgeInvoker:

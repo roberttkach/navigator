@@ -12,13 +12,21 @@ from dataclasses import dataclass
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload
 from ...core.value.message import Scope
-from .add_components import AppendHistoryAccess, AppendHistoryWriter, AppendPreparation
+from .add_components import (
+    AppendEntryAssembler,
+    AppendHistoryAccess,
+    AppendHistoryWriter,
+    AppendPayloadAdapter,
+    AppendRenderPlanner,
+)
 
 
 @dataclass(frozen=True)
 class AppendDependencies:
     history: AppendHistoryAccess
-    preparation: AppendPreparation
+    payloads: AppendPayloadAdapter
+    planner: AppendRenderPlanner
+    assembler: AppendEntryAssembler
     writer: AppendHistoryWriter
 
 
@@ -32,7 +40,9 @@ class Appender:
             dependencies: AppendDependencies,
     ) -> None:
         self._history = dependencies.history
-        self._prepare = dependencies.preparation
+        self._payloads = dependencies.payloads
+        self._planner = dependencies.planner
+        self._assembler = dependencies.assembler
         self._writer = dependencies.writer
         self._channel: TelemetryChannel = telemetry.channel(__name__)
         self._trace = TraceAspect(telemetry)
@@ -43,10 +53,18 @@ class Appender:
             *,
             telemetry: Telemetry,
             history: AppendHistoryAccess,
-            preparation: AppendPreparation,
+            payloads: AppendPayloadAdapter,
+            planner: AppendRenderPlanner,
+            assembler: AppendEntryAssembler,
             writer: AppendHistoryWriter,
     ) -> "Appender":
-        dependencies = AppendDependencies(history=history, preparation=preparation, writer=writer)
+        dependencies = AppendDependencies(
+            history=history,
+            payloads=payloads,
+            planner=planner,
+            assembler=assembler,
+            writer=writer,
+        )
         return cls(telemetry=telemetry, dependencies=dependencies)
 
     async def execute(
@@ -75,15 +93,15 @@ class Appender:
             *,
             root: bool = False,
     ) -> None:
-        adjusted = self._prepare.normalize(scope, bundle)
+        adjusted = self._payloads.normalize(scope, bundle)
         records = await self._history.snapshot(scope)
         trail = records[-1] if records else None
-        render = await self._prepare.plan(scope, adjusted, trail)
+        render = await self._planner.plan(scope, adjusted, trail)
         if not render or not render.ids or not render.changed:
             self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="add")
             return
         status = await self._history.status()
 
-        entry = self._prepare.entry(adjusted, render, status, view, root)
-        timeline = self._prepare.timeline(records, entry, root)
+        entry = self._assembler.build_entry(adjusted, render, status, view, root)
+        timeline = self._assembler.extend_timeline(records, entry, root)
         await self._writer.persist(timeline)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Iterable, List, Optional, Sequence, Tuple
 
 from ...core.entity.history import Entry, Message
@@ -13,6 +13,7 @@ from ...core.error import (
     MetadataKindUnsupported,
     MetadataMediumMissing,
 )
+from ...core.port.clock import Clock
 from ...core.port.factory import ViewLedger
 from ...core.service.history.extra import cleanse
 from ...core.typing.result import GroupMeta, MediaMeta, Meta, TextMeta
@@ -130,8 +131,9 @@ def _view_if_known(ledger: ViewLedger, view: Optional[str]) -> Optional[str]:
 class EntryMapper:
     """Translate rendering outcomes into persisted history entries."""
 
-    def __init__(self, ledger: ViewLedger):
+    def __init__(self, ledger: ViewLedger, clock: Clock):
         self._ledger = ledger
+        self._clock = clock
 
     def convert(
             self,
@@ -159,7 +161,7 @@ class EntryMapper:
             payloads: Sequence[Payload],
             base: Optional[Entry],
     ) -> List[Message]:
-        timestamp = datetime.now(timezone.utc)
+        timestamp = self._clock.now()
         composer = _MessageComposer(outcome=outcome, base=base, timestamp=timestamp)
         return [composer.build(index, payload) for index, payload in enumerate(payloads)]
 
