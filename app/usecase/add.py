@@ -32,6 +32,39 @@ class AppendDependencies:
 
 
 @dataclass(frozen=True)
+class AppendPipeline:
+    """Aggregate preparation, rendering and persistence components."""
+
+    preparation: "AppendPreparation"
+    rendering: "AppendRendering"
+    persistence: "AppendPersistence"
+
+
+class AppendPipelineFactory:
+    """Create append pipeline stages from declarative dependencies."""
+
+    def __init__(self, dependencies: AppendDependencies) -> None:
+        self._dependencies = dependencies
+
+    def create(self, channel: TelemetryChannel) -> AppendPipeline:
+        preparation = AppendPreparation(
+            self._dependencies.history,
+            self._dependencies.payloads,
+        )
+        rendering = AppendRendering(self._dependencies.planner, channel)
+        persistence = AppendPersistence(
+            self._dependencies.history,
+            self._dependencies.assembler,
+            self._dependencies.writer,
+        )
+        return AppendPipeline(
+            preparation=preparation,
+            rendering=rendering,
+            persistence=persistence,
+        )
+
+
+@dataclass(frozen=True)
 class AppendPreparationResult:
     """Collect data required for later append pipeline stages."""
 
@@ -110,20 +143,17 @@ class Appender:
     """Manage append operations against conversation history."""
 
     def __init__(
-            self,
-            *,
-            telemetry: Telemetry,
-            dependencies: AppendDependencies,
+        self,
+        *,
+        telemetry: Telemetry,
+        factory: AppendPipelineFactory,
     ) -> None:
         self._channel: TelemetryChannel = telemetry.channel(__name__)
         self._trace = TraceAspect(telemetry)
-        self._preparation = AppendPreparation(dependencies.history, dependencies.payloads)
-        self._rendering = AppendRendering(dependencies.planner, self._channel)
-        self._persistence = AppendPersistence(
-            dependencies.history,
-            dependencies.assembler,
-            dependencies.writer,
-        )
+        pipeline = factory.create(self._channel)
+        self._preparation = pipeline.preparation
+        self._rendering = pipeline.rendering
+        self._persistence = pipeline.persistence
 
     @classmethod
     def build(
@@ -143,7 +173,8 @@ class Appender:
             assembler=assembler,
             writer=writer,
         )
-        return cls(telemetry=telemetry, dependencies=dependencies)
+        factory = AppendPipelineFactory(dependencies)
+        return cls(telemetry=telemetry, factory=factory)
 
     async def execute(
             self,

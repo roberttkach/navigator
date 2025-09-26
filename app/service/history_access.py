@@ -141,21 +141,44 @@ class TailHistoryAccess:
     async def mark(self, marker: int | None) -> None:
         await self._store.mark(marker)
 
-    async def trim_inline(self, history: Sequence[Entry]) -> tuple[list[Entry], int | None]:
-        trimmed = list(history[:-1])
-        stored = await self._store.archive(trimmed)
-        marker = self.latest_marker(trimmed)
-        await self._store.mark(marker)
-        return stored, marker
+    @property
+    def store(self) -> TailHistoryStore:
+        """Expose the underlying store for composition needs."""
+
+        return self._store
+
+
+class TailInlineMarker:
+    """Derive marker identifiers from stored history snapshots."""
 
     @staticmethod
-    def latest_marker(history: Sequence[Entry]) -> int | None:
+    def latest(history: Sequence[Entry]) -> int | None:
         if not history:
             return None
         tail = history[-1]
         if not tail.messages:
             return None
         return int(tail.messages[0].id)
+
+
+class TailInlineTrimmer:
+    """Apply inline-specific trimming rules and persist results."""
+
+    def __init__(
+        self,
+        store: TailHistoryStore,
+        *,
+        marker: type[TailInlineMarker] = TailInlineMarker,
+    ) -> None:
+        self._store = store
+        self._marker = marker
+
+    async def trim(self, history: Sequence[Entry]) -> tuple[list[Entry], int | None]:
+        trimmed = list(history[:-1])
+        stored = await self._store.archive(trimmed)
+        marker = self._marker.latest(trimmed)
+        await self._store.mark(marker)
+        return stored, marker
 
 
 class TailHistoryTracker:
@@ -166,9 +189,11 @@ class TailHistoryTracker:
         access: TailHistoryAccess,
         *,
         journal: TailHistoryJournal,
+        trimmer: TailInlineTrimmer | None = None,
     ) -> None:
         self._access = access
         self._journal = journal
+        self._trimmer = trimmer or TailInlineTrimmer(access.store)
 
     async def peek(self) -> int | None:
         marker = await self._access.peek()
@@ -202,7 +227,7 @@ class TailHistoryTracker:
         *,
         op: str,
     ) -> list[Entry]:
-        stored, marker = await self._access.trim_inline(history)
+        stored, marker = await self._trimmer.trim(history)
         self._journal.record_history_save(stored, op=op)
         self._journal.record_marker_mark(marker, op=op, scope=scope)
         return stored
@@ -214,4 +239,6 @@ __all__ = [
     "TailHistoryScopeFormatter",
     "TailHistoryStore",
     "TailHistoryTracker",
+    "TailInlineMarker",
+    "TailInlineTrimmer",
 ]
