@@ -5,7 +5,7 @@ from typing import Protocol
 
 from navigator.app.service.navigator_runtime import MissingAlert
 
-from ..context import BootstrapContext
+from ..context import BootstrapContext, ViewContainerFactory
 from ..telemetry import TelemetryFactory
 from .bundle import NavigatorRuntimeBundle
 from .composition import NavigatorRuntimeComposer, RuntimeCalibrator
@@ -25,6 +25,7 @@ class ContainerRuntimeFactory(NavigatorFactory):
         telemetry_factory: TelemetryFactory | None = None,
         missing_alert: MissingAlert | None = None,
         *,
+        view_container: ViewContainerFactory | None = None,
         provisioner: RuntimeProvisioner | None = None,
         calibrator: RuntimeCalibrator | None = None,
         composer: NavigatorRuntimeComposer | None = None,
@@ -33,6 +34,7 @@ class ContainerRuntimeFactory(NavigatorFactory):
         self._provisioner = provisioner or RuntimeProvisioner(
             factory,
             missing_alert=missing_alert,
+            view_container=view_container,
         )
         self._calibrator = calibrator or RuntimeCalibrator()
         self._composer = composer or NavigatorRuntimeComposer()

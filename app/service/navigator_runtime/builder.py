@@ -17,6 +17,7 @@ from .reporter import NavigatorReporter
 from .runtime import NavigatorRuntime
 from .state_builder import build_state_service
 from .tail_builder import build_tail_service
+from .tail_components import TailTelemetry
 from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
@@ -27,10 +28,11 @@ def build_navigator_runtime(
     contracts: NavigatorRuntimeContracts | None = None,
     scope: Scope,
     guard: Guardian,
-    telemetry: Telemetry,
+    telemetry: Telemetry | None = None,
     bundler: PayloadBundler | None = None,
     reporter: NavigatorReporter | None = None,
     missing_alert: MissingAlert | None = None,
+    tail_telemetry: TailTelemetry | None = None,
 ) -> NavigatorRuntime:
     """Create a navigator runtime wiring use cases with cross-cutting tools."""
 
@@ -40,7 +42,13 @@ def build_navigator_runtime(
         contracts = NavigatorRuntimeContracts.from_usecases(usecases)
 
     bundler = bundler or PayloadBundler()
-    reporter = reporter or NavigatorReporter(telemetry, scope)
+    if reporter is None:
+        if telemetry is None:
+            raise ValueError("telemetry must be provided when reporter is not supplied")
+        reporter = NavigatorReporter(telemetry, scope)
+
+    if telemetry is None and tail_telemetry is None:
+        raise ValueError("either telemetry or tail_telemetry must be provided")
 
     history = build_history_service(
         contracts.history,
@@ -61,6 +69,7 @@ def build_navigator_runtime(
         guard=guard,
         scope=scope,
         telemetry=telemetry,
+        tail_telemetry=tail_telemetry,
     )
     return NavigatorRuntime(history=history, state=state, tail=tail)
 

@@ -38,25 +38,69 @@ class MissingStateAlarm:
         await self._alarm.execute(self._scope, text=payload)
 
 
+class StateAlertManager:
+    """Bundle alert handling policies independent from service orchestration."""
+
+    def __init__(
+        self,
+        *,
+        alarm: Alarm,
+        scope: Scope,
+        missing_alarm: MissingStateAlarm | None = None,
+    ) -> None:
+        self._alarm = alarm
+        self._scope = scope
+        self._missing_alarm = missing_alarm
+
+    async def missing(self) -> None:
+        if self._missing_alarm:
+            await self._missing_alarm.trigger()
+        else:
+            await self._alarm.execute(self._scope)
+
+    async def notify(self) -> None:
+        await self._alarm.execute(self._scope)
+
+
+class StateOperationExecutor:
+    """Execute state transitions under guard while delegating alerts."""
+
+    def __init__(
+        self,
+        *,
+        setter: Setter,
+        guard: Guardian,
+        scope: Scope,
+        alerts: StateAlertManager,
+    ) -> None:
+        self._setter = setter
+        self._guard = guard
+        self._scope = scope
+        self._alerts = alerts
+
+    async def assign(self, status: str, context: dict[str, Any]) -> None:
+        async with self._guard(self._scope):
+            try:
+                await self._setter.execute(self._scope, status, context)
+            except StateNotFound:
+                await self._alerts.missing()
+
+    async def alert(self) -> None:
+        async with self._guard(self._scope):
+            await self._alerts.notify()
+
+
 class NavigatorStateService:
     """Coordinate state assignments and alerts."""
 
     def __init__(
         self,
         *,
-        setter: Setter,
-        alarm: Alarm,
-        guard: Guardian,
-        scope: Scope,
+        operations: StateOperationExecutor,
         reporter: NavigatorReporter,
-        missing_alarm: MissingStateAlarm | None = None,
     ) -> None:
-        self._setter = setter
-        self._alarm = alarm
-        self._guard = guard
-        self._scope = scope
+        self._operations = operations
         self._reporter = reporter
-        self._missing_alarm = missing_alarm
 
     async def set(
         self,
@@ -65,19 +109,17 @@ class NavigatorStateService:
     ) -> None:
         status = getattr(state, "state", state)
         self._reporter.emit("set", state=status)
-        async with self._guard(self._scope):
-            try:
-                await self._setter.execute(self._scope, status, context or {})
-            except StateNotFound:
-                if self._missing_alarm:
-                    await self._missing_alarm.trigger()
-                else:
-                    await self._alarm.execute(self._scope)
+        await self._operations.assign(status, context or {})
 
     async def alert(self) -> None:
         self._reporter.emit("alert")
-        async with self._guard(self._scope):
-            await self._alarm.execute(self._scope)
+        await self._operations.alert()
 
 
-__all__ = ["NavigatorStateService", "MissingStateAlarm", "StateDescriptor"]
+__all__ = [
+    "MissingStateAlarm",
+    "NavigatorStateService",
+    "StateAlertManager",
+    "StateDescriptor",
+    "StateOperationExecutor",
+]

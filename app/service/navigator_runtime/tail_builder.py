@@ -15,14 +15,19 @@ def build_tail_service(
     *,
     guard: Guardian,
     scope: Scope,
-    telemetry: Telemetry,
+    telemetry: Telemetry | None = None,
+    tail_telemetry: TailTelemetry | None = None,
 ) -> NavigatorTail:
     """Construct navigator tail services decoupled from other concerns."""
 
     gateway = TailGateway(contracts.tailer)
     locker = TailLocker(guard, scope)
-    tail_telemetry = TailTelemetry.from_telemetry(telemetry, scope)
-    return NavigatorTail(gateway=gateway, locker=locker, telemetry=tail_telemetry)
+    metrics = tail_telemetry
+    if metrics is None:
+        if telemetry is None:
+            raise ValueError("telemetry or tail_telemetry must be provided")
+        metrics = TailTelemetry.from_telemetry(telemetry, scope)
+    return NavigatorTail(gateway=gateway, locker=locker, telemetry=metrics)
 
 
 __all__ = ["build_tail_service"]
