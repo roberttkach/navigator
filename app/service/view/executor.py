@@ -17,27 +17,6 @@ class EditExecutor:
     def __init__(self, components: EditComponents) -> None:
         self._components = components
 
-    @classmethod
-    def create(
-        cls,
-        gateway,
-        telemetry,
-        *,
-        dispatcher=None,
-        errors=None,
-        refiner=None,
-        cleanup=None,
-    ) -> "EditExecutor":
-        components = build_edit_components(
-            gateway,
-            telemetry,
-            dispatcher=dispatcher,
-            errors=errors,
-            refiner=refiner,
-            cleanup=cleanup,
-        )
-        return cls(components)
-
     async def execute(
         self,
         scope: Scope,
@@ -63,5 +42,33 @@ class EditExecutor:
         return self._components.refiner.refine(execution, verdict, payload)
 
 
-__all__ = ["EditExecutor", "Execution", "EditComponents", "build_edit_components"]
+def create_edit_executor(
+    gateway,
+    telemetry,
+    *,
+    dispatcher=None,
+    errors=None,
+    refiner=None,
+    cleanup=None,
+) -> EditExecutor:
+    """Factory function wiring edit executor dependencies."""
+
+    components = build_edit_components(
+        gateway,
+        telemetry,
+        dispatcher=dispatcher,
+        errors=errors,
+        refiner=refiner,
+        cleanup=cleanup,
+    )
+    return EditExecutor(components)
+
+
+__all__ = [
+    "EditComponents",
+    "EditExecutor",
+    "Execution",
+    "build_edit_components",
+    "create_edit_executor",
+]
 

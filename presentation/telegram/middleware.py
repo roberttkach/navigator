@@ -5,12 +5,12 @@ from collections.abc import Iterable
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware
-from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
 from navigator.api.contracts import NavigatorRuntimeInstrument
 from navigator.bootstrap.navigator import NavigatorAssembler as BootstrapNavigatorAssembler
 from navigator.core.port.factory import ViewLedger
+from navigator.adapters.storage.fsm.context import StateContext
 
 from .assembly import NavigatorAssembler, TelegramNavigatorAssembler
 
@@ -43,8 +43,8 @@ class NavigatorMiddleware(BaseMiddleware):
             data: Dict[str, Any],
     ) -> Any:
         state = data.get("state")
-        if not isinstance(state, FSMContext):  # pragma: no cover - runtime guard
-            raise RuntimeError("FSMContext instance is required to assemble Navigator")
+        if not isinstance(state, StateContext):  # pragma: no cover - runtime guard
+            raise RuntimeError("StateContext implementation is required to assemble Navigator")
         navigator = await self._assembler.assemble(event, state)
         data["navigator"] = navigator
         return await handler(event, data)

@@ -2,13 +2,8 @@
 from __future__ import annotations
 
 from .assembly import build_runtime_from_dependencies
-from .builder import (
-    HistoryContracts,
-    NavigatorRuntimeContracts,
-    StateContracts,
-    TailContracts,
-    build_navigator_runtime,
-)
+from .builder import build_navigator_runtime
+from .contracts import HistoryContracts, NavigatorRuntimeContracts, StateContracts, TailContracts
 from .bundler import PayloadBundler
 from .facade import NavigatorFacade
 from .history import (

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from aiogram.fsm.context import FSMContext
 from dependency_injector import containers, providers
+from navigator.adapters.storage.fsm.context import StateContext
 from navigator.app.locks.guard import Guardian
 from navigator.core.port.factory import ViewLedger
 from navigator.core.service.rendering.config import RenderingConfig
@@ -14,7 +14,7 @@ from navigator.infra.locks.memory import MemoryLatch
 
 class CoreContainer(containers.DeclarativeContainer):
     event = providers.Dependency()
-    state = providers.Dependency(instance_of=FSMContext)
+    state = providers.Dependency(instance_of=StateContext)
     ledger = providers.Dependency(instance_of=ViewLedger)
     alert = providers.Dependency()
     telemetry = providers.Dependency(instance_of=Telemetry)

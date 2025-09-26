@@ -4,6 +4,7 @@ from __future__ import annotations
 from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.telemetry import Telemetry
 from navigator.infra.di.container import AppContainer
+from navigator.infra.di.container.telegram import TelegramContainer
 
 from .adapter import LedgerAdapter
 from .context import BootstrapContext
@@ -29,6 +30,7 @@ class ContainerFactory:
             ledger=LedgerAdapter(context.ledger),
             alert=alert,
             telemetry=self._telemetry,
+            view_container=TelegramContainer,
         )
 
 
