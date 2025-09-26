@@ -28,26 +28,41 @@ class RetreatDependencies:
     translator: Translator = lexeme
 
 
-def configure_retreat(dependencies: RetreatDependencies) -> None:
-    """Attach runtime helpers to the router data."""
+class RetreatHandlerProvider:
+    """Manage retreat handler lifecycle without mutating router globals."""
 
-    router.data["telemetry"] = dependencies.telemetry
-    router.data["retreat_handler"] = RetreatHandler(
-        dependencies.telemetry,
-        dependencies.translator,
-    )
+    def __init__(self) -> None:
+        self._dependencies: RetreatDependencies | None = None
+        self._handler: RetreatHandler | None = None
+
+    def configure(self, dependencies: RetreatDependencies) -> None:
+        self._dependencies = dependencies
+        self._handler = RetreatHandler(
+            dependencies.telemetry,
+            dependencies.translator,
+        )
+
+    def handler(self) -> RetreatHandler:
+        if self._handler is not None:
+            return self._handler
+        if self._dependencies is None:
+            raise RuntimeError("Retreat handler requires telemetry instrumentation")
+        self.configure(self._dependencies)
+        assert self._handler is not None
+        return self._handler
+
+
+_PROVIDER = RetreatHandlerProvider()
+
+
+def configure_retreat(dependencies: RetreatDependencies) -> None:
+    """Attach runtime helpers to the router provider."""
+
+    _PROVIDER.configure(dependencies)
 
 
 def _handler() -> RetreatHandler:
-    handler = router.data.get("retreat_handler")
-    if isinstance(handler, RetreatHandler):
-        return handler
-    telemetry = router.data.get("telemetry")
-    if telemetry is None:
-        raise RuntimeError("Retreat handler requires telemetry instrumentation")
-    generated = RetreatHandler(telemetry, lexeme)
-    router.data["retreat_handler"] = generated
-    return generated
+    return _PROVIDER.handler()
 
 
 @router.callback_query(F.data == BACK_CALLBACK_DATA)

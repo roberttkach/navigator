@@ -278,6 +278,27 @@ class MetaRefiner:
         raise MetadataKindMissing()
 
 
+class EditCleanup:
+    """Encapsulate deletion routines executed after edit operations."""
+
+    def __init__(self, gateway: MessageGateway) -> None:
+        self._gateway = gateway
+
+    async def delete(self, scope: Scope, identifiers: list[int]) -> None:
+        if identifiers:
+            await self._gateway.delete(scope, identifiers)
+
+
+@dataclass(slots=True)
+class EditComponents:
+    """Aggregate edit collaborators to reduce executor responsibilities."""
+
+    dispatcher: VerdictDispatcher
+    errors: EditErrorHandler
+    refiner: MetaRefiner
+    cleanup: EditCleanup
+
+
 class EditExecutor:
     """Dispatch reconciliation decisions to the Telegram gateway."""
 
@@ -289,13 +310,16 @@ class EditExecutor:
         dispatcher: VerdictDispatcher | None = None,
         errors: EditErrorHandler | None = None,
         refiner: MetaRefiner | None = None,
+        cleanup: EditCleanup | None = None,
     ) -> None:
-        self._gateway = gateway
         fallback = FallbackStrategy(gateway)
-        self._dispatcher = dispatcher or VerdictDispatcher(gateway, fallback=fallback)
         telemetry_helper = EditTelemetry(telemetry)
-        self._errors = errors or EditErrorHandler(telemetry_helper, fallback)
-        self._refiner = refiner or MetaRefiner()
+        self._components = EditComponents(
+            dispatcher=dispatcher or VerdictDispatcher(gateway, fallback=fallback),
+            errors=errors or EditErrorHandler(telemetry_helper, fallback),
+            refiner=refiner or MetaRefiner(),
+            cleanup=cleanup or EditCleanup(gateway),
+        )
 
     async def execute(
             self,
@@ -312,7 +336,7 @@ class EditExecutor:
             if verdict is decision.Decision.NO_CHANGE:
                 return None
 
-            return await self._dispatcher.dispatch(verdict, scope, payload, stem)
+            return await self._components.dispatcher.dispatch(verdict, scope, payload, stem)
 
         except (
             EmptyPayload,
@@ -322,11 +346,10 @@ class EditExecutor:
             EditForbidden,
             MessageUnchanged,
         ) as error:
-            return await self._errors.resolve(error, scope, payload, stem)
+            return await self._components.errors.resolve(error, scope, payload, stem)
 
     async def delete(self, scope: Scope, identifiers: list[int]) -> None:
-        if identifiers:
-            await self._gateway.delete(scope, identifiers)
+        await self._components.cleanup.delete(scope, identifiers)
 
     def refine(
             self,
@@ -336,7 +359,7 @@ class EditExecutor:
     ) -> Meta:
         """Reconcile execution metadata with persisted message state."""
 
-        return self._refiner.refine(execution, verdict, payload)
+        return self._components.refiner.refine(execution, verdict, payload)
 
 
 __all__ = ["EditExecutor", "Execution"]
