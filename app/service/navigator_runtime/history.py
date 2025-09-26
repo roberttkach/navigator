@@ -4,10 +4,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Awaitable, Callable, SupportsInt
 
-from navigator.app.dto.content import Content, Node
 from navigator.app.locks.guard import Guardian
 
-from .bundler import PayloadBundler
+from .bundler import PayloadBundleSource, PayloadBundler
 from .ports import (
     AppendHistoryUseCase,
     RebaseHistoryUseCase,
@@ -61,7 +60,7 @@ class HistoryAddOperation(_HistoryOperation):
 
     async def __call__(
         self,
-        content: Content | Node,
+        content: PayloadBundleSource,
         *,
         key: str | None = None,
         root: bool = False,
@@ -96,7 +95,7 @@ class HistoryReplaceOperation(_HistoryOperation):
         self._swapper = swapper
         self._bundler = bundler
 
-    async def __call__(self, content: Content | Node) -> None:
+    async def __call__(self, content: PayloadBundleSource) -> None:
         payloads = self._bundler.bundle(content)
 
         async def action() -> None:
@@ -193,14 +192,14 @@ class NavigatorHistoryService:
 
     async def add(
         self,
-        content: Content | Node,
+        content: PayloadBundleSource,
         *,
         key: str | None = None,
         root: bool = False,
     ) -> None:
         await self._add(content, key=key, root=root)
 
-    async def replace(self, content: Content | Node) -> None:
+    async def replace(self, content: PayloadBundleSource) -> None:
         await self._replace(content)
 
     async def rebase(self, message: int | SupportsInt) -> None:
