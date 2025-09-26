@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Awaitable, Protocol
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
@@ -28,55 +28,52 @@ class RetreatDependencies:
     translator: Translator = lexeme
 
 
-class RetreatHandlerProvider:
-    """Manage retreat handler lifecycle without mutating router globals."""
-
-    def __init__(self) -> None:
-        self._dependencies: RetreatDependencies | None = None
-        self._handler: RetreatHandler | None = None
-
-    def configure(self, dependencies: RetreatDependencies) -> None:
-        self._dependencies = dependencies
-        self._handler = RetreatHandler(
-            dependencies.telemetry,
-            dependencies.translator,
-        )
-
-    def handler(self) -> RetreatHandler:
-        if self._handler is not None:
-            return self._handler
-        if self._dependencies is None:
-            raise RuntimeError("Retreat handler requires telemetry instrumentation")
-        self.configure(self._dependencies)
-        assert self._handler is not None
-        return self._handler
+class RetreatCallback(Protocol):
+    def __call__(
+        self,
+        cb: CallbackQuery,
+        navigator: NavigatorBack,
+        **data: dict[str, Any],
+    ) -> Awaitable[None]: ...
 
 
-_PROVIDER = RetreatHandlerProvider()
+def build_retreat_handler(dependencies: RetreatDependencies) -> RetreatHandler:
+    """Create a retreat handler with explicit dependencies."""
+
+    return RetreatHandler(dependencies.telemetry, dependencies.translator)
 
 
-def configure_retreat(dependencies: RetreatDependencies) -> None:
-    """Attach runtime helpers to the router provider."""
+def _retreat_callback(handler: RetreatHandler) -> RetreatCallback:
+    async def _callback(
+        cb: CallbackQuery,
+        navigator: NavigatorBack,
+        **data: dict[str, Any],
+    ) -> None:
+        outcome: RetreatOutcome = await handler(cb, navigator, data)
+        await cb.answer(outcome.text, show_alert=outcome.show_alert)
 
-    _PROVIDER.configure(dependencies)
+    return _callback
 
 
-def _handler() -> RetreatHandler:
-    return _PROVIDER.handler()
+def configure_retreat(
+    dependencies: RetreatDependencies,
+    *,
+    target: Router | None = None,
+) -> RetreatCallback:
+    """Attach retreat handling to ``target`` router and return the callback."""
 
-
-@router.callback_query(F.data == BACK_CALLBACK_DATA)
-async def retreat(cb: CallbackQuery, navigator: NavigatorBack, **data: dict[str, Any]) -> None:
-    handler = _handler()
-    outcome: RetreatOutcome = await handler(cb, navigator, data)
-    await cb.answer(outcome.text, show_alert=outcome.show_alert)
+    handler = build_retreat_handler(dependencies)
+    callback = _retreat_callback(handler)
+    (target or router).callback_query.register(callback, F.data == BACK_CALLBACK_DATA)
+    return callback
 
 
 __all__ = [
     "router",
     "NavigatorBack",
-    "retreat",
     "BACK_CALLBACK_DATA",
     "RetreatDependencies",
+    "RetreatCallback",
+    "build_retreat_handler",
     "configure_retreat",
 ]

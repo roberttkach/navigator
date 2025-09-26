@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
+from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.value.message import Scope
 
 
@@ -29,6 +30,7 @@ class BootstrapContext:
     state: object
     ledger: ViewLedgerDTO
     scope: ScopeDTO
+    missing_alert: MissingAlert | None = None
 
 
 __all__ = ["BootstrapContext", "scope_from_dto"]

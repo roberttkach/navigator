@@ -13,12 +13,10 @@ class TelemetryFactory:
         return Telemetry(port)
 
 
-def calibrate_telemetry(telemetry: Telemetry, container: "AppContainer") -> None:
-    """Apply container-level telemetry configuration before runtime assembly."""
+def calibrate_telemetry(telemetry: Telemetry, redaction: str | None) -> None:
+    """Apply telemetry configuration derived from bootstrap settings."""
 
-    settings = container.core().settings()
-    mode = getattr(settings, "redaction", "")
-    telemetry.calibrate(mode)
+    telemetry.calibrate(redaction or "")
 
 
 __all__ = ["TelemetryFactory", "calibrate_telemetry"]

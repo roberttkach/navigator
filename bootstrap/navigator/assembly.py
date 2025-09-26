@@ -5,6 +5,7 @@ from collections.abc import Iterable, Sequence
 from typing import Protocol
 
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
+from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.presentation.navigator import Navigator
 
 from .context import BootstrapContext
@@ -42,10 +43,17 @@ async def assemble(
     ledger: ViewLedgerDTO,
     scope: ScopeDTO,
     instrumentation: Iterable[NavigatorAssembler.Instrument] | None = None,
+    missing_alert: MissingAlert | None = None,
 ) -> Navigator:
     """Construct a Navigator instance from entrypoint payloads."""
 
-    context = BootstrapContext(event=event, state=state, ledger=ledger, scope=scope)
+    context = BootstrapContext(
+        event=event,
+        state=state,
+        ledger=ledger,
+        scope=scope,
+        missing_alert=missing_alert,
+    )
     instruments: Sequence[NavigatorAssembler.Instrument]
     if instrumentation:
         instruments = tuple(instrumentation)

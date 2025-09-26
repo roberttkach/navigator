@@ -315,6 +315,25 @@ class NavigatorHistoryService:
         await self._pop(count)
 
 
+class MissingStateAlarm:
+    """Coordinate missing-state notifications via the alarm use case."""
+
+    def __init__(
+        self,
+        *,
+        alarm: Alarm,
+        scope: Scope,
+        factory: MissingAlert | None = None,
+    ) -> None:
+        self._alarm = alarm
+        self._scope = scope
+        self._factory = factory
+
+    async def trigger(self) -> None:
+        payload = self._factory(self._scope) if self._factory else None
+        await self._alarm.execute(self._scope, text=payload)
+
+
 class NavigatorStateService:
     """Coordinate state assignments and alerts."""
 
@@ -326,14 +345,14 @@ class NavigatorStateService:
         guard: Guardian,
         scope: Scope,
         reporter: NavigatorReporter,
-        missing_alert: MissingAlert | None = None,
+        missing_alarm: MissingStateAlarm | None = None,
     ) -> None:
         self._setter = setter
         self._alarm = alarm
         self._guard = guard
         self._scope = scope
         self._reporter = reporter
-        self._missing_alert = missing_alert
+        self._missing_alarm = missing_alarm
 
     async def set(
         self,
@@ -346,8 +365,10 @@ class NavigatorStateService:
             try:
                 await self._setter.execute(self._scope, status, context or {})
             except StateNotFound:
-                payload = self._missing_alert(self._scope) if self._missing_alert else None
-                await self._alarm.execute(self._scope, text=payload)
+                if self._missing_alarm:
+                    await self._missing_alarm.trigger()
+                else:
+                    await self._alarm.execute(self._scope)
 
     async def alert(self) -> None:
         self._reporter.emit("alert")
@@ -431,13 +452,18 @@ def build_navigator_runtime(
         back=back_operation,
         pop=trim_operation,
     )
+    missing_state_alarm = MissingStateAlarm(
+        alarm=usecases.alarm,
+        scope=scope,
+        factory=missing_alert,
+    )
     state = NavigatorStateService(
         setter=usecases.setter,
         alarm=usecases.alarm,
         guard=guard,
         scope=scope,
         reporter=reporter,
-        missing_alert=missing_alert,
+        missing_alarm=missing_state_alarm,
     )
     tail = NavigatorTail(
         flow=usecases.tailer,
@@ -453,6 +479,7 @@ __all__ = [
     "NavigatorRuntime",
     "NavigatorHistoryService",
     "NavigatorStateService",
+    "MissingStateAlarm",
     "NavigatorTail",
     "NavigatorReporter",
     "PayloadBundler",

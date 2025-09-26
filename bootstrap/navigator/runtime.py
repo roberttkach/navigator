@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.telemetry import Telemetry
 from navigator.infra.di.container import AppContainer
 from navigator.presentation.bootstrap.navigator import compose
@@ -33,14 +34,22 @@ class ContainerRuntimeFactory(NavigatorFactory):
     def __init__(
         self,
         telemetry_factory: TelemetryFactory | None = None,
+        missing_alert: MissingAlert | None = None,
     ) -> None:
         self._telemetry_factory = telemetry_factory or TelemetryFactory()
+        self._missing_alert = missing_alert
 
     async def create(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
         telemetry = self._telemetry_factory.create()
-        container = ContainerFactory(telemetry).create(context)
-        calibrate_telemetry(telemetry, container)
-        navigator = compose(container, scope_from_dto(context.scope))
+        container = ContainerFactory(telemetry, alert=self._missing_alert).create(context)
+        core = container.core()
+        settings = core.settings()
+        calibrate_telemetry(telemetry, getattr(settings, "redaction", ""))
+        navigator = compose(
+            container,
+            scope_from_dto(context.scope),
+            missing_alert=core.alert(),
+        )
         return NavigatorRuntimeBundle(telemetry=telemetry, container=container, navigator=navigator)
 
 
