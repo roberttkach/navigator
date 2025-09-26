@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
+from typing import Dict
+
 from aiogram import Bot
 from aiogram.types import Message
-from navigator.core.error import CaptionOverflow, EmptyPayload, InlineUnsupported, TextOverflow
+from navigator.core.error import (
+    CaptionOverflow,
+    EmptyPayload,
+    InlineUnsupported,
+    TextOverflow,
+)
 from navigator.core.port.extraschema import ExtraSchema
 from navigator.core.port.limits import Limits
 from navigator.core.port.markup import MarkupCodec
@@ -15,8 +23,6 @@ from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.typing.result import Cluster, GroupMeta, Meta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
-from dataclasses import dataclass
-from typing import Dict
 
 from . import util
 from ..media import assemble
@@ -26,29 +32,29 @@ from ..serializer.screen import SignatureScreen
 
 
 async def send(
-        bot: Bot,
-        *,
-        codec: MarkupCodec,
-        schema: ExtraSchema,
-        screen: SignatureScreen,
-        policy: MediaPathPolicy,
-        limits: Limits,
-        preview: LinkPreviewCodec | None,
-        scope: Scope,
-        payload: Payload,
-        truncate: bool,
-        channel: TelemetryChannel,
-        telemetry: Telemetry,
+    bot: Bot,
+    *,
+    codec: MarkupCodec,
+    schema: ExtraSchema,
+    screen: SignatureScreen,
+    policy: MediaPathPolicy,
+    limits: Limits,
+    preview: LinkPreviewCodec | None,
+    scope: Scope,
+    payload: Payload,
+    truncate: bool,
+    channel: TelemetryChannel,
+    telemetry: Telemetry,
 ) -> tuple[Message, list[int], Meta]:
     context_factory = SendContextFactory(codec=codec, preview=preview)
-    dispatcher = SendDispatcher(
-        bot,
+    dependencies = SendDependencies(
         schema=schema,
         screen=screen,
         policy=policy,
         limits=limits,
         telemetry=telemetry,
     )
+    dispatcher = SendDispatcher(bot, dependencies=dependencies)
     context = context_factory.build(scope=scope, payload=payload, channel=channel)
     return await dispatcher.dispatch(
         payload,
@@ -67,6 +73,17 @@ def _preview_options(preview: LinkPreviewCodec | None, payload: Payload) -> obje
     if preview is None or payload.preview is None:
         return None
     return preview.encode(payload.preview)
+
+
+@dataclass(frozen=True)
+class SendDependencies:
+    """Bundle dependencies used by send handlers."""
+
+    schema: ExtraSchema
+    screen: SignatureScreen
+    policy: MediaPathPolicy
+    limits: Limits
+    telemetry: Telemetry
 
 
 @dataclass(frozen=True)
@@ -147,12 +164,98 @@ class SendContextFactory:
         )
 
 
-class SendDispatcher:
-    """Execute Telegram send operations using prepared context."""
+class LimitsGuardian:
+    """Enforce Telegram text and caption limits."""
+
+    def __init__(self, limits: Limits) -> None:
+        self._limits = limits
+
+    def caption(
+        self,
+        caption: str | None,
+        truncate: bool,
+        reporter: SendTelemetry,
+    ) -> str | None:
+        if caption is None or len(caption) <= self._limits.captionlimit():
+            return caption
+        if truncate:
+            reporter.truncated("send.caption")
+            return caption[: self._limits.captionlimit()]
+        raise CaptionOverflow()
+
+    def text(
+        self,
+        text: str | None,
+        truncate: bool,
+        reporter: SendTelemetry,
+    ) -> str:
+        value = text or ""
+        if not value.strip():
+            raise EmptyPayload()
+        if len(value) <= self._limits.textlimit():
+            return value
+        if not truncate:
+            raise TextOverflow()
+        reporter.truncated("send.text")
+        return value[: self._limits.textlimit()]
+
+
+class GroupClusterBuilder:
+    """Construct media group clusters from Telegram messages."""
+
+    def build(self, messages: list[Message], payload: Payload) -> list[Cluster]:
+        clusters: list[Cluster] = []
+        for index, message in enumerate(messages):
+            member = payload.group[index] if payload.group and index < len(payload.group) else None
+            medium, filetoken = self._member_tokens(message, member)
+            clusters.append(
+                Cluster(
+                    medium=medium,
+                    file=filetoken,
+                    caption=message.caption if index == 0 else "",
+                )
+            )
+        return clusters
+
+    def _member_tokens(self, message: Message, member) -> tuple[str | None, str | None]:
+        medium = None
+        filetoken = None
+        if message.photo:
+            medium = "photo"
+            filetoken = message.photo[-1].file_id
+        elif message.video:
+            medium = "video"
+            filetoken = message.video.file_id
+        elif message.animation:
+            medium = "animation"
+            filetoken = message.animation.file_id
+        elif message.document:
+            medium = "document"
+            filetoken = message.document.file_id
+        elif message.audio:
+            medium = "audio"
+            filetoken = message.audio.file_id
+        elif message.voice:
+            medium = "voice"
+            filetoken = message.voice.file_id
+        elif message.video_note:
+            medium = "video_note"
+            filetoken = message.video_note.file_id
+
+        if medium is None and member is not None:
+            medium = getattr(getattr(member, "type", None), "value", None)
+        if filetoken is None and member is not None:
+            path = getattr(member, "path", None)
+            if isinstance(path, str):
+                filetoken = path
+        return medium, filetoken
+
+
+class AlbumSender:
+    """Send album payloads via Telegram bot API."""
 
     def __init__(
         self,
-        bot: Bot,
         *,
         schema: ExtraSchema,
         screen: SignatureScreen,
@@ -160,39 +263,16 @@ class SendDispatcher:
         limits: Limits,
         telemetry: Telemetry,
     ) -> None:
-        self._bot = bot
         self._schema = schema
         self._screen = screen
         self._policy = policy
         self._limits = limits
         self._telemetry = telemetry
+        self._clusters = GroupClusterBuilder()
 
-    async def dispatch(
+    async def send(
         self,
-        payload: Payload,
-        *,
-        scope: Scope,
-        context: SendContext,
-        truncate: bool,
-    ) -> tuple[Message, list[int], Meta]:
-        if payload.group:
-            return await self._send_group(payload, scope=scope, context=context)
-        if payload.media:
-            return await self._send_media(
-                payload,
-                scope=scope,
-                context=context,
-                truncate=truncate,
-            )
-        return await self._send_text(
-            payload,
-            scope=scope,
-            context=context,
-            truncate=truncate,
-        )
-
-    async def _send_group(
-        self,
+        bot: Bot,
         payload: Payload,
         *,
         scope: Scope,
@@ -213,21 +293,45 @@ class SendDispatcher:
         effect = extras.get("effect")
         addition: Dict[str, object] = {}
         if effect is not None:
-            addition = self._screen.filter(self._bot.send_media_group, {"message_effect_id": effect})
+            addition = self._screen.filter(
+                bot.send_media_group,
+                {"message_effect_id": effect},
+            )
 
-        messages = await self._bot.send_media_group(
+        messages = await bot.send_media_group(
             media=bundle,
             **context.targets,
             **addition,
         )
         head = messages[0]
         context.reporter.success(head.message_id, len(messages) - 1)
-        meta = GroupMeta(clusters=_group_clusters(messages, payload), inline=scope.inline)
+        meta = GroupMeta(
+            clusters=self._clusters.build(messages, payload),
+            inline=scope.inline,
+        )
         extras_ids = [message.message_id for message in messages[1:]]
         return head, extras_ids, meta
 
-    async def _send_media(
+
+class SingleMediaSender:
+    """Send single media payloads."""
+
+    def __init__(
         self,
+        *,
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        policy: MediaPathPolicy,
+        guard: LimitsGuardian,
+    ) -> None:
+        self._schema = schema
+        self._screen = screen
+        self._policy = policy
+        self._guard = guard
+
+    async def send(
+        self,
+        bot: Bot,
         payload: Payload,
         *,
         scope: Scope,
@@ -235,9 +339,9 @@ class SendDispatcher:
         truncate: bool,
     ) -> tuple[Message, list[int], Meta]:
         caption = captionkit.caption(payload)
-        caption = _enforce_caption_limit(caption, self._limits, truncate, context.reporter)
+        caption = self._guard.caption(caption, truncate, context.reporter)
         extras = self._schema.send(scope, payload.extra, span=len(caption or ""), media=True)
-        sender = getattr(self._bot, f"send_{payload.media.type.value}")
+        sender = getattr(bot, f"send_{payload.media.type.value}")
         arguments = {
             **context.targets,
             payload.media.type.value: self._policy.adapt(payload.media.path, native=True),
@@ -252,7 +356,70 @@ class SendDispatcher:
         meta = util.extract(message, payload, scope)
         return message, [], meta
 
-    async def _send_text(
+
+class TextSender:
+    """Send plain text payloads."""
+
+    def __init__(
+        self,
+        *,
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        guard: LimitsGuardian,
+    ) -> None:
+        self._schema = schema
+        self._screen = screen
+        self._guard = guard
+
+    async def send(
+        self,
+        bot: Bot,
+        payload: Payload,
+        *,
+        scope: Scope,
+        context: SendContext,
+        truncate: bool,
+    ) -> tuple[Message, list[int], Meta]:
+        text = self._guard.text(payload.text, truncate, context.reporter)
+        extras = self._schema.send(scope, payload.extra, span=len(text), media=False)
+        message = await bot.send_message(
+            **context.targets,
+            text=text,
+            reply_markup=context.markup,
+            link_preview_options=context.preview,
+            **self._screen.filter(bot.send_message, extras.get("text", {})),
+        )
+        context.reporter.success(message.message_id, 0)
+        meta = util.extract(message, payload, scope)
+        return message, [], meta
+
+
+class SendDispatcher:
+    """Execute Telegram send operations using prepared context."""
+
+    def __init__(self, bot: Bot, *, dependencies: SendDependencies) -> None:
+        self._bot = bot
+        guard = LimitsGuardian(dependencies.limits)
+        self._albums = AlbumSender(
+            schema=dependencies.schema,
+            screen=dependencies.screen,
+            policy=dependencies.policy,
+            limits=dependencies.limits,
+            telemetry=dependencies.telemetry,
+        )
+        self._media = SingleMediaSender(
+            schema=dependencies.schema,
+            screen=dependencies.screen,
+            policy=dependencies.policy,
+            guard=guard,
+        )
+        self._text = TextSender(
+            schema=dependencies.schema,
+            screen=dependencies.screen,
+            guard=guard,
+        )
+
+    async def dispatch(
         self,
         payload: Payload,
         *,
@@ -260,97 +427,28 @@ class SendDispatcher:
         context: SendContext,
         truncate: bool,
     ) -> tuple[Message, list[int], Meta]:
-        text = _normalise_text(payload.text, self._limits, truncate, context.reporter)
-        extras = self._schema.send(scope, payload.extra, span=len(text), media=False)
-        message = await self._bot.send_message(
-            **context.targets,
-            text=text,
-            reply_markup=context.markup,
-            link_preview_options=context.preview,
-            **self._screen.filter(self._bot.send_message, extras.get("text", {})),
-        )
-        context.reporter.success(message.message_id, 0)
-        meta = util.extract(message, payload, scope)
-        return message, [], meta
-
-def _enforce_caption_limit(
-    caption: str | None,
-    limits: Limits,
-    truncate: bool,
-    reporter: SendTelemetry,
-) -> str | None:
-    if caption is None or len(caption) <= limits.captionlimit():
-        return caption
-    if truncate:
-        reporter.truncated("send.caption")
-        return caption[: limits.captionlimit()]
-    raise CaptionOverflow()
-
-
-def _normalise_text(
-        text: str | None,
-        limits: Limits,
-        truncate: bool,
-        reporter: SendTelemetry,
-) -> str:
-    value = text or ""
-    if not value.strip():
-        raise EmptyPayload()
-    if len(value) <= limits.textlimit():
-        return value
-    if not truncate:
-        raise TextOverflow()
-    reporter.truncated("send.text")
-    return value[: limits.textlimit()]
-
-
-def _group_clusters(messages: list[Message], payload: Payload) -> list[Cluster]:
-    clusters: list[Cluster] = []
-    for index, message in enumerate(messages):
-        member = payload.group[index] if payload.group and index < len(payload.group) else None
-        medium, filetoken = _group_member_tokens(message, member)
-        clusters.append(
-            Cluster(
-                medium=medium,
-                file=filetoken,
-                caption=message.caption if index == 0 else "",
+        if payload.group:
+            return await self._albums.send(
+                self._bot,
+                payload,
+                scope=scope,
+                context=context,
             )
+        if payload.media:
+            return await self._media.send(
+                self._bot,
+                payload,
+                scope=scope,
+                context=context,
+                truncate=truncate,
+            )
+        return await self._text.send(
+            self._bot,
+            payload,
+            scope=scope,
+            context=context,
+            truncate=truncate,
         )
-    return clusters
-
-
-def _group_member_tokens(message: Message, member) -> tuple[str | None, str | None]:
-    medium = None
-    filetoken = None
-    if message.photo:
-        medium = "photo"
-        filetoken = message.photo[-1].file_id
-    elif message.video:
-        medium = "video"
-        filetoken = message.video.file_id
-    elif message.animation:
-        medium = "animation"
-        filetoken = message.animation.file_id
-    elif message.document:
-        medium = "document"
-        filetoken = message.document.file_id
-    elif message.audio:
-        medium = "audio"
-        filetoken = message.audio.file_id
-    elif message.voice:
-        medium = "voice"
-        filetoken = message.voice.file_id
-    elif message.video_note:
-        medium = "video_note"
-        filetoken = message.video_note.file_id
-
-    if medium is None and member is not None:
-        medium = getattr(getattr(member, "type", None), "value", None)
-    if filetoken is None and member is not None:
-        path = getattr(member, "path", None)
-        if isinstance(path, str):
-            filetoken = path
-    return medium, filetoken
 
 
 __all__ = ["SendContextFactory", "SendDispatcher", "send"]
