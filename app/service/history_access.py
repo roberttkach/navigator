@@ -87,6 +87,36 @@ class TailHistoryJournal:
         self._channel.emit(logging.INFO, code, op=op, message=payload)
 
 
+class TailHistoryStore:
+    """Persist history snapshots and expose latest marker operations."""
+
+    def __init__(self, ledger: HistoryRepository, latest: LatestRepository) -> None:
+        self._ledger = ledger
+        self._latest = latest
+
+    async def peek(self) -> int | None:
+        """Return the most recent marker identifier."""
+
+        return await self._latest.peek()
+
+    async def load(self) -> list[Entry]:
+        """Load the persisted history snapshot."""
+
+        return list(await self._ledger.recall())
+
+    async def archive(self, history: Sequence[Entry]) -> list[Entry]:
+        """Archive ``history`` and return the stored snapshot."""
+
+        snapshot = list(history)
+        await self._ledger.archive(snapshot)
+        return snapshot
+
+    async def mark(self, marker: int | None) -> None:
+        """Update the latest marker with ``marker`` value."""
+
+        await self._latest.mark(marker)
+
+
 class TailHistoryAccess:
     """Encapsulate history persistence operations for tail flows."""
 
@@ -96,30 +126,29 @@ class TailHistoryAccess:
         latest: LatestRepository,
         *,
         journal: TailHistoryJournal,
+        store: TailHistoryStore | None = None,
     ) -> None:
-        self._ledger = ledger
-        self._latest = latest
+        self._store = store or TailHistoryStore(ledger, latest)
         self._journal = journal
 
     async def peek(self) -> int | None:
         """Return the most recent marker identifier."""
 
-        marker = await self._latest.peek()
+        marker = await self._store.peek()
         self._journal.record_marker_peek(marker)
         return marker
 
     async def load(self, scope: Scope | None = None) -> list[Entry]:
         """Load the persisted history snapshot."""
 
-        snapshot = list(await self._ledger.recall())
+        snapshot = await self._store.load()
         self._journal.record_history_load(snapshot, scope)
         return snapshot
 
     async def save(self, history: Sequence[Entry], *, op: str) -> None:
         """Persist ``history`` snapshot and emit telemetry."""
 
-        snapshot = list(history)
-        await self._ledger.archive(snapshot)
+        snapshot = await self._store.archive(history)
         self._journal.record_history_save(snapshot, op=op)
 
     async def mark(
@@ -127,7 +156,7 @@ class TailHistoryAccess:
     ) -> None:
         """Update the last marker and emit telemetry."""
 
-        await self._latest.mark(marker)
+        await self._store.mark(marker)
         self._journal.record_marker_mark(marker, op=op, scope=scope)
 
     async def trim_inline(
@@ -136,10 +165,12 @@ class TailHistoryAccess:
         """Trim inline history state and propagate telemetry."""
 
         trimmed = list(history[:-1])
-        await self.save(trimmed, op=op)
+        stored = await self._store.archive(trimmed)
+        self._journal.record_history_save(stored, op=op)
         marker = self._latest_marker(trimmed)
-        await self.mark(marker, op=op, scope=scope)
-        return trimmed
+        await self._store.mark(marker)
+        self._journal.record_marker_mark(marker, op=op, scope=scope)
+        return stored
 
     @staticmethod
     def _latest_marker(history: Sequence[Entry]) -> int | None:
@@ -150,4 +181,9 @@ class TailHistoryAccess:
             return None
         return int(tail.messages[0].id)
 
-__all__ = ["TailHistoryAccess", "TailHistoryJournal", "TailHistoryScopeFormatter"]
+__all__ = [
+    "TailHistoryAccess",
+    "TailHistoryJournal",
+    "TailHistoryScopeFormatter",
+    "TailHistoryStore",
+]

@@ -55,6 +55,25 @@ def _retreat_callback(handler: RetreatHandler) -> RetreatCallback:
     return _callback
 
 
+@dataclass(slots=True)
+class RetreatRouterConfigurator:
+    """Install retreat callback handlers on a dedicated router."""
+
+    router: Router
+
+    def configure(self, dependencies: RetreatDependencies) -> RetreatCallback:
+        handler = build_retreat_handler(dependencies)
+        callback = _retreat_callback(handler)
+        self.router.callback_query.register(callback, F.data == BACK_CALLBACK_DATA)
+        return callback
+
+
+def retreat_configurator(target: Router | None = None) -> RetreatRouterConfigurator:
+    """Return a configurator bound to ``target`` or the module router."""
+
+    return RetreatRouterConfigurator(target or router)
+
+
 def configure_retreat(
     dependencies: RetreatDependencies,
     *,
@@ -62,10 +81,8 @@ def configure_retreat(
 ) -> RetreatCallback:
     """Attach retreat handling to ``target`` router and return the callback."""
 
-    handler = build_retreat_handler(dependencies)
-    callback = _retreat_callback(handler)
-    (target or router).callback_query.register(callback, F.data == BACK_CALLBACK_DATA)
-    return callback
+    configurator = retreat_configurator(target)
+    return configurator.configure(dependencies)
 
 
 __all__ = [
@@ -74,6 +91,8 @@ __all__ = [
     "BACK_CALLBACK_DATA",
     "RetreatDependencies",
     "RetreatCallback",
+    "RetreatRouterConfigurator",
     "build_retreat_handler",
     "configure_retreat",
+    "retreat_configurator",
 ]
