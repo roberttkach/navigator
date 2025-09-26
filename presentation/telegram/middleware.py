@@ -1,11 +1,14 @@
 """Aiogram middleware that injects a Navigator instance into handler context."""
 from __future__ import annotations
 
+from collections.abc import Iterable
+from typing import Any, Awaitable, Callable, Dict
+
 from aiogram import BaseMiddleware
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
-from typing import Any, Awaitable, Callable, Dict
 
+from navigator.bootstrap.navigator import NavigatorAssembler as BootstrapNavigatorAssembler
 from navigator.core.port.factory import ViewLedger
 
 from .assembly import NavigatorAssembler, TelegramNavigatorAssembler
@@ -20,10 +23,17 @@ class NavigatorMiddleware(BaseMiddleware):
         self._assembler = assembler
 
     @classmethod
-    def from_ledger(cls, ledger: ViewLedger) -> "NavigatorMiddleware":
+    def from_ledger(
+        cls,
+        ledger: ViewLedger,
+        *,
+        instrumentation: Iterable[BootstrapNavigatorAssembler.Instrument] | None = None,
+    ) -> "NavigatorMiddleware":
         """Provide a convenient constructor for the default assembler."""
 
-        return cls(TelegramNavigatorAssembler(ledger))
+        return cls(
+            TelegramNavigatorAssembler(ledger, instrumentation=instrumentation)
+        )
 
     async def __call__(
             self,

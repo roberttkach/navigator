@@ -62,10 +62,22 @@ class RetreatRouterConfigurator:
 
     router: Router
 
-    def configure(self, dependencies: RetreatDependencies) -> RetreatCallback:
+    def build(self, dependencies: RetreatDependencies) -> RetreatCallback:
+        """Return a callback without mutating the underlying router."""
+
         handler = build_retreat_handler(dependencies)
-        callback = _retreat_callback(handler)
+        return _retreat_callback(handler)
+
+    def register(self, callback: RetreatCallback) -> None:
+        """Attach ``callback`` to the configured router."""
+
         self.router.callback_query.register(callback, F.data == BACK_CALLBACK_DATA)
+
+    def configure(self, dependencies: RetreatDependencies) -> RetreatCallback:
+        """Create a retreat callback and register it on the router."""
+
+        callback = self.build(dependencies)
+        self.register(callback)
         return callback
 
 

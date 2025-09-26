@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .builder import build_navigator_runtime
 from .bundler import PayloadBundler
+from .facade import NavigatorFacade
 from .history import (
     HistoryAddOperation,
     HistoryBackOperation,
@@ -27,6 +28,7 @@ __all__ = [
     "HistoryReplaceOperation",
     "HistoryTrimOperation",
     "MissingAlert",
+    "NavigatorFacade",
     "MissingStateAlarm",
     "NavigatorHistoryService",
     "NavigatorReporter",
