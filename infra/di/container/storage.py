@@ -13,7 +13,7 @@ class StorageContainer(containers.DeclarativeContainer):
     chronicle = providers.Factory(Chronicle, state=core.state, telemetry=telemetry)
     status = providers.Factory(Status, state=core.state, telemetry=telemetry)
     latest = providers.Factory(Latest, state=core.state, telemetry=telemetry)
-    mapper = providers.Factory(EntryMapper, ledger=core.ledger)
+    mapper = providers.Factory(EntryMapper, ledger=core.ledger, clock=core.clock)
 
 
 __all__ = ["StorageContainer"]

@@ -11,6 +11,7 @@ from navigator.app.service import (
     TailHistoryMutator,
     TailHistoryTracker,
 )
+from navigator.app.internal.policy import PrimeEntryFactory
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
 from navigator.app.usecase.last.delete import TailDeleteWorkflow
@@ -23,6 +24,7 @@ from navigator.core.service.rendering.config import RenderingConfig
 from navigator.core.typing.result import TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+from navigator.infra.clock.system import SystemClock
 
 from .common import monitor
 
@@ -45,7 +47,10 @@ def decline() -> None:
     access = TailHistoryAccess(ledger=ledger, latest=latest)
     history = TailHistoryTracker(access=access, journal=journal)
     mutator = TailHistoryMutator()
-    decision = TailDecisionService(rendering=RenderingConfig())
+    decision = TailDecisionService(
+        rendering=RenderingConfig(),
+        prime=PrimeEntryFactory(clock=SystemClock()),
+    )
     inline_coord = InlineEditCoordinator(
         handler=inline,
         executor=executor,

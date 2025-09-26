@@ -110,15 +110,18 @@ class AppendHistoryWriter:
         await self._pipeline.persist(list(timeline), operation="add")
 
 
-class AppendPreparation:
-    """Prepare payloads and entries for history persistence."""
-
-    def __init__(self, planner: ViewPlanner, mapper: EntryMapper) -> None:
-        self._planner = planner
-        self._mapper = mapper
+class AppendPayloadAdapter:
+    """Apply normalisation and scope-specific adjustments to payload bundles."""
 
     def normalize(self, scope: Scope, bundle: List[Payload]) -> List[Payload]:
         return [adapt(scope, normalize(payload)) for payload in bundle]
+
+
+class AppendRenderPlanner:
+    """Delegate render planning to the configured view planner."""
+
+    def __init__(self, planner: ViewPlanner) -> None:
+        self._planner = planner
 
     async def plan(
             self,
@@ -133,13 +136,22 @@ class AppendPreparation:
             inline=bool(scope.inline),
         )
 
-    def entry(
+
+class AppendEntryAssembler:
+    """Build entries and timelines using render outcomes."""
+
+    def __init__(self, mapper: EntryMapper) -> None:
+        self._mapper = mapper
+
+    def build_entry(
             self,
             adjusted: List[Payload],
             render: object,
             state: Optional[str],
             view: Optional[str],
             root: bool,
+            *,
+            base: Optional[Entry] = None,
     ) -> Entry:
         identifiers = getattr(render, "ids", None) or []
         usable = adjusted[:len(identifiers)]
@@ -154,21 +166,23 @@ class AppendPreparation:
             state,
             view,
             root,
-            base=None,
+            base=base,
         )
 
     @staticmethod
-    def timeline(records: List[Entry], entry: Entry, root: bool) -> List[Entry]:
+    def extend_timeline(records: List[Entry], entry: Entry, root: bool) -> List[Entry]:
         if root:
             return [entry]
         return [*records, entry]
 
 
 __all__ = [
+    "AppendEntryAssembler",
     "AppendHistoryAccess",
     "AppendHistoryObserver",
     "AppendHistoryJournal",
-    "NullAppendHistoryObserver",
     "AppendHistoryWriter",
-    "AppendPreparation",
+    "AppendPayloadAdapter",
+    "AppendRenderPlanner",
+    "NullAppendHistoryObserver",
 ]

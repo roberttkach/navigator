@@ -5,10 +5,12 @@ from dependency_injector import containers, providers
 
 from navigator.app.usecase.add import AppendDependencies, Appender
 from navigator.app.usecase.add_components import (
+    AppendEntryAssembler,
     AppendHistoryAccess,
     AppendHistoryJournal,
     AppendHistoryWriter,
-    AppendPreparation,
+    AppendPayloadAdapter,
+    AppendRenderPlanner,
 )
 from navigator.core.telemetry import Telemetry
 
@@ -28,11 +30,9 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
         state=storage.status,
         observer=journal,
     )
-    preparation = providers.Factory(
-        AppendPreparation,
-        planner=view_support.planner,
-        mapper=storage.mapper,
-    )
+    payloads = providers.Factory(AppendPayloadAdapter)
+    planner = providers.Factory(AppendRenderPlanner, planner=view_support.planner)
+    assembler = providers.Factory(AppendEntryAssembler, mapper=storage.mapper)
     writer = providers.Factory(
         AppendHistoryWriter,
         archive=storage.chronicle,
@@ -43,7 +43,9 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
     bundle = providers.Factory(
         AppendDependencies,
         history=history,
-        preparation=preparation,
+        payloads=payloads,
+        planner=planner,
+        assembler=assembler,
         writer=writer,
     )
     usecase = providers.Factory(

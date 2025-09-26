@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from ...internal.policy import prime, shield
+from ...internal.policy import PrimeEntryFactory, shield
 from ....core.entity.history import Entry, Message
 from ....core.service.rendering import decision
 from ....core.service.rendering.config import RenderingConfig
@@ -85,8 +85,9 @@ class TailResolution:
 class TailDecisionService:
     """Resolve reconciliation strategy for the tail flow."""
 
-    def __init__(self, rendering: RenderingConfig) -> None:
+    def __init__(self, rendering: RenderingConfig, prime: PrimeEntryFactory) -> None:
         self._rendering = rendering
+        self._prime = prime
 
     def resolve(
             self, scope: Scope, payload: Payload, snapshot: TailSnapshot
@@ -113,7 +114,7 @@ class TailDecisionService:
         if snapshot.marker is None:
             return None
 
-        base = anchor if anchor is not None else prime(snapshot.marker, normal)
+        base = anchor if anchor is not None else self._prime.create(snapshot.marker, normal)
         return TailResolution(decision=choice, payload=normal, base=base)
 
 

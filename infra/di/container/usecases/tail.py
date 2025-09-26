@@ -11,6 +11,7 @@ from navigator.app.service import (
 )
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
+from navigator.app.internal.policy import PrimeEntryFactory
 from navigator.app.usecase.last.delete import TailDeleteWorkflow
 from navigator.app.usecase.last.edit import TailEditWorkflow
 from navigator.app.usecase.last.inline import InlineEditCoordinator
@@ -41,7 +42,12 @@ class TailUseCaseContainer(containers.DeclarativeContainer):
         journal=tail_history_journal,
     )
     tail_mutator = providers.Factory(TailHistoryMutator)
-    tail_decision = providers.Factory(TailDecisionService, rendering=core.rendering)
+    tail_prime = providers.Factory(PrimeEntryFactory, clock=core.clock)
+    tail_decision = providers.Factory(
+        TailDecisionService,
+        rendering=core.rendering,
+        prime=tail_prime,
+    )
     tail_inline = providers.Factory(
         InlineEditCoordinator,
         handler=view.inline,
