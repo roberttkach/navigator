@@ -6,14 +6,15 @@ from typing import Any, Awaitable, Callable, SupportsInt
 
 from navigator.app.dto.content import Content, Node
 from navigator.app.locks.guard import Guardian
-from navigator.app.usecase.add import Appender
-from navigator.app.usecase.back import Rewinder
-from navigator.app.usecase.pop import Trimmer
-from navigator.app.usecase.rebase import Shifter
-from navigator.app.usecase.replace import Swapper
-from navigator.app.usecase.set import Setter
 
 from .bundler import PayloadBundler
+from .ports import (
+    AppendHistoryUseCase,
+    RebaseHistoryUseCase,
+    ReplaceHistoryUseCase,
+    RewindHistoryUseCase,
+    TrimHistoryUseCase,
+)
 from .reporter import NavigatorReporter
 
 
@@ -48,7 +49,7 @@ class HistoryAddOperation(_HistoryOperation):
     def __init__(
         self,
         *,
-        appender: Appender,
+        appender: AppendHistoryUseCase,
         bundler: PayloadBundler,
         guard: Guardian,
         scope,
@@ -85,7 +86,7 @@ class HistoryReplaceOperation(_HistoryOperation):
     def __init__(
         self,
         *,
-        swapper: Swapper,
+        swapper: ReplaceHistoryUseCase,
         bundler: PayloadBundler,
         guard: Guardian,
         scope,
@@ -110,7 +111,7 @@ class HistoryRebaseOperation(_HistoryOperation):
     def __init__(
         self,
         *,
-        shifter: Shifter,
+        shifter: RebaseHistoryUseCase,
         guard: Guardian,
         scope,
         reporter: NavigatorReporter,
@@ -133,7 +134,7 @@ class HistoryBackOperation(_HistoryOperation):
     def __init__(
         self,
         *,
-        rewinder: Rewinder,
+        rewinder: RewindHistoryUseCase,
         guard: Guardian,
         scope,
         reporter: NavigatorReporter,
@@ -156,7 +157,7 @@ class HistoryTrimOperation(_HistoryOperation):
     def __init__(
         self,
         *,
-        trimmer: Trimmer,
+        trimmer: TrimHistoryUseCase,
         guard: Guardian,
         scope,
         reporter: NavigatorReporter,

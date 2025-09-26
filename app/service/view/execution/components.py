@@ -25,6 +25,62 @@ class EditComponents:
     refiner: MetaRefiner
 
 
+@dataclass(frozen=True)
+class EditComponentDependencies:
+    """Core dependencies required to assemble edit collaborators."""
+
+    gateway: MessageGateway
+    telemetry: Telemetry
+
+
+@dataclass(frozen=True)
+class EditComponentOverrides:
+    """Optional overrides replacing individual collaborators."""
+
+    dispatcher: VerdictDispatcher | None = None
+    errors: EditErrorHandler | None = None
+    refiner: MetaRefiner | None = None
+    cleanup: EditCleanup | None = None
+
+
+class EditComponentAssembler:
+    """Compose edit execution collaborators with explicit steps."""
+
+    def __init__(self, dependencies: EditComponentDependencies) -> None:
+        self._gateway = dependencies.gateway
+        self._telemetry = dependencies.telemetry
+
+    def assemble(self, overrides: EditComponentOverrides | None = None) -> EditComponents:
+        options = overrides or EditComponentOverrides()
+        fallback = self._build_fallback()
+        dispatcher = options.dispatcher or self._build_dispatcher(fallback)
+        handler = options.errors or self._build_error_handler(fallback)
+        cleanup = options.cleanup or self._build_cleanup()
+        refiner = options.refiner or self._build_refiner()
+        operation = EditOperation(dispatcher, handler)
+        return EditComponents(operation=operation, cleanup=cleanup, refiner=refiner)
+
+    def _build_fallback(self) -> FallbackStrategy:
+        return FallbackStrategy(self._gateway)
+
+    def _build_dispatcher(
+        self, fallback: FallbackStrategy
+    ) -> VerdictDispatcher:
+        return VerdictDispatcher(self._gateway, fallback=fallback)
+
+    def _build_error_handler(
+        self, fallback: FallbackStrategy
+    ) -> EditErrorHandler:
+        telemetry_helper = EditTelemetry(self._telemetry)
+        return EditErrorHandler(telemetry_helper, fallback)
+
+    def _build_cleanup(self) -> EditCleanup:
+        return EditCleanup(self._gateway)
+
+    def _build_refiner(self) -> MetaRefiner:
+        return MetaRefiner()
+
+
 def build_edit_components(
     gateway: MessageGateway,
     telemetry: Telemetry,
@@ -36,15 +92,22 @@ def build_edit_components(
 ) -> EditComponents:
     """Assemble edit collaborators using optional overrides."""
 
-    fallback = FallbackStrategy(gateway)
-    telemetry_helper = EditTelemetry(telemetry)
-    dispatch = dispatcher or VerdictDispatcher(gateway, fallback=fallback)
-    handler = errors or EditErrorHandler(telemetry_helper, fallback)
-    cleaner = cleanup or EditCleanup(gateway)
-    meta = refiner or MetaRefiner()
-    operation = EditOperation(dispatch, handler)
-    return EditComponents(operation=operation, cleanup=cleaner, refiner=meta)
+    dependencies = EditComponentDependencies(gateway=gateway, telemetry=telemetry)
+    overrides = EditComponentOverrides(
+        dispatcher=dispatcher,
+        errors=errors,
+        refiner=refiner,
+        cleanup=cleanup,
+    )
+    assembler = EditComponentAssembler(dependencies)
+    return assembler.assemble(overrides)
 
 
-__all__ = ["EditComponents", "build_edit_components"]
+__all__ = [
+    "EditComponentAssembler",
+    "EditComponentDependencies",
+    "EditComponentOverrides",
+    "EditComponents",
+    "build_edit_components",
+]
 

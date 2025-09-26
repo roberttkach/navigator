@@ -1,15 +1,26 @@
 """Bootstrap adapters for Telegram presentation components."""
 from __future__ import annotations
 
+from typing import Callable
+
 from navigator.bootstrap.navigator.runtime import NavigatorRuntimeBundle
 
-from .router import RetreatDependencies, configure_retreat
+from .router import RetreatDependencies, RetreatRouterConfigurator, retreat_configurator
 
 
-def instrument(bundle: NavigatorRuntimeBundle) -> None:
-    """Wire navigator runtime data into Telegram router configuration."""
+def build_retreat_instrument(
+    configurator: RetreatRouterConfigurator,
+) -> Callable[[NavigatorRuntimeBundle], None]:
+    """Return an instrumentation hook bound to ``configurator`` router."""
 
-    configure_retreat(RetreatDependencies(telemetry=bundle.telemetry))
+    def _instrument(bundle: NavigatorRuntimeBundle) -> None:
+        dependencies = RetreatDependencies(telemetry=bundle.telemetry)
+        configurator.configure(dependencies)
+
+    return _instrument
 
 
-__all__ = ["instrument"]
+instrument = build_retreat_instrument(retreat_configurator())
+
+
+__all__ = ["instrument", "build_retreat_instrument"]
