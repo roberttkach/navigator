@@ -6,6 +6,7 @@ from dependency_injector import containers, providers
 
 from navigator.core.telemetry import Telemetry
 from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
+from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
 
 
 class NavigatorRuntimeContainer(containers.DeclarativeContainer):
@@ -26,6 +27,12 @@ class NavigatorRuntimeContainer(containers.DeclarativeContainer):
     redaction = providers.Callable(
         lambda settings: getattr(settings, "redaction", ""),
         core.provided.settings,
+    )
+
+    snapshot = providers.Factory(
+        NavigatorRuntimeSnapshot,
+        dependencies=navigator_bundle,
+        redaction=redaction,
     )
 
 

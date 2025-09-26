@@ -6,14 +6,12 @@ from typing import Protocol
 
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
 from navigator.app.service.navigator_runtime import MissingAlert
-from navigator.presentation.navigator import Navigator
-
 from .context import BootstrapContext
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
 
 
 class NavigatorAssembler:
-    """Compose navigator instances from bootstrap context."""
+    """Compose navigator runtime bundles from bootstrap context."""
 
     class Instrument(Protocol):
         def __call__(self, bundle: NavigatorRuntimeBundle) -> None: ...
@@ -29,11 +27,11 @@ class NavigatorAssembler:
         else:
             self._instrumentation = ()
 
-    async def build(self, context: BootstrapContext) -> Navigator:
+    async def build(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
         bundle = await self._runtime_factory.create(context)
         for instrument in self._instrumentation:
             instrument(bundle)
-        return bundle.navigator
+        return bundle
 
 
 async def assemble(
@@ -44,8 +42,8 @@ async def assemble(
     scope: ScopeDTO,
     instrumentation: Iterable[NavigatorAssembler.Instrument] | None = None,
     missing_alert: MissingAlert | None = None,
-) -> Navigator:
-    """Construct a Navigator instance from entrypoint payloads."""
+) -> NavigatorRuntimeBundle:
+    """Construct a navigator runtime bundle from entrypoint payloads."""
 
     context = BootstrapContext(
         event=event,
