@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 from navigator.app.locks.guard import Guardian
-from navigator.app.service import build_navigator_runtime
-from navigator.app.service.navigator_runtime import MissingAlert, NavigatorRuntime
+from navigator.app.service.navigator_runtime import (
+    MissingAlert,
+    NavigatorRuntime,
+    build_runtime_from_dependencies,
+)
 from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
 from navigator.core.value.message import Scope
 from navigator.presentation.navigator import Navigator
@@ -18,12 +21,11 @@ def build_runtime(
 ) -> NavigatorRuntime:
     """Construct a navigator runtime from resolved dependencies."""
 
-    return build_navigator_runtime(
-        usecases=dependencies.usecases,
-        scope=scope,
-        guard=guard or dependencies.guard,
-        telemetry=dependencies.telemetry,
-        missing_alert=missing_alert or dependencies.missing_alert,
+    return build_runtime_from_dependencies(
+        dependencies,
+        scope,
+        guard=guard,
+        missing_alert=missing_alert,
     )
 
 

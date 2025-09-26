@@ -3,10 +3,15 @@ from __future__ import annotations
 
 from typing import Any, Iterable, cast
 
-from .contracts import NavigatorLike, ScopeDTO, ViewLedgerDTO
+from .contracts import (
+    NavigatorLike,
+    NavigatorRuntimeInstrument,
+    ScopeDTO,
+    ViewLedgerDTO,
+)
 from ..app.service.navigator_runtime import MissingAlert
 from ..app.service.navigator_runtime.facade import NavigatorFacade
-from ..bootstrap.navigator import NavigatorAssembler, assemble as _bootstrap
+from ..bootstrap.navigator import assemble as _bootstrap
 
 
 async def assemble(
@@ -14,7 +19,7 @@ async def assemble(
         state: Any,
         ledger: ViewLedgerDTO,
         scope: ScopeDTO,
-        instrumentation: Iterable[NavigatorAssembler.Instrument] | None = None,
+        instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
         *,
         missing_alert: MissingAlert | None = None,
 ) -> NavigatorLike:

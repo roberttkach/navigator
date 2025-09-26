@@ -24,7 +24,7 @@ class TailUseCaseContainer(containers.DeclarativeContainer):
 
     core = providers.DependenciesContainer()
     storage = providers.DependenciesContainer()
-    view = providers.DependenciesContainer()
+    view_support = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
     tail_history_journal = providers.Factory(
@@ -50,13 +50,13 @@ class TailUseCaseContainer(containers.DeclarativeContainer):
     )
     tail_inline = providers.Factory(
         InlineEditCoordinator,
-        handler=view.inline,
-        executor=view.executor,
+        handler=view_support.inline,
+        executor=view_support.executor,
         rendering=core.rendering,
     )
     tail_mutation = providers.Factory(
         MessageEditCoordinator,
-        executor=view.executor,
+        executor=view_support.executor,
         history=tail_history,
         mutator=tail_mutator,
     )

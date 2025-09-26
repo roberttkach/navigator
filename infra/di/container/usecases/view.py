@@ -25,19 +25,24 @@ class ViewSupportContainer(containers.DeclarativeContainer):
     view = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
+    gateway = providers.Delegate(view.gateway)
+    executor = providers.Delegate(view.executor)
+    inline = providers.Delegate(view.inline)
+    album = providers.Delegate(view.album)
+
     render_synchronizer = providers.Factory(
         RenderSynchronizer,
-        executor=view.executor,
-        inline=view.inline,
+        executor=executor,
+        inline=inline,
         rendering=core.rendering,
     )
     tail_operations = providers.Factory(
         TailOperations,
-        executor=view.executor,
+        executor=executor,
         rendering=core.rendering,
     )
     inline_planner = providers.Factory(InlineRenderPlanner, synchronizer=render_synchronizer)
-    head_alignment = providers.Factory(HeadAlignment, album=view.album, telemetry=telemetry)
+    head_alignment = providers.Factory(HeadAlignment, album=album, telemetry=telemetry)
     regular_planner = providers.Factory(
         RegularRenderPlanner,
         head=head_alignment,
