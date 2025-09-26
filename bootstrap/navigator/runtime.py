@@ -27,6 +27,34 @@ class RuntimeProvision:
     snapshot: NavigatorRuntimeSnapshot
 
 
+class TelemetryInitializer:
+    """Create telemetry instances isolated from provisioning orchestration."""
+
+    def __init__(self, factory: TelemetryFactory) -> None:
+        self._factory = factory
+
+    def initialize(self) -> Telemetry:
+        return self._factory.create()
+
+
+class ContainerAssembler:
+    """Build dependency injection containers for navigator runtime."""
+
+    def __init__(self, *, missing_alert: MissingAlert | None = None) -> None:
+        self._missing_alert = missing_alert
+
+    def assemble(self, telemetry: Telemetry, context: BootstrapContext) -> AppContainer:
+        factory = ContainerFactory(telemetry, alert=self._missing_alert)
+        return factory.create(context)
+
+
+class ContainerInspector:
+    """Produce container diagnostics independently from provisioning."""
+
+    def inspect(self, container: AppContainer) -> NavigatorRuntimeSnapshot:
+        return inspect_container(container)
+
+
 class RuntimeProvisioner:
     """Produce the container, telemetry and inspection snapshot."""
 
@@ -35,14 +63,18 @@ class RuntimeProvisioner:
         telemetry_factory: TelemetryFactory,
         *,
         missing_alert: MissingAlert | None = None,
+        initializer: TelemetryInitializer | None = None,
+        assembler: ContainerAssembler | None = None,
+        inspector: ContainerInspector | None = None,
     ) -> None:
-        self._telemetry_factory = telemetry_factory
-        self._missing_alert = missing_alert
+        self._initializer = initializer or TelemetryInitializer(telemetry_factory)
+        self._assembler = assembler or ContainerAssembler(missing_alert=missing_alert)
+        self._inspector = inspector or ContainerInspector()
 
     def provision(self, context: BootstrapContext) -> RuntimeProvision:
-        telemetry = self._telemetry_factory.create()
-        container = ContainerFactory(telemetry, alert=self._missing_alert).create(context)
-        snapshot = inspect_container(container)
+        telemetry = self._initializer.initialize()
+        container = self._assembler.assemble(telemetry, context)
+        snapshot = self._inspector.inspect(container)
         return RuntimeProvision(telemetry=telemetry, container=container, snapshot=snapshot)
 
 
@@ -116,9 +148,12 @@ class ContainerRuntimeFactory(NavigatorFactory):
 
 
 __all__ = [
+    "ContainerAssembler",
+    "ContainerInspector",
     "ContainerRuntimeFactory",
     "NavigatorFactory",
     "NavigatorRuntimeBundle",
     "RuntimeProvision",
     "RuntimeProvisioner",
+    "TelemetryInitializer",
 ]

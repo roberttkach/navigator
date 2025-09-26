@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
 from navigator.api import assemble as assemble_navigator
-from navigator.bootstrap.navigator import NavigatorAssembler as BootstrapNavigatorAssembler
+from navigator.bootstrap.navigator.runtime import NavigatorRuntimeBundle
 from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.presentation.navigator import Navigator
@@ -24,6 +24,12 @@ class NavigatorAssembler(Protocol):
     async def assemble(self, event: TelegramObject, state: FSMContext) -> Navigator: ...
 
 
+class NavigatorInstrument(Protocol):
+    """Protocol describing presentation-friendly runtime instrumentation."""
+
+    def __call__(self, bundle: NavigatorRuntimeBundle) -> None: ...
+
+
 class TelegramNavigatorAssembler:
     """Concrete assembler translating Telegram primitives for navigator API."""
 
@@ -31,11 +37,11 @@ class TelegramNavigatorAssembler:
         self,
         ledger: ViewLedger,
         *,
-        instrumentation: Iterable[BootstrapNavigatorAssembler.Instrument] | None = None,
+        instrumentation: Iterable[NavigatorInstrument] | None = None,
         missing_alert: MissingAlert | None = None,
     ) -> None:
         self._ledger = ledger
-        self._instrumentation: Sequence[BootstrapNavigatorAssembler.Instrument] | None = (
+        self._instrumentation: Sequence[NavigatorInstrument] | None = (
             tuple(instrumentation) if instrumentation is not None else None
         )
         self._missing_alert = missing_alert or missing
@@ -53,4 +59,4 @@ class TelegramNavigatorAssembler:
         return navigator
 
 
-__all__ = ["NavigatorAssembler", "TelegramNavigatorAssembler"]
+__all__ = ["NavigatorAssembler", "NavigatorInstrument", "TelegramNavigatorAssembler"]
