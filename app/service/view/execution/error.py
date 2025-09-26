@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-from navigator.core.error import (
-    CaptionOverflow,
-    EditForbidden,
-    EmptyPayload,
-    ExtraForbidden,
-    MessageUnchanged,
-    TextOverflow,
-)
 from navigator.core.entity.history import Message
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
 from .fallback import FallbackStrategy
+from .models import Execution
+from .policy import EditErrorPolicy, EditResolutionAction
 from .telemetry import EditTelemetry
 
 
@@ -25,9 +19,11 @@ class EditErrorHandler:
         self,
         telemetry: EditTelemetry,
         fallback: FallbackStrategy,
+        policy: EditErrorPolicy | None = None,
     ) -> None:
         self._telemetry = telemetry
         self._fallback = fallback
+        self._policy = policy or EditErrorPolicy()
 
     async def resolve(
         self,
@@ -35,31 +31,24 @@ class EditErrorHandler:
         scope: Scope,
         payload: Payload,
         stem: Message | None,
-    ) -> "Execution | None":
-        from .models import Execution
+    ) -> Execution | None:
+        resolution = self._policy.resolve(error)
+        if resolution is None:
+            raise error
 
-        if isinstance(error, EmptyPayload):
-            self._telemetry.skip("empty_payload")
-            return None
-        if isinstance(error, ExtraForbidden):
-            self._telemetry.skip("extra_validation_failed")
-            return None
-        if isinstance(error, (TextOverflow, CaptionOverflow)):
-            self._telemetry.skip("too_long")
-            return None
-        if isinstance(error, EditForbidden):
-            self._telemetry.event("edit_forbidden")
-            self._telemetry.inline_blocked(scope, "inline_no_fallback")
+        if resolution.skip_reason:
+            self._telemetry.skip(resolution.skip_reason)
+        if resolution.event:
+            self._telemetry.event(resolution.event)
+        if resolution.inline_block_reason:
+            self._telemetry.inline_blocked(scope, resolution.inline_block_reason)
+
+        if resolution.action is EditResolutionAction.RESEND:
             if scope.inline:
                 return None
             return await self._fallback.resend(scope, payload, stem)
-        if isinstance(error, MessageUnchanged):
-            self._telemetry.event("not_modified")
-            self._telemetry.inline_blocked(scope, "inline_no_fallback")
-            if scope.inline:
-                return None
-            return None
-        raise error
+
+        return None
 
 
 __all__ = ["EditErrorHandler"]

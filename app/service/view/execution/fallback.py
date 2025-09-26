@@ -9,6 +9,8 @@ from navigator.core.port.message import MessageGateway
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
+from .models import Execution
+
 
 def _targets(message: Message | None) -> list[int]:
     """Collect identifiers that need deletion after resend fallbacks."""
@@ -31,9 +33,7 @@ class FallbackStrategy:
         scope: Scope,
         payload: Payload,
         stem: Message | None,
-    ) -> "Execution":
-        from .models import Execution
-
+    ) -> Execution:
         result = await self.gateway.send(scope, payload)
         if stem:
             await self.gateway.delete(scope, _targets(stem))

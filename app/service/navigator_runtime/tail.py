@@ -7,6 +7,7 @@ from .tail_components import (
     TailLocker,
     TailTelemetry,
 )
+from .tail_view import TailView
 
 
 class NavigatorTail:
@@ -23,17 +24,17 @@ class NavigatorTail:
         self._locker = locker
         self._telemetry = telemetry
 
-    async def get(self) -> dict[str, object] | None:
+    async def get(self) -> TailView | None:
         self._telemetry.emit("last.get")
         async with self._locker.acquire():
             identifier = await self._gateway.peek()
         if identifier is None:
             return None
-        return {
-            "id": identifier,
-            "inline": bool(self._locker.scope.inline),
-            "chat": self._locker.scope.chat,
-        }
+        return TailView(
+            identifier=identifier,
+            inline=bool(self._locker.scope.inline),
+            chat=self._locker.scope.chat,
+        )
 
     async def delete(self) -> None:
         self._telemetry.emit("last.delete")
