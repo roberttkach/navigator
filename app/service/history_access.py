@@ -118,62 +118,38 @@ class TailHistoryStore:
 
 
 class TailHistoryAccess:
-    """Encapsulate history persistence operations for tail flows."""
+    """Provide persistence-only operations for tail history flows."""
 
     def __init__(
         self,
         ledger: HistoryRepository,
         latest: LatestRepository,
         *,
-        journal: TailHistoryJournal,
         store: TailHistoryStore | None = None,
     ) -> None:
         self._store = store or TailHistoryStore(ledger, latest)
-        self._journal = journal
 
     async def peek(self) -> int | None:
-        """Return the most recent marker identifier."""
+        return await self._store.peek()
 
-        marker = await self._store.peek()
-        self._journal.record_marker_peek(marker)
-        return marker
+    async def load(self) -> list[Entry]:
+        return await self._store.load()
 
-    async def load(self, scope: Scope | None = None) -> list[Entry]:
-        """Load the persisted history snapshot."""
+    async def save(self, history: Sequence[Entry]) -> list[Entry]:
+        return await self._store.archive(history)
 
-        snapshot = await self._store.load()
-        self._journal.record_history_load(snapshot, scope)
-        return snapshot
-
-    async def save(self, history: Sequence[Entry], *, op: str) -> None:
-        """Persist ``history`` snapshot and emit telemetry."""
-
-        snapshot = await self._store.archive(history)
-        self._journal.record_history_save(snapshot, op=op)
-
-    async def mark(
-            self, marker: int | None, *, op: str, scope: Scope | None = None
-    ) -> None:
-        """Update the last marker and emit telemetry."""
-
+    async def mark(self, marker: int | None) -> None:
         await self._store.mark(marker)
-        self._journal.record_marker_mark(marker, op=op, scope=scope)
 
-    async def trim_inline(
-            self, history: Sequence[Entry], scope: Scope, *, op: str
-    ) -> list[Entry]:
-        """Trim inline history state and propagate telemetry."""
-
+    async def trim_inline(self, history: Sequence[Entry]) -> tuple[list[Entry], int | None]:
         trimmed = list(history[:-1])
         stored = await self._store.archive(trimmed)
-        self._journal.record_history_save(stored, op=op)
-        marker = self._latest_marker(trimmed)
+        marker = self.latest_marker(trimmed)
         await self._store.mark(marker)
-        self._journal.record_marker_mark(marker, op=op, scope=scope)
-        return stored
+        return stored, marker
 
     @staticmethod
-    def _latest_marker(history: Sequence[Entry]) -> int | None:
+    def latest_marker(history: Sequence[Entry]) -> int | None:
         if not history:
             return None
         tail = history[-1]
@@ -181,9 +157,61 @@ class TailHistoryAccess:
             return None
         return int(tail.messages[0].id)
 
+
+class TailHistoryTracker:
+    """Decorate history access with telemetry side-effects."""
+
+    def __init__(
+        self,
+        access: TailHistoryAccess,
+        *,
+        journal: TailHistoryJournal,
+    ) -> None:
+        self._access = access
+        self._journal = journal
+
+    async def peek(self) -> int | None:
+        marker = await self._access.peek()
+        self._journal.record_marker_peek(marker)
+        return marker
+
+    async def load(self, scope: Scope | None = None) -> list[Entry]:
+        snapshot = await self._access.load()
+        self._journal.record_history_load(snapshot, scope)
+        return snapshot
+
+    async def save(self, history: Sequence[Entry], *, op: str) -> list[Entry]:
+        snapshot = await self._access.save(history)
+        self._journal.record_history_save(snapshot, op=op)
+        return snapshot
+
+    async def mark(
+        self,
+        marker: int | None,
+        *,
+        op: str,
+        scope: Scope | None = None,
+    ) -> None:
+        await self._access.mark(marker)
+        self._journal.record_marker_mark(marker, op=op, scope=scope)
+
+    async def trim_inline(
+        self,
+        history: Sequence[Entry],
+        scope: Scope,
+        *,
+        op: str,
+    ) -> list[Entry]:
+        stored, marker = await self._access.trim_inline(history)
+        self._journal.record_history_save(stored, op=op)
+        self._journal.record_marker_mark(marker, op=op, scope=scope)
+        return stored
+
+
 __all__ = [
     "TailHistoryAccess",
     "TailHistoryJournal",
     "TailHistoryScopeFormatter",
     "TailHistoryStore",
+    "TailHistoryTracker",
 ]

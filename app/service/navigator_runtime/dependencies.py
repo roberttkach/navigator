@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from navigator.app.locks.guard import Guardian
-from navigator.app.service.navigator_runtime import MissingAlert, NavigatorUseCases
+from .types import MissingAlert
+from .usecases import NavigatorUseCases
 from navigator.core.telemetry import Telemetry
 
 

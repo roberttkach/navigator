@@ -10,6 +10,7 @@ from navigator.app.service import (
     TailHistoryAccess,
     TailHistoryJournal,
     TailHistoryMutator,
+    TailHistoryTracker,
 )
 from navigator.app.service.view.planner import RenderPreparer, ViewPlanner
 from navigator.app.service.view.policy import adapt
@@ -17,6 +18,8 @@ from navigator.app.service.view.restorer import ViewRestorer
 from navigator.app.usecase.alarm import Alarm
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
+from navigator.app.usecase.last.delete import TailDeleteWorkflow
+from navigator.app.usecase.last.edit import TailEditWorkflow
 from navigator.app.usecase.last.inline import InlineEditCoordinator
 from navigator.app.usecase.last.mutation import MessageEditCoordinator
 from navigator.app.usecase.set import Setter
@@ -275,7 +278,8 @@ def decline() -> None:
     inline = SimpleNamespace(handle=AsyncMock())
     telemetry = monitor()
     journal = TailHistoryJournal.from_telemetry(telemetry)
-    history = TailHistoryAccess(ledger=ledger, latest=latest, journal=journal)
+    access = TailHistoryAccess(ledger=ledger, latest=latest)
+    history = TailHistoryTracker(access=access, journal=journal)
     mutator = TailHistoryMutator()
     decision = TailDecisionService(rendering=RenderingConfig())
     inline_coord = InlineEditCoordinator(
@@ -288,13 +292,20 @@ def decline() -> None:
         history=history,
         mutator=mutator,
     )
-    tailer = Tailer(
+    telemetry_service = TailTelemetry(telemetry)
+    tail_delete = TailDeleteWorkflow(
+        history=history,
+        mutation=mutation,
+        telemetry=telemetry_service,
+    )
+    tail_edit = TailEditWorkflow(
         history=history,
         decision=decision,
         inline=inline_coord,
         mutation=mutation,
-        telemetry=TailTelemetry(telemetry),
+        telemetry=telemetry_service,
     )
+    tailer = Tailer(history=history, delete=tail_delete, edit=tail_edit)
     payload = Payload(
         group=[
             MediaItem(type=MediaType.PHOTO, path="file-x"),
