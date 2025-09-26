@@ -5,8 +5,8 @@ from typing import Any, Iterable, cast
 
 from .contracts import NavigatorLike, ScopeDTO, ViewLedgerDTO
 from ..app.service.navigator_runtime import MissingAlert
+from ..app.service.navigator_runtime.facade import NavigatorFacade
 from ..bootstrap.navigator import NavigatorAssembler, assemble as _bootstrap
-from ..presentation.bootstrap.navigator import wrap_runtime
 
 
 async def assemble(
@@ -28,7 +28,7 @@ async def assemble(
         instrumentation=instrumentation,
         missing_alert=missing_alert,
     )
-    navigator = wrap_runtime(bundle.runtime)
+    navigator = NavigatorFacade(bundle.runtime)
     return cast(NavigatorLike, navigator)
 
 

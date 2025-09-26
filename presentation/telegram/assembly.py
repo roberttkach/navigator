@@ -1,18 +1,19 @@
 """Assemblers bridging Telegram events with navigator runtime."""
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from typing import Protocol
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
 from navigator.api import assemble as assemble_navigator
+from navigator.bootstrap.navigator import NavigatorAssembler as BootstrapNavigatorAssembler
 from navigator.core.port.factory import ViewLedger
 from navigator.presentation.navigator import Navigator
 
 from .alerts import missing
-from .instrumentation import build_retreat_instrument
-from .router import retreat_configurator, router
+from .instrumentation import instrument as default_instrument
 from .scope import outline
 
 
@@ -25,10 +26,17 @@ class NavigatorAssembler(Protocol):
 class TelegramNavigatorAssembler:
     """Concrete assembler translating Telegram primitives for navigator API."""
 
-    def __init__(self, ledger: ViewLedger) -> None:
+    def __init__(
+        self,
+        ledger: ViewLedger,
+        *,
+        instrumentation: Iterable[BootstrapNavigatorAssembler.Instrument] | None = None,
+    ) -> None:
         self._ledger = ledger
-        self._instrumentation = (
-            build_retreat_instrument(retreat_configurator(router)),
+        if instrumentation is None:
+            instrumentation = (default_instrument,)
+        self._instrumentation: Sequence[BootstrapNavigatorAssembler.Instrument] = tuple(
+            instrumentation
         )
 
     async def assemble(self, event: TelegramObject, state: FSMContext) -> Navigator:
