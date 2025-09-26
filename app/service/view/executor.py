@@ -299,11 +299,36 @@ class EditComponents:
     cleanup: EditCleanup
 
 
+def build_edit_components(
+    gateway: MessageGateway,
+    telemetry: Telemetry,
+    *,
+    dispatcher: VerdictDispatcher | None = None,
+    errors: EditErrorHandler | None = None,
+    refiner: MetaRefiner | None = None,
+    cleanup: EditCleanup | None = None,
+) -> EditComponents:
+    """Assemble edit collaborators using optional overrides."""
+
+    fallback = FallbackStrategy(gateway)
+    telemetry_helper = EditTelemetry(telemetry)
+    return EditComponents(
+        dispatcher=dispatcher or VerdictDispatcher(gateway, fallback=fallback),
+        errors=errors or EditErrorHandler(telemetry_helper, fallback),
+        refiner=refiner or MetaRefiner(),
+        cleanup=cleanup or EditCleanup(gateway),
+    )
+
+
 class EditExecutor:
     """Dispatch reconciliation decisions to the Telegram gateway."""
 
-    def __init__(
-        self,
+    def __init__(self, components: EditComponents) -> None:
+        self._components = components
+
+    @classmethod
+    def create(
+        cls,
         gateway: MessageGateway,
         telemetry: Telemetry,
         *,
@@ -311,15 +336,16 @@ class EditExecutor:
         errors: EditErrorHandler | None = None,
         refiner: MetaRefiner | None = None,
         cleanup: EditCleanup | None = None,
-    ) -> None:
-        fallback = FallbackStrategy(gateway)
-        telemetry_helper = EditTelemetry(telemetry)
-        self._components = EditComponents(
-            dispatcher=dispatcher or VerdictDispatcher(gateway, fallback=fallback),
-            errors=errors or EditErrorHandler(telemetry_helper, fallback),
-            refiner=refiner or MetaRefiner(),
-            cleanup=cleanup or EditCleanup(gateway),
+    ) -> "EditExecutor":
+        components = build_edit_components(
+            gateway,
+            telemetry,
+            dispatcher=dispatcher,
+            errors=errors,
+            refiner=refiner,
+            cleanup=cleanup,
         )
+        return cls(components)
 
     async def execute(
             self,
@@ -362,4 +388,4 @@ class EditExecutor:
         return self._components.refiner.refine(execution, verdict, payload)
 
 
-__all__ = ["EditExecutor", "Execution"]
+__all__ = ["EditExecutor", "Execution", "EditComponents", "build_edit_components"]

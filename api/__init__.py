@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Iterable, cast
 
 from .contracts import NavigatorLike, ScopeDTO, ViewLedgerDTO
+from ..app.service.navigator_runtime import MissingAlert
 from ..bootstrap.navigator import NavigatorAssembler, assemble as _bootstrap
 
 
@@ -13,6 +14,8 @@ async def assemble(
         ledger: ViewLedgerDTO,
         scope: ScopeDTO,
         instrumentation: Iterable[NavigatorAssembler.Instrument] | None = None,
+        *,
+        missing_alert: MissingAlert | None = None,
 ) -> NavigatorLike:
     """Assemble and return a Navigator facade instance."""
 
@@ -22,6 +25,7 @@ async def assemble(
         ledger=ledger,
         scope=scope,
         instrumentation=instrumentation,
+        missing_alert=missing_alert,
     )
     return cast(NavigatorLike, navigator)
 

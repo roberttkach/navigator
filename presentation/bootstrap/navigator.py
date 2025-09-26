@@ -5,10 +5,9 @@ from typing import Protocol
 
 from navigator.app.locks.guard import Guardian
 from navigator.app.service import build_navigator_runtime
-from navigator.app.service.navigator_runtime import NavigatorUseCases
+from navigator.app.service.navigator_runtime import MissingAlert, NavigatorUseCases
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
-from navigator.presentation.alerts import missing
 from navigator.presentation.navigator import Navigator
 
 
@@ -33,6 +32,7 @@ def compose(
     scope: Scope,
     *,
     guard: Guardian | None = None,
+    missing_alert: MissingAlert | None = None,
 ) -> Navigator:
     """Construct a Navigator facade from a DI container."""
 
@@ -44,7 +44,7 @@ def compose(
         scope=scope,
         guard=sentinel,
         telemetry=core.telemetry(),
-        missing_alert=missing,
+        missing_alert=missing_alert or core.alert(),
     )
     return Navigator(runtime)
 

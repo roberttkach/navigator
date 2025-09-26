@@ -47,7 +47,7 @@ class TelegramContainer(containers.DeclarativeContainer):
         editor=scribe,
         telemetry=telemetry,
     )
-    executor = providers.Factory(EditExecutor, gateway=gateway, telemetry=telemetry)
+    executor = providers.Factory(EditExecutor.create, gateway=gateway, telemetry=telemetry)
     album = providers.Factory(
         AlbumService,
         executor=executor,
