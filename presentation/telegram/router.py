@@ -10,9 +10,9 @@ from navigator.core.telemetry import Telemetry
 from navigator.presentation.alerts import lexeme
 from navigator.presentation.telegram.back import (
     NavigatorBack,
-    Translator,
     RetreatHandler,
     RetreatOutcome,
+    Translator,
     create_retreat_handler,
 )
 
