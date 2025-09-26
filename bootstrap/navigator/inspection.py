@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
 from navigator.infra.di.container import AppContainer
-from navigator.presentation.bootstrap.navigator import NavigatorDependencies
 
 
 @dataclass(frozen=True)

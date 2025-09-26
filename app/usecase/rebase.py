@@ -2,31 +2,32 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import replace
 from typing import List
 
-from ..log import events
-from ..log.aspect import TraceAspect
 from ...core.entity.history import Entry
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
-from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
+from .rebase_instrumentation import RebaseInstrumentation
 
 
 class Shifter:
     """Shift the latest message marker to a newly provided ``marker``."""
 
-    def __init__(self, ledger: HistoryRepository, latest: LatestRepository, telemetry: Telemetry):
+    def __init__(
+        self,
+        ledger: HistoryRepository,
+        latest: LatestRepository,
+        instrumentation: RebaseInstrumentation,
+    ) -> None:
         self._ledger = ledger
         self._latest = latest
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
-        self._trace = TraceAspect(telemetry)
+        self._instrumentation = instrumentation
 
     async def execute(self, marker: int) -> None:
         """Rebase history marker onto ``marker`` value."""
 
-        await self._trace.run(events.REBASE, self._perform, marker)
+        await self._instrumentation.traced(marker, self._perform)
 
     async def _perform(self, marker: int) -> None:
         history = await self._load_history()
@@ -35,7 +36,7 @@ class Shifter:
 
         last = history[-1]
         if not last.messages:
-            await self._mark_and_report(marker, len(history))
+            await self._mark_latest(marker, len(history))
             return
 
         rebuilt = self._patch_entry(history, last, marker)
@@ -45,32 +46,16 @@ class Shifter:
         """Return history snapshots while emitting telemetry."""
 
         history = await self._ledger.recall()
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_LOAD,
-            op="rebase",
-            history={"len": len(history)},
-        )
+        self._instrumentation.history_loaded(len(history))
         return history
 
-    async def _mark_and_report(self, marker: int, history_len: int) -> None:
+    async def _mark_latest(self, marker: int, history_len: int) -> None:
         """Update the latest marker and emit success telemetry."""
 
         identifier = int(marker)
         await self._latest.mark(identifier)
-        self._channel.emit(
-            logging.INFO,
-            LogCode.LAST_SET,
-            op="rebase",
-            message={"id": identifier},
-        )
-        self._channel.emit(
-            logging.INFO,
-            LogCode.REBASE_SUCCESS,
-            op="rebase",
-            message={"id": identifier},
-            history={"len": history_len},
-        )
+        self._instrumentation.marker_updated(identifier)
+        self._instrumentation.completed(identifier, history_len)
 
     def _patch_entry(self, history: List[Entry], last: Entry, marker: int) -> List[Entry]:
         """Return rebuilt history with ``last`` message id replaced."""
@@ -85,10 +70,5 @@ class Shifter:
         """Persist rebuilt history snapshot and update marker telemetry."""
 
         await self._ledger.archive(rebuilt)
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_SAVE,
-            op="rebase",
-            history={"len": len(rebuilt)},
-        )
-        await self._mark_and_report(marker, len(rebuilt))
+        self._instrumentation.history_saved(len(rebuilt))
+        await self._mark_latest(marker, len(rebuilt))
