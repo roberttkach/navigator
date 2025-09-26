@@ -1,52 +1,43 @@
-"""Navigator assembly helpers."""
+"""Navigator assembly helpers decoupled from dependency container details."""
 from __future__ import annotations
 
-from typing import Protocol
+from dataclasses import dataclass
 
 from navigator.app.locks.guard import Guardian
-from navigator.app.service import build_navigator_runtime
 from navigator.app.service.navigator_runtime import MissingAlert, NavigatorUseCases
+from navigator.app.service import build_navigator_runtime
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
 from navigator.presentation.navigator import Navigator
 
 
-class _Core(Protocol):
-    def guard(self) -> Guardian: ...
+@dataclass(frozen=True)
+class NavigatorDependencies:
+    """Minimal set of services required to assemble a navigator runtime."""
 
-    def telemetry(self) -> Telemetry: ...
-
-
-class _UsecaseBundle(Protocol):
-    def navigator(self) -> NavigatorUseCases: ...
-
-
-class NavigatorContainer(Protocol):
-    def core(self) -> _Core: ...
-
-    def usecases(self) -> _UsecaseBundle: ...
+    usecases: NavigatorUseCases
+    guard: Guardian
+    telemetry: Telemetry
+    missing_alert: MissingAlert
 
 
 def compose(
-    container: NavigatorContainer,
+    dependencies: NavigatorDependencies,
     scope: Scope,
     *,
     guard: Guardian | None = None,
     missing_alert: MissingAlert | None = None,
 ) -> Navigator:
-    """Construct a Navigator facade from a DI container."""
+    """Construct a Navigator facade from resolved runtime dependencies."""
 
-    core = container.core()
-    bundle = container.usecases().navigator()
-    sentinel = guard or core.guard()
     runtime = build_navigator_runtime(
-        usecases=bundle,
+        usecases=dependencies.usecases,
         scope=scope,
-        guard=sentinel,
-        telemetry=core.telemetry(),
-        missing_alert=missing_alert or core.alert(),
+        guard=guard or dependencies.guard,
+        telemetry=dependencies.telemetry,
+        missing_alert=missing_alert or dependencies.missing_alert,
     )
     return Navigator(runtime)
 
 
-__all__ = ["compose", "NavigatorContainer"]
+__all__ = ["NavigatorDependencies", "compose"]
