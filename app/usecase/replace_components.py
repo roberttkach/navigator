@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Protocol
 
 from navigator.app.map.entry import EntryMapper, Outcome
 from navigator.app.service.store import HistoryPersistencePipeline
@@ -17,6 +17,48 @@ from navigator.core.service.history.policy import prune as prune_history
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload, normalize
 from navigator.core.value.message import Scope
+from .render_contract import RenderOutcome
+
+
+class ReplaceHistoryObserver(Protocol):
+    """Side effects performed when accessing replace history collaborators."""
+
+    def history_loaded(self, count: int) -> None: ...
+
+    def state_retrieved(self, status: Optional[str]) -> None: ...
+
+
+class NullReplaceHistoryObserver(ReplaceHistoryObserver):
+    """No-op observer shielding history access from optional telemetry."""
+
+    def history_loaded(self, count: int) -> None:  # pragma: no cover - intentional noop
+        return
+
+    def state_retrieved(self, status: Optional[str]) -> None:  # pragma: no cover - intentional noop
+        return
+
+
+class ReplaceHistoryJournal(ReplaceHistoryObserver):
+    """Emit telemetry events for history loads and status retrievals."""
+
+    def __init__(self, telemetry: Telemetry) -> None:
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history")
+
+    def history_loaded(self, count: int) -> None:
+        self._channel.emit(
+            logging.DEBUG,
+            LogCode.HISTORY_LOAD,
+            op="replace",
+            history={"len": count},
+        )
+
+    def state_retrieved(self, status: Optional[str]) -> None:
+        self._channel.emit(
+            logging.INFO,
+            LogCode.STATE_GET,
+            op="replace",
+            state={"current": status},
+        )
 
 
 class ReplaceHistoryAccess:
@@ -26,28 +68,25 @@ class ReplaceHistoryAccess:
             self,
             archive: HistoryRepository,
             state: StateRepository,
-            telemetry: Telemetry,
+            observer: ReplaceHistoryObserver | None = None,
     ) -> None:
         self._archive = archive
         self._state = state
-        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history")
+        self._observer: ReplaceHistoryObserver = observer or NullReplaceHistoryObserver()
 
     async def snapshot(self) -> List[Entry]:
         """Load the current history snapshot with telemetry reporting."""
 
         records = await self._archive.recall()
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_LOAD,
-            op="replace",
-            history={"len": len(records)},
-        )
+        self._observer.history_loaded(len(records))
         return records
 
     async def status(self) -> Optional[str]:
         """Return the persisted conversation state."""
 
-        return await self._state.status()
+        status = await self._state.status()
+        self._observer.state_retrieved(status)
+        return status
 
 
 class ReplacePreparation:
@@ -67,7 +106,7 @@ class ReplacePreparation:
             scope: Scope,
             payloads: Sequence[Payload],
             trail: Entry | None,
-    ) -> object:
+    ) -> RenderOutcome | None:
         """Plan rendering operations for ``payloads`` within ``scope``."""
 
         return await self._planner.render(
@@ -81,18 +120,14 @@ class ReplacePreparation:
             self,
             trail: Entry | None,
             adjusted: List[Payload],
-            render: object,
+            render: RenderOutcome,
             state: Optional[str],
     ) -> Entry:
         """Convert ``render`` outcome to a persisted history entry."""
 
-        identifiers = getattr(render, "ids", None) or []
+        identifiers = list(render.ids)
         usable = adjusted[:len(identifiers)]
-        outcome = Outcome(
-            identifiers,
-            getattr(render, "extras", None),
-            getattr(render, "metas", []),
-        )
+        outcome = Outcome(identifiers, list(render.extras), list(render.metas))
         view = trail.view if trail else None
         root = bool(trail.root) if trail else False
         return self._mapper.convert(
@@ -143,5 +178,8 @@ __all__ = [
     "ReplaceHistoryAccess",
     "ReplacePreparation",
     "ReplaceHistoryWriter",
+    "NullReplaceHistoryObserver",
+    "ReplaceHistoryJournal",
+    "ReplaceHistoryObserver",
 ]
 

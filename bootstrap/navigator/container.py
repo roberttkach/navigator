@@ -3,10 +3,13 @@ from __future__ import annotations
 
 from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.telemetry import Telemetry
-from navigator.infra.di.container import AppContainer
+from typing import TYPE_CHECKING
 
 from .adapter import LedgerAdapter
 from .context import BootstrapContext, ViewContainerFactory
+
+if TYPE_CHECKING:
+    from navigator.infra.di.container import AppContainer
 
 
 class ContainerFactory:
@@ -23,11 +26,13 @@ class ContainerFactory:
         self._alert = alert or (lambda scope: "")
         self._view_container = view_container
 
-    def create(self, context: BootstrapContext) -> AppContainer:
+    def create(self, context: BootstrapContext) -> "AppContainer":
         alert = context.missing_alert or self._alert
         view_container = context.view_container or self._view_container
         if view_container is None:
             raise ValueError("view_container must be provided to ContainerFactory")
+        from navigator.infra.di.container import AppContainer  # local import
+
         return AppContainer(
             event=context.event,
             state=context.state,

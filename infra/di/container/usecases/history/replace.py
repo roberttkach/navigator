@@ -8,7 +8,9 @@ from navigator.app.usecase.replace_components import (
     ReplaceHistoryAccess,
     ReplaceHistoryWriter,
     ReplacePreparation,
+    ReplaceHistoryJournal,
 )
+from navigator.app.usecase.replace_instrumentation import ReplaceInstrumentation
 from navigator.core.telemetry import Telemetry
 
 
@@ -20,11 +22,15 @@ class ReplaceUseCaseContainer(containers.DeclarativeContainer):
     view_support = providers.DependenciesContainer()
     history_limit = providers.Dependency()
 
+    history_observer = providers.Factory(
+        ReplaceHistoryJournal,
+        telemetry=telemetry,
+    )
     history = providers.Factory(
         ReplaceHistoryAccess,
         archive=storage.chronicle,
         state=storage.status,
-        telemetry=telemetry,
+        observer=history_observer,
     )
     preparation = providers.Factory(
         ReplacePreparation,
@@ -38,12 +44,16 @@ class ReplaceUseCaseContainer(containers.DeclarativeContainer):
         limit=history_limit,
         telemetry=telemetry,
     )
+    instrumentation = providers.Factory(
+        ReplaceInstrumentation,
+        telemetry=telemetry,
+    )
     usecase = providers.Factory(
         Swapper,
         history=history,
         preparation=preparation,
         writer=writer,
-        telemetry=telemetry,
+        instrumentation=instrumentation,
     )
 
 

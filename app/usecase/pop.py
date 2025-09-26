@@ -2,30 +2,31 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Sequence
 
-from ..log import events
-from ..log.aspect import TraceAspect
 from ...core.entity.history import Entry
 from ...core.port.history import HistoryRepository
 from ...core.port.last import LatestRepository
-from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
+from .pop_instrumentation import PopInstrumentation
 
 
 class Trimmer:
     """Manage history pop operations with consistent telemetry reporting."""
 
-    def __init__(self, ledger: HistoryRepository, latest: LatestRepository, telemetry: Telemetry):
+    def __init__(
+        self,
+        ledger: HistoryRepository,
+        latest: LatestRepository,
+        instrumentation: PopInstrumentation,
+    ):
         self._ledger = ledger
         self._latest = latest
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
-        self._trace = TraceAspect(telemetry)
+        self._instrumentation = instrumentation
 
     async def execute(self, count: int = 1) -> None:
         """Trim history by ``count`` entries while refreshing the latest marker."""
 
-        await self._trace.run(events.POP, self._perform, count)
+        await self._instrumentation.traced(count, self._perform)
 
     async def _perform(self, count: int = 1) -> None:
         """Execute the trimming workflow after validating ``count``."""
@@ -46,12 +47,7 @@ class Trimmer:
         """Return the current history snapshot with telemetry bookkeeping."""
 
         history = await self._ledger.recall()
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_LOAD,
-            op="pop",
-            history={"len": len(history)},
-        )
+        self._instrumentation.history_loaded(len(history))
         return history
 
     def _deletions(self, history_len: int, requested: int) -> int:
@@ -65,29 +61,13 @@ class Trimmer:
         """Persist ``trimmed`` entries and refresh telemetry markers."""
 
         await self._ledger.archive(list(trimmed))
-        self._channel.emit(
-            logging.DEBUG,
-            LogCode.HISTORY_SAVE,
-            op="pop",
-            history={"len": len(trimmed)},
-        )
+        self._instrumentation.history_saved(len(trimmed))
 
         marker = self._latest_marker(trimmed)
         await self._latest.mark(marker)
-        self._channel.emit(
-            logging.INFO,
-            LogCode.LAST_SET if marker is not None else LogCode.LAST_DELETE,
-            op="pop",
-            message={"id": marker},
-        )
+        self._instrumentation.marker_updated(marker)
 
-        self._channel.emit(
-            logging.INFO,
-            LogCode.POP_SUCCESS,
-            op="pop",
-            history={"len": len(trimmed)},
-            note=f"deleted:{deletions}",
-        )
+        self._instrumentation.completed(deletions, len(trimmed))
 
     def _latest_marker(self, history: Sequence[Entry]) -> int | None:
         """Return the newest message identifier from ``history`` when present."""
@@ -102,4 +82,4 @@ class Trimmer:
     def _emit_skip(self, note: str) -> None:
         """Record a skip decision with ``note`` for traceability."""
 
-        self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="pop", note=note)
+        self._instrumentation.skipped(note)

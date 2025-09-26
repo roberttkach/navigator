@@ -18,6 +18,7 @@ from navigator.core.service.scope import profile
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload, normalize
 from navigator.core.value.message import Scope
+from .render_contract import RenderOutcome
 
 
 class AppendHistoryObserver(Protocol):
@@ -146,20 +147,16 @@ class AppendEntryAssembler:
     def build_entry(
             self,
             adjusted: List[Payload],
-            render: object,
+            render: RenderOutcome,
             state: Optional[str],
             view: Optional[str],
             root: bool,
             *,
             base: Optional[Entry] = None,
     ) -> Entry:
-        identifiers = getattr(render, "ids", None) or []
+        identifiers = list(render.ids)
         usable = adjusted[:len(identifiers)]
-        outcome = Outcome(
-            identifiers,
-            getattr(render, "extras", None),
-            getattr(render, "metas", []),
-        )
+        outcome = Outcome(identifiers, list(render.extras), list(render.metas))
         return self._mapper.convert(
             outcome,
             usable,
