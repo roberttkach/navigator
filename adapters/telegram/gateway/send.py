@@ -39,156 +39,273 @@ async def send(
         channel: TelemetryChannel,
         telemetry: Telemetry,
 ) -> tuple[Message, list[int], Meta]:
+    _ensure_inline_supported(scope)
+
+    markup = textkit.decode(codec, payload.reply)
+    preview_options = _preview_options(preview, payload)
+    targets = util.targets(scope)
+    reporter = _SendTelemetry(channel, scope, payload)
+
+    if payload.group:
+        return await _send_group(
+            bot,
+            payload,
+            targets=targets,
+            schema=schema,
+            screen=screen,
+            policy=policy,
+            limits=limits,
+            telemetry=telemetry,
+            scope=scope,
+            reporter=reporter,
+        )
+
+    if payload.media:
+        return await _send_media(
+            bot,
+            payload,
+            markup=markup,
+            targets=targets,
+            schema=schema,
+            screen=screen,
+            policy=policy,
+            limits=limits,
+            truncate=truncate,
+            scope=scope,
+            reporter=reporter,
+        )
+
+    return await _send_text(
+        bot,
+        payload,
+        markup=markup,
+        targets=targets,
+        schema=schema,
+        screen=screen,
+        limits=limits,
+        truncate=truncate,
+        preview=preview_options,
+        scope=scope,
+        reporter=reporter,
+    )
+
+
+def _ensure_inline_supported(scope: Scope) -> None:
     if scope.inline:
         raise InlineUnsupported("inline_send_not_supported")
 
-    markup = textkit.decode(codec, payload.reply)
-    options = None
-    if preview is not None and payload.preview is not None:
-        options = preview.encode(payload.preview)
-    targets = util.targets(scope)
 
-    if payload.group:
-        caption = captionkit.caption(payload)
-        extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
-        effect = extras.get("effect")
-        bundle = assemble(
-            payload.group,
-            captionmeta=extras.get("caption", {}),
-            mediameta=extras.get("media", {}),
-            policy=policy,
-            screen=screen,
-            limits=limits,
-            native=True,
-            telemetry=telemetry,
+def _preview_options(preview: LinkPreviewCodec | None, payload: Payload) -> object | None:
+    if preview is None or payload.preview is None:
+        return None
+    return preview.encode(payload.preview)
+
+
+class _SendTelemetry:
+    def __init__(self, channel: TelemetryChannel, scope: Scope, payload: Payload) -> None:
+        self._channel = channel
+        self._scope = scope
+        self._payload = payload
+
+    def truncated(self, stage: str) -> None:
+        self._channel.emit(
+            logging.INFO,
+            LogCode.TOO_LONG_TRUNCATED,
+            scope=profile(self._scope),
+            stage=stage,
         )
-        addition: Dict[str, object] = {}
-        if effect is not None:
-            addition = screen.filter(bot.send_media_group, {"message_effect_id": effect})
-        messages = await bot.send_media_group(
-            media=bundle,
-            **targets,
-            **addition,
-        )
-        head = messages[0]
-        clusters: list[Cluster] = []
-        for index, message in enumerate(messages):
-            member = None
-            if payload.group and index < len(payload.group):
-                member = payload.group[index]
-            medium = None
-            filetoken = None
-            if message.photo:
-                medium = "photo"
-                filetoken = message.photo[-1].file_id
-            elif message.video:
-                medium = "video"
-                filetoken = message.video.file_id
-            elif message.animation:
-                medium = "animation"
-                filetoken = message.animation.file_id
-            elif message.document:
-                medium = "document"
-                filetoken = message.document.file_id
-            elif message.audio:
-                medium = "audio"
-                filetoken = message.audio.file_id
-            elif message.voice:
-                medium = "voice"
-                filetoken = message.voice.file_id
-            elif message.video_note:
-                medium = "video_note"
-                filetoken = message.video_note.file_id
-            if medium is None and member is not None:
-                medium = getattr(getattr(member, "type", None), "value", None)
-            if filetoken is None and member is not None:
-                path = getattr(member, "path", None)
-                if isinstance(path, str):
-                    filetoken = path
-            clusters.append(
-                Cluster(
-                    medium=medium,
-                    file=filetoken,
-                    caption=message.caption if index == 0 else "",
-                )
-            )
-        meta = GroupMeta(clusters=clusters, inline=scope.inline)
-        channel.emit(
+
+    def success(self, message_id: int, extra_len: int) -> None:
+        self._channel.emit(
             logging.INFO,
             LogCode.GATEWAY_SEND_OK,
-            scope=profile(scope),
-            payload=classify(payload),
-            message={"id": head.message_id, "extra_len": len(messages) - 1},
+            scope=profile(self._scope),
+            payload=classify(self._payload),
+            message={"id": message_id, "extra_len": extra_len},
         )
-        extras = [message.message_id for message in messages[1:]]
-        return head, extras, meta
 
-    if payload.media:
-        caption = captionkit.caption(payload)
-        if caption is not None and len(caption) > limits.captionlimit():
-            if truncate:
-                caption = caption[: limits.captionlimit()]
-                channel.emit(
-                    logging.INFO,
-                    LogCode.TOO_LONG_TRUNCATED,
-                    scope=profile(scope),
-                    stage="send.caption",
-                )
-            else:
-                raise CaptionOverflow()
-        extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
-        sender = getattr(bot, f"send_{payload.media.type.value}")
-        arguments = {
-            **targets,
-            payload.media.type.value: policy.adapt(payload.media.path, native=True),
-            "reply_markup": markup,
-        }
-        if caption is not None:
-            arguments["caption"] = caption
-        arguments.update(screen.filter(sender, extras.get("caption", {})))
-        arguments.update(screen.filter(sender, extras.get("media", {})))
-        message = await sender(**arguments)
-        channel.emit(
-            logging.INFO,
-            LogCode.GATEWAY_SEND_OK,
-            scope=profile(scope),
-            payload=classify(payload),
-            message={"id": message.message_id, "extra_len": 0},
-        )
-        meta = util.extract(message, payload, scope)
-        return message, [], meta
 
-    text = payload.text or ""
-    if not text.strip():
-        raise EmptyPayload()
-    if len(text) > limits.textlimit():
-        if truncate:
-            text = text[: limits.textlimit()]
-            channel.emit(
-                logging.INFO,
-                LogCode.TOO_LONG_TRUNCATED,
-                scope=profile(scope),
-                stage="send.text",
-            )
-        else:
-            raise TextOverflow()
+async def _send_group(
+        bot: Bot,
+        payload: Payload,
+        *,
+        targets: Dict[str, object],
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        policy: MediaPathPolicy,
+        limits: Limits,
+        telemetry: Telemetry,
+        scope: Scope,
+        reporter: _SendTelemetry,
+) -> tuple[Message, list[int], GroupMeta]:
+    caption = captionkit.caption(payload)
+    extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
+    bundle = assemble(
+        payload.group,
+        captionmeta=extras.get("caption", {}),
+        mediameta=extras.get("media", {}),
+        policy=policy,
+        screen=screen,
+        limits=limits,
+        native=True,
+        telemetry=telemetry,
+    )
+    effect = extras.get("effect")
+    addition: Dict[str, object] = {}
+    if effect is not None:
+        addition = screen.filter(bot.send_media_group, {"message_effect_id": effect})
+
+    messages = await bot.send_media_group(
+        media=bundle,
+        **targets,
+        **addition,
+    )
+    head = messages[0]
+    reporter.success(head.message_id, len(messages) - 1)
+    meta = GroupMeta(clusters=_group_clusters(messages, payload), inline=scope.inline)
+    extras_ids = [message.message_id for message in messages[1:]]
+    return head, extras_ids, meta
+
+
+async def _send_media(
+        bot: Bot,
+        payload: Payload,
+        *,
+        markup,
+        targets: Dict[str, object],
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        policy: MediaPathPolicy,
+        limits: Limits,
+        truncate: bool,
+        scope: Scope,
+        reporter: _SendTelemetry,
+) -> tuple[Message, list[int], Meta]:
+    caption = captionkit.caption(payload)
+    caption = _enforce_caption_limit(caption, limits, truncate, reporter)
+    extras = schema.send(scope, payload.extra, span=len(caption or ""), media=True)
+    sender = getattr(bot, f"send_{payload.media.type.value}")
+    arguments = {
+        **targets,
+        payload.media.type.value: policy.adapt(payload.media.path, native=True),
+        "reply_markup": markup,
+    }
+    if caption is not None:
+        arguments["caption"] = caption
+    arguments.update(screen.filter(sender, extras.get("caption", {})))
+    arguments.update(screen.filter(sender, extras.get("media", {})))
+    message = await sender(**arguments)
+    reporter.success(message.message_id, 0)
+    meta = util.extract(message, payload, scope)
+    return message, [], meta
+
+
+async def _send_text(
+        bot: Bot,
+        payload: Payload,
+        *,
+        markup,
+        targets: Dict[str, object],
+        schema: ExtraSchema,
+        screen: SignatureScreen,
+        limits: Limits,
+        truncate: bool,
+        preview: object | None,
+        scope: Scope,
+        reporter: _SendTelemetry,
+) -> tuple[Message, list[int], Meta]:
+    text = _normalise_text(payload.text, limits, truncate, reporter)
     extras = schema.send(scope, payload.extra, span=len(text), media=False)
     message = await bot.send_message(
         **targets,
         text=text,
         reply_markup=markup,
-        link_preview_options=options,
+        link_preview_options=preview,
         **screen.filter(bot.send_message, extras.get("text", {})),
     )
-    channel.emit(
-        logging.INFO,
-        LogCode.GATEWAY_SEND_OK,
-        scope=profile(scope),
-        payload=classify(payload),
-        message={"id": message.message_id, "extra_len": 0},
-    )
+    reporter.success(message.message_id, 0)
     meta = util.extract(message, payload, scope)
     return message, [], meta
+
+
+def _enforce_caption_limit(
+        caption: str | None,
+        limits: Limits,
+        truncate: bool,
+        reporter: _SendTelemetry,
+) -> str | None:
+    if caption is None or len(caption) <= limits.captionlimit():
+        return caption
+    if truncate:
+        reporter.truncated("send.caption")
+        return caption[: limits.captionlimit()]
+    raise CaptionOverflow()
+
+
+def _normalise_text(
+        text: str | None,
+        limits: Limits,
+        truncate: bool,
+        reporter: _SendTelemetry,
+) -> str:
+    value = text or ""
+    if not value.strip():
+        raise EmptyPayload()
+    if len(value) <= limits.textlimit():
+        return value
+    if not truncate:
+        raise TextOverflow()
+    reporter.truncated("send.text")
+    return value[: limits.textlimit()]
+
+
+def _group_clusters(messages: list[Message], payload: Payload) -> list[Cluster]:
+    clusters: list[Cluster] = []
+    for index, message in enumerate(messages):
+        member = payload.group[index] if payload.group and index < len(payload.group) else None
+        medium, filetoken = _group_member_tokens(message, member)
+        clusters.append(
+            Cluster(
+                medium=medium,
+                file=filetoken,
+                caption=message.caption if index == 0 else "",
+            )
+        )
+    return clusters
+
+
+def _group_member_tokens(message: Message, member) -> tuple[str | None, str | None]:
+    medium = None
+    filetoken = None
+    if message.photo:
+        medium = "photo"
+        filetoken = message.photo[-1].file_id
+    elif message.video:
+        medium = "video"
+        filetoken = message.video.file_id
+    elif message.animation:
+        medium = "animation"
+        filetoken = message.animation.file_id
+    elif message.document:
+        medium = "document"
+        filetoken = message.document.file_id
+    elif message.audio:
+        medium = "audio"
+        filetoken = message.audio.file_id
+    elif message.voice:
+        medium = "voice"
+        filetoken = message.voice.file_id
+    elif message.video_note:
+        medium = "video_note"
+        filetoken = message.video_note.file_id
+
+    if medium is None and member is not None:
+        medium = getattr(getattr(member, "type", None), "value", None)
+    if filetoken is None and member is not None:
+        path = getattr(member, "path", None)
+        if isinstance(path, str):
+            filetoken = path
+    return medium, filetoken
 
 
 __all__ = ["send"]

@@ -19,7 +19,7 @@ from navigator.app.service.view.planner import (
 )
 from navigator.app.service.view.policy import adapt as adapt_payload
 from navigator.app.service.view.restorer import ViewRestorer
-from navigator.app.usecase.add import Appender
+from navigator.app.usecase.add import AppendDependencies, Appender
 from navigator.app.usecase.alarm import Alarm
 from navigator.app.usecase.back import Rewinder
 from navigator.app.usecase.back_access import (
@@ -114,15 +114,34 @@ class UseCaseContainer(containers.DeclarativeContainer):
         preparer=render_preparer,
     )
     restorer = providers.Factory(ViewRestorer, ledger=core.ledger, telemetry=telemetry)
-    appender = providers.Factory(
-        Appender,
+    append_history = providers.Factory(
+        AppendHistoryAccess,
         archive=storage.chronicle,
         state=storage.status,
-        tail=storage.latest,
+        telemetry=telemetry,
+    )
+    append_preparation = providers.Factory(
+        AppendPreparation,
         planner=planner,
         mapper=storage.mapper,
+    )
+    append_writer = providers.Factory(
+        AppendHistoryWriter,
+        archive=storage.chronicle,
+        tail=storage.latest,
         limit=core.settings.provided.historylimit,
         telemetry=telemetry,
+    )
+    append_dependencies = providers.Factory(
+        AppendDependencies,
+        history=append_history,
+        preparation=append_preparation,
+        writer=append_writer,
+    )
+    appender = providers.Factory(
+        Appender,
+        telemetry=telemetry,
+        dependencies=append_dependencies,
     )
     replace_history = providers.Factory(
         ReplaceHistoryAccess,

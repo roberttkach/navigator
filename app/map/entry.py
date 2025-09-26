@@ -144,32 +144,7 @@ class EntryMapper:
     ) -> Entry:
         """Build an entry from payloads and delivery outcome metadata."""
 
-        now = datetime.now(timezone.utc)
-        messages: List[Message] = []
-
-        for index, payload in enumerate(payloads):
-            meta = outcome.meta_at(index)
-            inline = _resolve_inline(meta)
-            text, media, group = _message_content(meta, payload)
-
-            length = _caption_length(text, media, group)
-            extra = _clean_extra(payload, base, index, length)
-
-            messages.append(
-                Message(
-                    id=outcome.id_at(index),
-                    text=text,
-                    media=media,
-                    group=group,
-                    markup=payload.reply,
-                    preview=payload.preview,
-                    extra=extra,
-                    extras=outcome.extras_at(index),
-                    inline=inline,
-                    automated=True,
-                    ts=now,
-                )
-            )
+        messages = self._compose_messages(outcome, payloads, base)
 
         return Entry(
             state=state,
@@ -177,6 +152,61 @@ class EntryMapper:
             messages=messages,
             root=bool(root),
         )
+
+    def _compose_messages(
+            self,
+            outcome: "Outcome",
+            payloads: Sequence[Payload],
+            base: Optional[Entry],
+    ) -> List[Message]:
+        timestamp = datetime.now(timezone.utc)
+        composer = _MessageComposer(outcome=outcome, base=base, timestamp=timestamp)
+        return [composer.build(index, payload) for index, payload in enumerate(payloads)]
+
+
+class _MessageComposer:
+    """Compose message entities from payloads and metadata."""
+
+    def __init__(
+            self,
+            *,
+            outcome: "Outcome",
+            base: Optional[Entry],
+            timestamp: datetime,
+    ) -> None:
+        self._outcome = outcome
+        self._base = base
+        self._timestamp = timestamp
+
+    def build(self, index: int, payload: Payload) -> Message:
+        meta = self._outcome.meta_at(index)
+        inline = _resolve_inline(meta)
+        text, media, group = _message_content(meta, payload)
+        extra = self._extra(payload, index, text, media, group)
+        return Message(
+            id=self._outcome.id_at(index),
+            text=text,
+            media=media,
+            group=group,
+            markup=payload.reply,
+            preview=payload.preview,
+            extra=extra,
+            extras=self._outcome.extras_at(index),
+            inline=inline,
+            automated=True,
+            ts=self._timestamp,
+        )
+
+    def _extra(
+            self,
+            payload: Payload,
+            index: int,
+            text: Optional[str],
+            media: Optional[MediaItem],
+            group: Optional[Iterable[MediaItem]],
+    ) -> Optional[dict[str, Any]]:
+        length = _caption_length(text, media, group)
+        return _clean_extra(payload, self._base, index, length)
 
 
 class Outcome:

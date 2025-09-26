@@ -7,12 +7,19 @@ from typing import List, Optional
 
 from ..log import events
 from ..log.aspect import TraceAspect
-from ..map.entry import EntryMapper
-from ..service.view.planner import ViewPlanner
+from dataclasses import dataclass
+
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
 from ...core.value.content import Payload
 from ...core.value.message import Scope
 from .add_components import AppendHistoryAccess, AppendHistoryWriter, AppendPreparation
+
+
+@dataclass(frozen=True)
+class AppendDependencies:
+    history: AppendHistoryAccess
+    preparation: AppendPreparation
+    writer: AppendHistoryWriter
 
 
 class Appender:
@@ -20,22 +27,27 @@ class Appender:
 
     def __init__(
             self,
-            archive,
-            state,
-            tail,
-            planner: ViewPlanner,
-            mapper: EntryMapper,
-            limit: int,
+            *,
             telemetry: Telemetry,
-            history: AppendHistoryAccess | None = None,
-            preparation: AppendPreparation | None = None,
-            writer: AppendHistoryWriter | None = None,
-    ):
-        self._history = history or AppendHistoryAccess(archive, state, telemetry)
-        self._prepare = preparation or AppendPreparation(planner, mapper)
-        self._writer = writer or AppendHistoryWriter(archive, tail, limit, telemetry)
+            dependencies: AppendDependencies,
+    ) -> None:
+        self._history = dependencies.history
+        self._prepare = dependencies.preparation
+        self._writer = dependencies.writer
         self._channel: TelemetryChannel = telemetry.channel(__name__)
         self._trace = TraceAspect(telemetry)
+
+    @classmethod
+    def build(
+            cls,
+            *,
+            telemetry: Telemetry,
+            history: AppendHistoryAccess,
+            preparation: AppendPreparation,
+            writer: AppendHistoryWriter,
+    ) -> "Appender":
+        dependencies = AppendDependencies(history=history, preparation=preparation, writer=writer)
+        return cls(telemetry=telemetry, dependencies=dependencies)
 
     async def execute(
             self,

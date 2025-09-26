@@ -40,17 +40,31 @@ class ContainerRuntimeFactory(NavigatorFactory):
         self._missing_alert = missing_alert
 
     async def create(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
-        telemetry = self._telemetry_factory.create()
-        container = ContainerFactory(telemetry, alert=self._missing_alert).create(context)
+        telemetry = self._create_telemetry()
+        container = self._create_container(context, telemetry)
+        self._calibrate(telemetry, container)
+        navigator = self._compose_navigator(container, context)
+        return NavigatorRuntimeBundle(telemetry=telemetry, container=container, navigator=navigator)
+
+    def _create_telemetry(self) -> Telemetry:
+        return self._telemetry_factory.create()
+
+    def _create_container(self, context: BootstrapContext, telemetry: Telemetry) -> AppContainer:
+        factory = ContainerFactory(telemetry, alert=self._missing_alert)
+        return factory.create(context)
+
+    def _calibrate(self, telemetry: Telemetry, container: AppContainer) -> None:
         core = container.core()
         settings = core.settings()
         calibrate_telemetry(telemetry, getattr(settings, "redaction", ""))
-        navigator = compose(
+
+    def _compose_navigator(self, container: AppContainer, context: BootstrapContext) -> Navigator:
+        core = container.core()
+        return compose(
             container,
             scope_from_dto(context.scope),
             missing_alert=core.alert(),
         )
-        return NavigatorRuntimeBundle(telemetry=telemetry, container=container, navigator=navigator)
 
 
 __all__ = [
