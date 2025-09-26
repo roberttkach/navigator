@@ -237,20 +237,52 @@ class InlineRenderPlanner:
         )
 
 
+class HeadAlignment:
+    """Refresh and reconcile the leading album message if required."""
+
+    def __init__(self, album: AlbumService, telemetry: Telemetry) -> None:
+        self._album = album
+        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.head")
+
+    async def align(
+        self,
+        scope: Scope,
+        ledger: List[Message],
+        fresh: List[Payload],
+        state: _RenderState,
+    ) -> tuple[int, bool]:
+        if not (
+            ledger
+            and fresh
+            and getattr(ledger[0], "group", None)
+            and getattr(fresh[0], "group", None)
+        ):
+            return 0, False
+
+        album = await self._album.refresh(scope, ledger[0], fresh[0])
+        if not album:
+            self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_FALLBACK)
+            return 0, False
+
+        head, extras, meta, changed = album
+        state.ids.append(head)
+        state.extras.append(extras)
+        state.metas.append(meta)
+        return 1, changed
+
+
 class RegularRenderPlanner:
     """Plan regular rendering flows that may mutate history."""
 
     def __init__(
             self,
-            album: AlbumService,
+            head: HeadAlignment,
             synchronizer: RenderSynchronizer,
             tails: TailOperations,
-            telemetry: Telemetry,
     ) -> None:
-        self._album = album
+        self._head = head
         self._synchronizer = synchronizer
         self._tails = tails
-        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.regular")
 
     async def plan(
             self,
@@ -259,7 +291,7 @@ class RegularRenderPlanner:
             ledger: List[Message],
             state: _RenderState,
     ) -> bool:
-        origin, head_changed = await self._head(scope, ledger, fresh, state)
+        origin, head_changed = await self._head.align(scope, ledger, fresh, state)
         mutated = head_changed
 
         mutated = (
@@ -279,32 +311,6 @@ class RegularRenderPlanner:
         mutated = mutated or await self._tails.trim(scope, ledger, incoming)
         mutated = mutated or await self._tails.append(scope, fresh, stored, state)
         return mutated
-
-    async def _head(
-            self,
-            scope: Scope,
-            ledger: List[Message],
-            fresh: List[Payload],
-            state: _RenderState,
-    ) -> tuple[int, bool]:
-        if not (
-                ledger
-                and fresh
-                and getattr(ledger[0], "group", None)
-                and getattr(fresh[0], "group", None)
-        ):
-            return 0, False
-
-        album = await self._album.refresh(scope, ledger[0], fresh[0])
-        if not album:
-            self._channel.emit(logging.INFO, LogCode.ALBUM_PARTIAL_FALLBACK)
-            return 0, False
-
-        head, extras, meta, changed = album
-        state.ids.append(head)
-        state.extras.append(extras)
-        state.metas.append(meta)
-        return 1, changed
 
 
 class RenderPreparer:
@@ -378,6 +384,7 @@ __all__ = [
     "RenderPreparer",
     "RenderSynchronizer",
     "TailOperations",
+    "HeadAlignment",
     "InlineRenderPlanner",
     "RegularRenderPlanner",
     "ViewPlanner",

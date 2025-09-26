@@ -110,6 +110,144 @@ def convert(item: MediaItem, *, policy: MediaPathPolicy, native: bool) -> InputF
     return policy.adapt(item.path, native=native)
 
 
+class AlbumTelemetry:
+    """Emit telemetry statements related to album conversions."""
+
+    def __init__(self, telemetry: Telemetry | None) -> None:
+        self._channel: TelemetryChannel | None = (
+            telemetry.channel(__name__) if telemetry else None
+        )
+
+    def invalid(self, items: list[MediaItem], *, reason: NavigatorError) -> None:
+        if self._channel is None:
+            return
+        kinds = [getattr(item.type, "value", None) for item in (items or [])]
+        self._channel.emit(
+            logging.WARNING,
+            LogCode.MEDIA_UNSUPPORTED,
+            kind="group_invalid",
+            types=kinds,
+            note=getattr(reason, "code", str(reason)),
+        )
+
+
+class AlbumValidator:
+    """Validate media collections before Telegram assembly."""
+
+    def __init__(self, limits: Limits, telemetry: AlbumTelemetry) -> None:
+        self._limits = limits
+        self._telemetry = telemetry
+
+    def ensure_valid(self, items: list[MediaItem]) -> None:
+        try:
+            validate(items, limits=self._limits)
+        except NavigatorError as exc:
+            self._telemetry.invalid(items, reason=exc)
+            raise
+
+
+class MediaSettingsNormalizer:
+    """Normalise optional metadata for Telegram media handlers."""
+
+    def __init__(self, policy: MediaPathPolicy, screen: SignatureScreen) -> None:
+        self._policy = policy
+        self._screen = screen
+
+    def prepare(
+        self,
+        mediameta: Mapping[str, object],
+        *,
+        native: bool,
+        handler: type[InputMedia],
+    ) -> dict[str, object]:
+        settings: dict[str, object] = {}
+        settings.update(_collect_boolean_flags(mediameta))
+        settings.update(_collect_string_fields(mediameta))
+        settings.update(_collect_integer_fields(mediameta))
+        settings.update(_collect_timestamp_fields(mediameta))
+        settings.update(_collect_path_fields(mediameta, self._policy, native))
+        return self._screen.filter(handler, settings)
+
+
+class MediaComposer:
+    """Compose media payloads with caption and metadata constraints."""
+
+    def __init__(
+        self,
+        policy: MediaPathPolicy,
+        screen: SignatureScreen,
+        limits: Limits,
+    ) -> None:
+        self._policy = policy
+        self._screen = screen
+        self._limits = limits
+        self._normalizer = MediaSettingsNormalizer(policy, screen)
+
+    def compose(
+        self,
+        item: MediaItem,
+        *,
+        caption: str | None,
+        captionmeta: dict[str, object],
+        mediameta: dict[str, object],
+        native: bool,
+    ) -> InputMedia:
+        handler = _select(item)
+        mapping: dict[str, object] = {}
+
+        if caption is not None:
+            if len(str(caption)) > self._limits.captionlimit():
+                raise CaptionOverflow()
+            mapping["caption"] = caption
+
+        mapping.update(self._screen.filter(handler, captionmeta))
+        mapping.update(
+            self._normalizer.prepare(
+                mediameta,
+                native=native,
+                handler=handler,
+            )
+        )
+
+        arguments = {
+            "media": convert(item, policy=self._policy, native=native),
+            **mapping,
+        }
+        return handler(**arguments)
+
+
+class TelegramAlbumAssembler:
+    """Assemble Telegram albums from Navigator media items."""
+
+    def __init__(self, composer: MediaComposer, validator: AlbumValidator) -> None:
+        self._composer = composer
+        self._validator = validator
+
+    def assemble(
+        self,
+        items: list[MediaItem],
+        *,
+        captionmeta: dict[str, object],
+        mediameta: dict[str, object],
+        native: bool,
+    ) -> list[InputMedia]:
+        self._validator.ensure_valid(items)
+
+        result: list[InputMedia] = []
+        for index, item in enumerate(items):
+            text = item.caption if index == 0 else ""
+            result.append(
+                self._composer.compose(
+                    item,
+                    caption=text,
+                    captionmeta=captionmeta,
+                    mediameta=mediameta,
+                    native=native,
+                )
+            )
+        return result
+
+
 def compose(
         item: MediaItem,
         *,
@@ -123,19 +261,14 @@ def compose(
 ) -> InputMedia:
     """Compose Telegram media objects enriched with Navigator metadata."""
 
-    handler = _select(item)
-    mapping: dict[str, object] = {}
-
-    if caption is not None:
-        if len(str(caption)) > limits.captionlimit():
-            raise CaptionOverflow()
-        mapping["caption"] = caption
-
-    mapping.update(screen.filter(handler, captionmeta))
-    mapping.update(_prepare_media_settings(mediameta, policy, native, handler, screen))
-
-    arguments = {"media": convert(item, policy=policy, native=native), **mapping}
-    return handler(**arguments)
+    composer = MediaComposer(policy=policy, screen=screen, limits=limits)
+    return composer.compose(
+        item,
+        caption=caption,
+        captionmeta=captionmeta,
+        mediameta=mediameta,
+        native=native,
+    )
 
 
 def assemble(
@@ -151,38 +284,15 @@ def assemble(
 ) -> list[InputMedia]:
     """Compose album media structures for Telegram dispatch."""
 
-    channel: TelemetryChannel | None = (
-        telemetry.channel(__name__) if telemetry else None
+    composer = MediaComposer(policy=policy, screen=screen, limits=limits)
+    validator = AlbumValidator(limits, AlbumTelemetry(telemetry))
+    assembler = TelegramAlbumAssembler(composer, validator)
+    return assembler.assemble(
+        items,
+        captionmeta=captionmeta,
+        mediameta=mediameta,
+        native=native,
     )
-    kinds = [getattr(i.type, "value", None) for i in (items or [])]
-    try:
-        validate(items, limits=limits)
-    except NavigatorError as exc:
-        if channel is not None:
-            channel.emit(
-                logging.WARNING,
-                LogCode.MEDIA_UNSUPPORTED,
-                kind="group_invalid",
-                types=kinds,
-            )
-        raise exc
-
-    result: list[InputMedia] = []
-    for index, item in enumerate(items):
-        text = item.caption if index == 0 else ""
-        result.append(
-            compose(
-                item,
-                caption=text,
-                captionmeta=captionmeta,
-                mediameta=mediameta,
-                policy=policy,
-                screen=screen,
-                limits=limits,
-                native=native,
-            )
-        )
-    return result
 
 
 def _select(item: MediaItem) -> type[InputMedia]:
@@ -194,25 +304,6 @@ def _select(item: MediaItem) -> type[InputMedia]:
             raise EditForbidden("edit_media_type_forbidden")
         raise ValueError(f"unsupported media type: {item.type}")
     return handler
-
-
-def _prepare_media_settings(
-        mediameta: Mapping[str, object],
-        policy: MediaPathPolicy,
-        native: bool,
-        handler: type[InputMedia],
-        screen: SignatureScreen,
-) -> dict[str, object]:
-    """Normalise optional media metadata into Telegram-friendly keys."""
-
-    settings: dict[str, object] = {}
-    settings.update(_collect_boolean_flags(mediameta))
-    settings.update(_collect_string_fields(mediameta))
-    settings.update(_collect_integer_fields(mediameta))
-    settings.update(_collect_timestamp_fields(mediameta))
-    settings.update(_collect_path_fields(mediameta, policy, native))
-    filtered = screen.filter(handler, settings)
-    return filtered
 
 
 def _collect_boolean_flags(mediameta: Mapping[str, object]) -> dict[str, object]:
@@ -273,4 +364,14 @@ def _collect_path_fields(
     return payload
 
 
-__all__ = ["TelegramMediaPolicy", "convert", "compose", "assemble"]
+__all__ = [
+    "TelegramMediaPolicy",
+    "AlbumTelemetry",
+    "AlbumValidator",
+    "MediaSettingsNormalizer",
+    "MediaComposer",
+    "TelegramAlbumAssembler",
+    "convert",
+    "compose",
+    "assemble",
+]

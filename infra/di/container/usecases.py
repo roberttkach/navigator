@@ -9,6 +9,7 @@ from navigator.app.internal.policy import shield as inline_shield
 from navigator.app.service import TailHistoryAccess, TailHistoryMutator
 from navigator.app.service.navigator_runtime import NavigatorUseCases
 from navigator.app.service.view.planner import (
+    HeadAlignment,
     InlineRenderPlanner,
     RegularRenderPlanner,
     RenderPreparer,
@@ -94,12 +95,12 @@ class UseCaseContainer(containers.DeclarativeContainer):
         rendering=core.rendering,
     )
     inline_planner = providers.Factory(InlineRenderPlanner, synchronizer=render_synchronizer)
+    head_alignment = providers.Factory(HeadAlignment, album=view.album, telemetry=telemetry)
     regular_planner = providers.Factory(
         RegularRenderPlanner,
-        album=view.album,
+        head=head_alignment,
         synchronizer=render_synchronizer,
         tails=tail_operations,
-        telemetry=telemetry,
     )
     render_preparer = providers.Factory(
         RenderPreparer,
