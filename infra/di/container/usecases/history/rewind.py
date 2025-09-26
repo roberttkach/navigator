@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dependency_injector import containers, providers
 
-from navigator.app.usecase.back import Rewinder
+from navigator.app.usecase.back import RewindInstrumentation, RewindPerformer, Rewinder
 from navigator.app.usecase.back_access import (
     RewindFinalizer,
     RewindHistoryReader,
@@ -51,14 +51,20 @@ class RewindUseCaseContainer(containers.DeclarativeContainer):
         mutator=mutator,
         telemetry=telemetry,
     )
+    instrumentation = providers.Factory(
+        RewindInstrumentation,
+        telemetry=telemetry,
+    )
+    performer = providers.Factory(
+        RewindPerformer,
+        history=reader,
+        renderer=renderer,
+        finalizer=finalizer,
+    )
     usecase = providers.Factory(
         Rewinder,
-        history=reader,
-        writer=writer,
-        renderer=renderer,
-        mutator=mutator,
-        finalizer=finalizer,
-        telemetry=telemetry,
+        performer=performer,
+        instrumentation=instrumentation,
     )
 
 

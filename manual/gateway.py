@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import navigator.adapters.telegram.gateway.purge as purger
 from navigator.adapters.telegram.errors import dismissible
-from navigator.adapters.telegram.gateway import TelegramGateway
+from navigator.adapters.telegram.gateway import create_gateway
 from navigator.adapters.telegram.gateway.purge import PurgeTask
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
 from navigator.core.value.message import Scope
@@ -59,7 +59,7 @@ def wording() -> None:
             return path
 
     telemetry = monitor()
-    gateway = TelegramGateway(
+    gateway = create_gateway(
         bot=bot,
         codec=DummyCodec(),
         limits=DummyLimits(),

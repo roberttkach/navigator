@@ -1,7 +1,7 @@
 from dependency_injector import containers, providers
 
 from navigator.adapters.telegram.codec import AiogramCodec
-from navigator.adapters.telegram.gateway import TelegramGateway
+from navigator.adapters.telegram.gateway import create_gateway
 from navigator.adapters.telegram.media import TelegramMediaPolicy
 from navigator.adapters.telegram.serializer import (
     SignatureScreen,
@@ -24,7 +24,7 @@ class TelegramContainer(containers.DeclarativeContainer):
     policy = providers.Factory(TelegramMediaPolicy, strict=core.settings.provided.strictpath)
     screen = providers.Factory(SignatureScreen, telemetry=telemetry)
     gateway = providers.Factory(
-        TelegramGateway,
+        create_gateway,
         bot=core.event.provided.bot,
         codec=codec,
         limits=core.limits,

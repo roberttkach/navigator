@@ -116,10 +116,6 @@ class AppContainer(containers.DeclarativeContainer):
         telemetry=telemetry,
     )
 
-    core = providers.Delegate(_core.provided.core)
-    storage = providers.Delegate(_integration.provided.storage)
-    view = providers.Delegate(_integration.provided.view)
-    usecases = providers.Delegate(_usecase.provided.usecases)
     runtime = providers.Delegate(_runtime.provided.runtime)
 
 

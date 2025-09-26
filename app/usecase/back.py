@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from ...core.telemetry import Telemetry
 from ...core.value.content import normalize
@@ -12,36 +12,38 @@ from ..log.aspect import TraceAspect
 from .back_access import (
     RewindFinalizer,
     RewindHistoryReader,
-    RewindHistoryWriter,
-    RewindMutator,
     RewindRenderer,
 )
 
 
-class Rewinder:
-    """Coordinate rewind operations for conversation history."""
+class RewindInstrumentation:
+    """Isolate tracing concerns from the rewind orchestration."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(self, telemetry: Telemetry) -> None:
+        self._trace = TraceAspect(telemetry)
+
+    async def traced(
+        self,
+        callback: Callable[..., Awaitable[None]],
+        *args: Any,
+    ) -> None:
+        await self._trace.run(events.BACK, callback, *args)
+
+
+class RewindPerformer:
+    """Execute the actual rewind logic without telemetry concerns."""
+
+    def __init__(
         self,
         history: RewindHistoryReader,
-        writer: RewindHistoryWriter,
         renderer: RewindRenderer,
-        mutator: RewindMutator,
-        telemetry: Telemetry,
-        finalizer: RewindFinalizer | None = None,
+        finalizer: RewindFinalizer,
     ) -> None:
         self._history = history
         self._renderer = renderer
-        self._mutator = mutator
-        self._finalizer = finalizer or RewindFinalizer(writer, self._mutator, telemetry)
-        self._trace = TraceAspect(telemetry)
+        self._finalizer = finalizer
 
-    async def execute(self, scope: Scope, context: dict[str, Any]) -> None:
-        """Rewind the history for ``scope`` using extra ``context`` hints."""
-
-        await self._trace.run(events.BACK, self._perform, scope, context)
-
-    async def _perform(self, scope: Scope, context: dict[str, Any]) -> None:
+    async def perform(self, scope: Scope, context: dict[str, Any]) -> None:
         history = await self._history.snapshot(scope)
         origin, target = self._history.select(history)
         inline = bool(scope.inline)
@@ -55,3 +57,20 @@ class Rewinder:
             return
 
         await self._finalizer.apply(history, target, render)
+
+
+class Rewinder:
+    """Coordinate rewind operations for conversation history."""
+
+    def __init__(
+        self,
+        performer: RewindPerformer,
+        instrumentation: RewindInstrumentation,
+    ) -> None:
+        self._performer = performer
+        self._instrumentation = instrumentation
+
+    async def execute(self, scope: Scope, context: dict[str, Any]) -> None:
+        """Rewind the history for ``scope`` using extra ``context`` hints."""
+
+        await self._instrumentation.traced(self._performer.perform, scope, context)
