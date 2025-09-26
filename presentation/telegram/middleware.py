@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, Awaitable, Callable, Dict
+from typing import Any, Awaitable, Callable, Dict, Optional, Protocol, runtime_checkable
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
@@ -10,11 +10,22 @@ from aiogram.types import TelegramObject
 from navigator.api.contracts import NavigatorRuntimeInstrument
 from navigator.bootstrap.navigator import NavigatorAssembler as BootstrapNavigatorAssembler
 from navigator.core.port.factory import ViewLedger
-from navigator.adapters.storage.fsm.context import StateContext
-
 from .assembly import NavigatorAssembler, TelegramNavigatorAssembler
 
 Handler = Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]]
+
+
+@runtime_checkable
+class NavigatorState(Protocol):
+    """Subset of FSM context behaviour required by the navigator."""
+
+    async def get_state(self) -> Optional[str]: ...
+
+    async def set_state(self, state: Optional[str]) -> None: ...
+
+    async def get_data(self) -> Dict[str, Any]: ...
+
+    async def update_data(self, data: Dict[str, Any]) -> Dict[str, Any]: ...
 
 
 class NavigatorMiddleware(BaseMiddleware):
@@ -43,8 +54,10 @@ class NavigatorMiddleware(BaseMiddleware):
             data: Dict[str, Any],
     ) -> Any:
         state = data.get("state")
-        if not isinstance(state, StateContext):  # pragma: no cover - runtime guard
-            raise RuntimeError("StateContext implementation is required to assemble Navigator")
+        if not isinstance(state, NavigatorState):  # pragma: no cover - runtime guard
+            raise RuntimeError(
+                "State context implementation is required to assemble Navigator"
+            )
         navigator = await self._assembler.assemble(event, state)
         data["navigator"] = navigator
         return await handler(event, data)

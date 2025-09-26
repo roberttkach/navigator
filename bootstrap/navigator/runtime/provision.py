@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
 from navigator.core.telemetry import Telemetry
-from navigator.infra.di.container import AppContainer
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from navigator.infra.di.container import AppContainer
 
 from ..context import BootstrapContext, ViewContainerFactory
 from ..container import ContainerFactory
@@ -19,7 +22,7 @@ class RuntimeProvision:
     """Capture the intermediate components produced during bootstrap."""
 
     telemetry: Telemetry
-    container: AppContainer
+    container: "AppContainer"
     snapshot: NavigatorRuntimeSnapshot
 
 

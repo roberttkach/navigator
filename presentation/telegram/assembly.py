@@ -11,7 +11,6 @@ from navigator.api import assemble as assemble_navigator
 from navigator.api.contracts import NavigatorRuntimeInstrument
 from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.port.factory import ViewLedger
-from navigator.infra.di.container.telegram import TelegramContainer
 from navigator.presentation.navigator import Navigator
 from navigator.bootstrap.navigator.context import ViewContainerFactory
 
@@ -35,7 +34,7 @@ class TelegramNavigatorAssembler:
         *,
         instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
         missing_alert: MissingAlert | None = None,
-        view_container: ViewContainerFactory = TelegramContainer,
+        view_container: ViewContainerFactory | None = None,
     ) -> None:
         self._ledger = ledger
         self._instrumentation: Sequence[NavigatorRuntimeInstrument] | None = (

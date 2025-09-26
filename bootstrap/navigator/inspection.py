@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
-from navigator.infra.di.container import AppContainer
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from navigator.infra.di.container import AppContainer
 
 
-def inspect_container(container: AppContainer) -> NavigatorRuntimeSnapshot:
+def inspect_container(container: "AppContainer") -> NavigatorRuntimeSnapshot:
     """Collect runtime dependencies and configuration from the container."""
 
     runtime = container.runtime()

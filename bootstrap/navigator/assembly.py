@@ -9,7 +9,6 @@ from navigator.api.contracts import (
     ViewLedgerDTO,
 )
 from navigator.app.service.navigator_runtime import MissingAlert
-from navigator.infra.di.container.telegram import TelegramContainer
 from .context import BootstrapContext, ViewContainerFactory
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
 
@@ -21,9 +20,10 @@ class NavigatorAssembler:
         self,
         runtime_factory: NavigatorFactory | None = None,
         instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
-        view_container: ViewContainerFactory = TelegramContainer,
+        view_container: ViewContainerFactory | None = None,
     ) -> None:
-        factory = runtime_factory or ContainerRuntimeFactory(view_container=view_container)
+        container = _resolve_view_container(view_container)
+        factory = runtime_factory or ContainerRuntimeFactory(view_container=container)
         self._runtime_factory = factory
         if instrumentation:
             self._instrumentation = tuple(instrumentation)
@@ -45,7 +45,7 @@ async def assemble(
     scope: ScopeDTO,
     instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
     missing_alert: MissingAlert | None = None,
-    view_container: ViewContainerFactory = TelegramContainer,
+    view_container: ViewContainerFactory | None = None,
 ) -> NavigatorRuntimeBundle:
     """Construct a navigator runtime bundle from entrypoint payloads."""
 
@@ -67,6 +67,16 @@ async def assemble(
         view_container=view_container,
     )
     return await assembler.build(context)
+
+
+def _resolve_view_container(candidate: ViewContainerFactory | None) -> ViewContainerFactory:
+    """Resolve the concrete view container lazily to avoid heavy imports."""
+
+    if candidate is not None:
+        return candidate
+    from navigator.infra.di.container.telegram import TelegramContainer  # local import
+
+    return TelegramContainer
 
 
 __all__ = ["NavigatorAssembler", "assemble"]

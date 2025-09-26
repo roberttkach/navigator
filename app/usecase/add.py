@@ -20,6 +20,7 @@ from .add_components import (
     AppendPayloadAdapter,
     AppendRenderPlanner,
 )
+from .render_contract import RenderOutcome
 
 
 @dataclass(frozen=True)
@@ -98,9 +99,9 @@ class AppendRendering:
         self,
         scope: Scope,
         prepared: AppendPreparationResult,
-    ) -> object | None:
+    ) -> RenderOutcome | None:
         render = await self._planner.plan(scope, prepared.adjusted, prepared.trail)
-        if not render or not getattr(render, "ids", None) or not getattr(render, "changed", False):
+        if not render or not render.ids or not render.changed:
             self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="add")
             return None
         return render
@@ -122,7 +123,7 @@ class AppendPersistence:
     async def persist(
         self,
         prepared: AppendPreparationResult,
-        render: object,
+        render: RenderOutcome,
         view: Optional[str],
         *,
         root: bool = False,
