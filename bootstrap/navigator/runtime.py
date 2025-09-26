@@ -16,6 +16,34 @@ from .inspection import NavigatorContainerSnapshot, inspect_container
 from .telemetry import TelemetryFactory, calibrate_telemetry
 
 
+@dataclass(frozen=True)
+class RuntimeProvision:
+    """Capture the intermediate components produced during bootstrap."""
+
+    telemetry: Telemetry
+    container: AppContainer
+    snapshot: NavigatorContainerSnapshot
+
+
+class RuntimeProvisioner:
+    """Produce the container, telemetry and inspection snapshot."""
+
+    def __init__(
+        self,
+        telemetry_factory: TelemetryFactory,
+        *,
+        missing_alert: MissingAlert | None = None,
+    ) -> None:
+        self._telemetry_factory = telemetry_factory
+        self._missing_alert = missing_alert
+
+    def provision(self, context: BootstrapContext) -> RuntimeProvision:
+        telemetry = self._telemetry_factory.create()
+        container = ContainerFactory(telemetry, alert=self._missing_alert).create(context)
+        snapshot = inspect_container(container)
+        return RuntimeProvision(telemetry=telemetry, container=container, snapshot=snapshot)
+
+
 class RuntimeCalibrator:
     """Bridge calibration utilities into a reusable collaborator."""
 
@@ -56,37 +84,33 @@ class ContainerRuntimeFactory(NavigatorFactory):
         telemetry_factory: TelemetryFactory | None = None,
         missing_alert: MissingAlert | None = None,
         *,
+        provisioner: RuntimeProvisioner | None = None,
         calibrator: RuntimeCalibrator | None = None,
         composer: NavigatorComposer | None = None,
     ) -> None:
-        self._telemetry_factory = telemetry_factory or TelemetryFactory()
-        self._missing_alert = missing_alert
+        factory = telemetry_factory or TelemetryFactory()
+        self._provisioner = provisioner or RuntimeProvisioner(
+            factory,
+            missing_alert=missing_alert,
+        )
         self._calibrator = calibrator or RuntimeCalibrator()
         self._composer = composer or NavigatorComposer()
 
     async def create(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
-        telemetry = self._create_telemetry()
-        container = self._create_container(context, telemetry)
-        snapshot = inspect_container(container)
-        self._calibrator.run(telemetry, snapshot)
-        navigator = self._compose_navigator(snapshot, context)
-        return NavigatorRuntimeBundle(telemetry=telemetry, container=container, navigator=navigator)
-
-    def _create_telemetry(self) -> Telemetry:
-        return self._telemetry_factory.create()
-
-    def _create_container(self, context: BootstrapContext, telemetry: Telemetry) -> AppContainer:
-        factory = ContainerFactory(telemetry, alert=self._missing_alert)
-        return factory.create(context)
-
-    def _compose_navigator(
-        self, snapshot: NavigatorContainerSnapshot, context: BootstrapContext
-    ) -> Navigator:
-        return self._composer.compose(snapshot, context)
+        provision = self._provisioner.provision(context)
+        self._calibrator.run(provision.telemetry, provision.snapshot)
+        navigator = self._composer.compose(provision.snapshot, context)
+        return NavigatorRuntimeBundle(
+            telemetry=provision.telemetry,
+            container=provision.container,
+            navigator=navigator,
+        )
 
 
 __all__ = [
     "ContainerRuntimeFactory",
     "NavigatorFactory",
     "NavigatorRuntimeBundle",
+    "RuntimeProvision",
+    "RuntimeProvisioner",
 ]

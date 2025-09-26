@@ -173,7 +173,7 @@ class StateUseCaseContainer(containers.DeclarativeContainer):
         restorer=view_support.restorer,
     )
     reconciler = providers.Factory(
-        HistoryReconciler,
+        HistoryReconciler.from_components,
         ledger=storage.chronicle,
         latest=storage.latest,
         telemetry=telemetry,

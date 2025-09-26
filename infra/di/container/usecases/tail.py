@@ -3,7 +3,11 @@ from __future__ import annotations
 
 from dependency_injector import containers, providers
 
-from navigator.app.service import TailHistoryAccess, TailHistoryMutator
+from navigator.app.service import (
+    TailHistoryAccess,
+    TailHistoryJournal,
+    TailHistoryMutator,
+)
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
 from navigator.app.usecase.last.inline import InlineEditCoordinator
@@ -19,11 +23,15 @@ class TailUseCaseContainer(containers.DeclarativeContainer):
     view = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
+    tail_history_journal = providers.Factory(
+        TailHistoryJournal.from_telemetry,
+        telemetry=telemetry,
+    )
     tail_history = providers.Factory(
         TailHistoryAccess,
         ledger=storage.chronicle,
         latest=storage.latest,
-        telemetry=telemetry,
+        journal=tail_history_journal,
     )
     tail_mutator = providers.Factory(TailHistoryMutator)
     tail_decision = providers.Factory(TailDecisionService, rendering=core.rendering)

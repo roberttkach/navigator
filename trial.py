@@ -6,7 +6,11 @@ from navigator.adapters.telegram.gateway import TelegramGateway
 from navigator.adapters.telegram.gateway.purge import PurgeTask
 from navigator.adapters.telegram.serializer.screen import SignatureScreen
 from navigator.app.internal.policy import shield
-from navigator.app.service import TailHistoryAccess, TailHistoryMutator
+from navigator.app.service import (
+    TailHistoryAccess,
+    TailHistoryJournal,
+    TailHistoryMutator,
+)
 from navigator.app.service.view.planner import RenderPreparer, ViewPlanner
 from navigator.app.service.view.policy import adapt
 from navigator.app.service.view.restorer import ViewRestorer
@@ -103,7 +107,11 @@ def absence() -> None:
     telemetry = monitor()
     state = StateSynchronizer(state=status, telemetry=telemetry)
     reviver = PayloadReviver(state, restorer)
-    reconciliation = HistoryReconciler(ledger=ledger, latest=latest, telemetry=telemetry)
+    reconciliation = HistoryReconciler.from_components(
+        ledger=ledger,
+        latest=latest,
+        telemetry=telemetry,
+    )
     plan_builder = HistoryRestorationPlanner(ledger=ledger, telemetry=telemetry)
     setter = Setter(
         planner=plan_builder,
@@ -184,7 +192,11 @@ def surface() -> None:
     telemetry = monitor()
     state = StateSynchronizer(state=status, telemetry=telemetry)
     reviver = PayloadReviver(state, restorer)
-    reconciliation = HistoryReconciler(ledger=ledger, latest=latest, telemetry=telemetry)
+    reconciliation = HistoryReconciler.from_components(
+        ledger=ledger,
+        latest=latest,
+        telemetry=telemetry,
+    )
     plan_builder = HistoryRestorationPlanner(ledger=ledger, telemetry=telemetry)
     setter = Setter(
         planner=plan_builder,
@@ -262,7 +274,8 @@ def decline() -> None:
     )
     inline = SimpleNamespace(handle=AsyncMock())
     telemetry = monitor()
-    history = TailHistoryAccess(ledger=ledger, latest=latest, telemetry=telemetry)
+    journal = TailHistoryJournal.from_telemetry(telemetry)
+    history = TailHistoryAccess(ledger=ledger, latest=latest, journal=journal)
     mutator = TailHistoryMutator()
     decision = TailDecisionService(rendering=RenderingConfig())
     inline_coord = InlineEditCoordinator(
