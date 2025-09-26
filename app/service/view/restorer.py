@@ -9,7 +9,11 @@ from ....core.port.factory import ViewLedger
 from ....core.telemetry import Telemetry, TelemetryChannel
 from ....core.value.content import Payload
 
-from .dynamic import DynamicPayloadNormaliser, DynamicViewRestorer
+from .dynamic import (
+    DynamicPayloadNormaliser,
+    DynamicViewRestorer,
+    create_dynamic_view_restorer,
+)
 from .forge import ForgeInvoker, ForgeResolver, ForgeSuppliesExtractor, forge_supplies
 from .static import StaticPayloadFactory
 
@@ -26,7 +30,7 @@ class ViewRestorer:
         static_factory: StaticPayloadFactory | None = None,
     ) -> None:
         channel: TelemetryChannel = telemetry.channel(__name__)
-        self._dynamic = dynamic or DynamicViewRestorer(channel=channel, ledger=ledger)
+        self._dynamic = dynamic or create_dynamic_view_restorer(ledger, channel)
         self._static = static_factory or StaticPayloadFactory()
 
     async def revive(

@@ -64,6 +64,21 @@ class ContainerInspector:
         return inspect_container(container)
 
 
+@dataclass(slots=True)
+class RuntimeProvisionWorkflow:
+    """Execute the telemetry/container/inspection sequence as a single unit."""
+
+    initializer: TelemetryInitializer
+    assembler: ContainerAssembler
+    inspector: ContainerInspector
+
+    def run(self, context: BootstrapContext) -> RuntimeProvision:
+        telemetry = self.initializer.initialize()
+        container = self.assembler.assemble(telemetry, context)
+        snapshot = self.inspector.inspect(container)
+        return RuntimeProvision(telemetry=telemetry, container=container, snapshot=snapshot)
+
+
 class RuntimeProvisioner:
     """Produce the container, telemetry and inspection snapshot."""
 
@@ -73,22 +88,24 @@ class RuntimeProvisioner:
         *,
         missing_alert: MissingAlert | None = None,
         view_container: ViewContainerFactory | None = None,
+        workflow: RuntimeProvisionWorkflow | None = None,
         initializer: TelemetryInitializer | None = None,
         assembler: ContainerAssembler | None = None,
         inspector: ContainerInspector | None = None,
     ) -> None:
-        self._initializer = initializer or TelemetryInitializer(telemetry_factory)
-        self._assembler = assembler or ContainerAssembler(
-            missing_alert=missing_alert,
-            view_container=view_container,
-        )
-        self._inspector = inspector or ContainerInspector()
+        base_workflow = workflow
+        if base_workflow is None:
+            init = initializer or TelemetryInitializer(telemetry_factory)
+            assemble = assembler or ContainerAssembler(
+                missing_alert=missing_alert,
+                view_container=view_container,
+            )
+            review = inspector or ContainerInspector()
+            base_workflow = RuntimeProvisionWorkflow(init, assemble, review)
+        self._workflow = base_workflow
 
     def provision(self, context: BootstrapContext) -> RuntimeProvision:
-        telemetry = self._initializer.initialize()
-        container = self._assembler.assemble(telemetry, context)
-        snapshot = self._inspector.inspect(container)
-        return RuntimeProvision(telemetry=telemetry, container=container, snapshot=snapshot)
+        return self._workflow.run(context)
 
 
 __all__ = [
@@ -96,5 +113,6 @@ __all__ = [
     "ContainerInspector",
     "RuntimeProvision",
     "RuntimeProvisioner",
+    "RuntimeProvisionWorkflow",
     "TelemetryInitializer",
 ]
