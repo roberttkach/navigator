@@ -41,6 +41,12 @@ from navigator.app.usecase.replace_components import (
     ReplacePreparation,
 )
 from navigator.app.usecase.set import Setter
+from navigator.app.usecase.set_components import (
+    HistoryReconciler,
+    HistoryRestorationPlanner,
+    PayloadReviver,
+    StateSynchronizer,
+)
 from navigator.core.telemetry import Telemetry
 
 
@@ -176,14 +182,30 @@ class UseCaseContainer(containers.DeclarativeContainer):
         finalizer=rewind_finalizer,
         telemetry=telemetry,
     )
+    state_sync = providers.Factory(StateSynchronizer, state=storage.status, telemetry=telemetry)
+    restoration_planner = providers.Factory(
+        HistoryRestorationPlanner,
+        ledger=storage.chronicle,
+        telemetry=telemetry,
+    )
+    payload_reviver = providers.Factory(
+        PayloadReviver,
+        synchronizer=state_sync,
+        restorer=restorer,
+    )
+    history_reconciler = providers.Factory(
+        HistoryReconciler,
+        ledger=storage.chronicle,
+        latest=storage.latest,
+        telemetry=telemetry,
+    )
     setter = providers.Factory(
         Setter,
-        ledger=storage.chronicle,
-        status=storage.status,
-        gateway=view.gateway,
-        restorer=restorer,
-        planner=planner,
-        latest=storage.latest,
+        planner=restoration_planner,
+        state=state_sync,
+        reviver=payload_reviver,
+        renderer=planner,
+        reconciler=history_reconciler,
         telemetry=telemetry,
     )
     trimmer = providers.Factory(
