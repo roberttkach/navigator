@@ -1,6 +1,7 @@
 """Navigator runtime package exposing orchestration helpers."""
 from __future__ import annotations
 
+from .assembly import build_runtime_from_dependencies
 from .builder import (
     HistoryContracts,
     NavigatorRuntimeContracts,
@@ -29,6 +30,7 @@ from .usecases import NavigatorUseCases
 
 __all__ = [
     "build_navigator_runtime",
+    "build_runtime_from_dependencies",
     "HistoryAddOperation",
     "HistoryBackOperation",
     "HistoryRebaseOperation",

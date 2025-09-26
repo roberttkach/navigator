@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Protocol
 
-from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
+from navigator.api.contracts import (
+    NavigatorRuntimeInstrument,
+    ScopeDTO,
+    ViewLedgerDTO,
+)
 from navigator.app.service.navigator_runtime import MissingAlert
 from .context import BootstrapContext
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
@@ -13,13 +16,10 @@ from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntime
 class NavigatorAssembler:
     """Compose navigator runtime bundles from bootstrap context."""
 
-    class Instrument(Protocol):
-        def __call__(self, bundle: NavigatorRuntimeBundle) -> None: ...
-
     def __init__(
         self,
         runtime_factory: NavigatorFactory | None = None,
-        instrumentation: Sequence[Instrument] | None = None,
+        instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
     ) -> None:
         self._runtime_factory = runtime_factory or ContainerRuntimeFactory()
         if instrumentation:
@@ -40,7 +40,7 @@ async def assemble(
     state: object,
     ledger: ViewLedgerDTO,
     scope: ScopeDTO,
-    instrumentation: Iterable[NavigatorAssembler.Instrument] | None = None,
+    instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
     missing_alert: MissingAlert | None = None,
 ) -> NavigatorRuntimeBundle:
     """Construct a navigator runtime bundle from entrypoint payloads."""
@@ -52,7 +52,7 @@ async def assemble(
         scope=scope,
         missing_alert=missing_alert,
     )
-    instruments: Sequence[NavigatorAssembler.Instrument]
+    instruments: Sequence[NavigatorRuntimeInstrument]
     if instrumentation:
         instruments = tuple(instrumentation)
     else:

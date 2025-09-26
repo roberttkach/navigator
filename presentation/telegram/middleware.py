@@ -8,6 +8,7 @@ from aiogram import BaseMiddleware
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
+from navigator.api.contracts import NavigatorRuntimeInstrument
 from navigator.bootstrap.navigator import NavigatorAssembler as BootstrapNavigatorAssembler
 from navigator.core.port.factory import ViewLedger
 
@@ -27,7 +28,7 @@ class NavigatorMiddleware(BaseMiddleware):
         cls,
         ledger: ViewLedger,
         *,
-        instrumentation: Iterable[BootstrapNavigatorAssembler.Instrument] | None = None,
+        instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
     ) -> "NavigatorMiddleware":
         """Provide a convenient constructor for the default assembler."""
 

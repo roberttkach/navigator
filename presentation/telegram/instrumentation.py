@@ -3,17 +3,17 @@ from __future__ import annotations
 
 from typing import Callable
 
-from navigator.bootstrap.navigator.runtime import NavigatorRuntimeBundle
+from navigator.api.contracts import NavigatorRuntimeBundleLike
 
 from .router import RetreatDependencies, RetreatRouterConfigurator, retreat_configurator
 
 
 def build_retreat_instrument(
     configurator: RetreatRouterConfigurator,
-) -> Callable[[NavigatorRuntimeBundle], None]:
+) -> Callable[[NavigatorRuntimeBundleLike], None]:
     """Return an instrumentation hook bound to ``configurator`` router."""
 
-    def _instrument(bundle: NavigatorRuntimeBundle) -> None:
+    def _instrument(bundle: NavigatorRuntimeBundleLike) -> None:
         dependencies = RetreatDependencies(telemetry=bundle.telemetry)
         callback = configurator.build(dependencies)
         configurator.register(callback)

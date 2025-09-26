@@ -19,12 +19,62 @@ from navigator.core.value.message import Scope
 from . import util
 from .edit import recast, remap, retitle, rewrite
 from .purge import PurgeTask
-from .send import send
+from .send import SendContextFactory, SendDispatcher
 from ..serializer.screen import SignatureScreen
 
 
-class TelegramMessageTransport:
-    """Handle Telegram message send and edit operations."""
+def _message_result(
+    outcome: object,
+    identifier: int,
+    payload: Payload,
+    scope: Scope,
+) -> Result:
+    meta = util.extract(outcome, payload, scope)
+    result_id = getattr(outcome, "message_id", identifier)
+    return Result(id=result_id, extra=[], meta=meta)
+
+
+class TelegramMessageSender:
+    """Coordinate Telegram send operations for navigator payloads."""
+
+    def __init__(
+        self,
+        bot: Bot,
+        *,
+        codec: MarkupCodec,
+        limits: Limits,
+        schema: ExtraSchema,
+        policy: MediaPathPolicy,
+        screen: SignatureScreen,
+        preview: LinkPreviewCodec | None,
+        truncate: bool,
+        telemetry: Telemetry,
+    ) -> None:
+        self._dispatcher = SendDispatcher(
+            bot,
+            schema=schema,
+            screen=screen,
+            policy=policy,
+            limits=limits,
+            telemetry=telemetry,
+        )
+        self._context_factory = SendContextFactory(codec=codec, preview=preview)
+        self._truncate = truncate
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
+
+    async def send(self, scope: Scope, payload: Payload) -> Result:
+        context = self._context_factory.build(scope=scope, payload=payload, channel=self._channel)
+        message, extras, meta = await self._dispatcher.dispatch(
+            payload,
+            scope=scope,
+            context=context,
+            truncate=self._truncate,
+        )
+        return Result(id=message.message_id, extra=extras, meta=meta)
+
+
+class TelegramMessageEditor:
+    """Handle Telegram edit operations using dedicated helpers."""
 
     def __init__(
         self,
@@ -47,25 +97,7 @@ class TelegramMessageTransport:
         self._screen = screen
         self._preview = preview
         self._truncate = truncate
-        self._telemetry = telemetry
         self._channel: TelemetryChannel = telemetry.channel(__name__)
-
-    async def send(self, scope: Scope, payload: Payload) -> Result:
-        message, extras, meta = await send(
-            self._bot,
-            codec=self._codec,
-            schema=self._schema,
-            screen=self._screen,
-            policy=self._policy,
-            limits=self._limits,
-            preview=self._preview,
-            scope=scope,
-            payload=payload,
-            truncate=self._truncate,
-            channel=self._channel,
-            telemetry=self._telemetry,
-        )
-        return Result(id=message.message_id, extra=extras, meta=meta)
 
     async def rewrite(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         outcome = await rewrite(
@@ -81,9 +113,7 @@ class TelegramMessageTransport:
             truncate=self._truncate,
             channel=self._channel,
         )
-        meta = util.extract(outcome, payload, scope)
-        resultid = getattr(outcome, "message_id", identifier)
-        return Result(id=resultid, extra=[], meta=meta)
+        return _message_result(outcome, identifier, payload, scope)
 
     async def recast(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         outcome = await recast(
@@ -99,9 +129,7 @@ class TelegramMessageTransport:
             truncate=self._truncate,
             channel=self._channel,
         )
-        meta = util.extract(outcome, payload, scope)
-        resultid = getattr(outcome, "message_id", identifier)
-        return Result(id=resultid, extra=[], meta=meta)
+        return _message_result(outcome, identifier, payload, scope)
 
     async def retitle(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         outcome = await retitle(
@@ -116,9 +144,22 @@ class TelegramMessageTransport:
             truncate=self._truncate,
             channel=self._channel,
         )
-        meta = util.extract(outcome, payload, scope)
-        resultid = getattr(outcome, "message_id", identifier)
-        return Result(id=resultid, extra=[], meta=meta)
+        return _message_result(outcome, identifier, payload, scope)
+
+
+class TelegramMarkupRefiner:
+    """Manage reply markup remapping for Telegram messages."""
+
+    def __init__(
+        self,
+        bot: Bot,
+        *,
+        codec: MarkupCodec,
+        telemetry: Telemetry,
+    ) -> None:
+        self._bot = bot
+        self._codec = codec
+        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def remap(self, scope: Scope, identifier: int, payload: Payload) -> Result:
         outcome = await remap(
@@ -129,9 +170,7 @@ class TelegramMessageTransport:
             payload=payload,
             channel=self._channel,
         )
-        meta = util.extract(outcome, payload, scope)
-        resultid = getattr(outcome, "message_id", identifier)
-        return Result(id=resultid, extra=[], meta=meta)
+        return _message_result(outcome, identifier, payload, scope)
 
 
 class TelegramDeletionManager:
@@ -169,28 +208,32 @@ class TelegramGateway(MessageGateway):
     def __init__(
         self,
         *,
-        transport: TelegramMessageTransport,
+        sender: TelegramMessageSender,
+        editor: TelegramMessageEditor,
+        markup: TelegramMarkupRefiner,
         deletion: TelegramDeletionManager,
         notifier: TelegramNotifier,
     ) -> None:
-        self._transport = transport
+        self._sender = sender
+        self._editor = editor
+        self._markup = markup
         self._deletion = deletion
         self._notifier = notifier
 
     async def send(self, scope: Scope, payload: Payload) -> Result:
-        return await self._transport.send(scope, payload)
+        return await self._sender.send(scope, payload)
 
     async def rewrite(self, scope: Scope, identifier: int, payload: Payload) -> Result:
-        return await self._transport.rewrite(scope, identifier, payload)
+        return await self._editor.rewrite(scope, identifier, payload)
 
     async def recast(self, scope: Scope, identifier: int, payload: Payload) -> Result:
-        return await self._transport.recast(scope, identifier, payload)
+        return await self._editor.recast(scope, identifier, payload)
 
     async def retitle(self, scope: Scope, identifier: int, payload: Payload) -> Result:
-        return await self._transport.retitle(scope, identifier, payload)
+        return await self._editor.retitle(scope, identifier, payload)
 
     async def remap(self, scope: Scope, identifier: int, payload: Payload) -> Result:
-        return await self._transport.remap(scope, identifier, payload)
+        return await self._markup.remap(scope, identifier, payload)
 
     async def delete(self, scope: Scope, identifiers: List[int]) -> None:
         await self._deletion.delete(scope, identifiers)
@@ -212,11 +255,13 @@ def create_gateway(
     truncate: bool = False,
     deletepause: float = 0.05,
     telemetry: Telemetry,
-    transport_factory: Callable[..., TelegramMessageTransport] = TelegramMessageTransport,
+    sender_factory: Callable[..., TelegramMessageSender] = TelegramMessageSender,
+    editor_factory: Callable[..., TelegramMessageEditor] = TelegramMessageEditor,
+    markup_factory: Callable[..., TelegramMarkupRefiner] = TelegramMarkupRefiner,
     deletion_factory: Callable[..., TelegramDeletionManager] = TelegramDeletionManager,
     notifier_factory: Callable[..., TelegramNotifier] = TelegramNotifier,
 ) -> TelegramGateway:
-    transport = transport_factory(
+    sender = sender_factory(
         bot,
         codec=codec,
         limits=limits,
@@ -227,6 +272,22 @@ def create_gateway(
         truncate=truncate,
         telemetry=telemetry,
     )
+    editor = editor_factory(
+        bot,
+        codec=codec,
+        limits=limits,
+        schema=schema,
+        policy=policy,
+        screen=screen,
+        preview=preview,
+        truncate=truncate,
+        telemetry=telemetry,
+    )
+    markup = markup_factory(
+        bot,
+        codec=codec,
+        telemetry=telemetry,
+    )
     deletion = deletion_factory(
         bot,
         chunk=chunk,
@@ -235,10 +296,18 @@ def create_gateway(
     )
     notifier = notifier_factory(bot, telemetry=telemetry)
     return TelegramGateway(
-        transport=transport,
+        sender=sender,
+        editor=editor,
+        markup=markup,
         deletion=deletion,
         notifier=notifier,
     )
 
 
-__all__ = ["TelegramGateway", "create_gateway"]
+__all__ = [
+    "TelegramGateway",
+    "TelegramMessageEditor",
+    "TelegramMessageSender",
+    "TelegramMarkupRefiner",
+    "create_gateway",
+]

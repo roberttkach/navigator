@@ -11,6 +11,7 @@ from .storage import StorageContainer
 from .telegram import TelegramContainer
 from .runtime import NavigatorRuntimeContainer
 from .usecases import UseCaseContainer
+from .usecases.view import ViewSupportContainer
 
 
 class CoreBindings(containers.DeclarativeContainer):
@@ -48,6 +49,12 @@ class IntegrationBindings(containers.DeclarativeContainer):
         core=core.provided.core,
         telemetry=telemetry,
     )
+    view_support = providers.Container(
+        ViewSupportContainer,
+        core=core.provided.core,
+        view=view,
+        telemetry=telemetry,
+    )
 
 
 class UseCaseBindings(containers.DeclarativeContainer):
@@ -61,7 +68,7 @@ class UseCaseBindings(containers.DeclarativeContainer):
         UseCaseContainer,
         core=core.provided.core,
         storage=integration.provided.storage,
-        view=integration.provided.view,
+        view_support=integration.provided.view_support,
         telemetry=telemetry,
     )
 

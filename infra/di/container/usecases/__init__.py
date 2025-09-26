@@ -9,7 +9,6 @@ from navigator.core.telemetry import Telemetry
 
 from .history import HistoryUseCaseContainer
 from .tail import TailUseCaseContainer
-from .view import ViewSupportContainer
 
 
 class UseCaseContainer(containers.DeclarativeContainer):
@@ -17,15 +16,9 @@ class UseCaseContainer(containers.DeclarativeContainer):
 
     core = providers.DependenciesContainer()
     storage = providers.DependenciesContainer()
-    view = providers.DependenciesContainer()
+    view_support = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
-    view_support = providers.Container(
-        ViewSupportContainer,
-        core=core,
-        view=view,
-        telemetry=telemetry,
-    )
     history = providers.Container(
         HistoryUseCaseContainer,
         core=core,
@@ -37,10 +30,15 @@ class UseCaseContainer(containers.DeclarativeContainer):
         TailUseCaseContainer,
         core=core,
         storage=storage,
-        view=view,
+        view_support=view_support,
         telemetry=telemetry,
     )
-    alarm = providers.Factory(Alarm, gateway=view.gateway, alert=core.alert, telemetry=telemetry)
+    alarm = providers.Factory(
+        Alarm,
+        gateway=view_support.gateway,
+        alert=core.alert,
+        telemetry=telemetry,
+    )
     navigator = providers.Factory(
         NavigatorUseCases,
         appender=history.provided.appender,
