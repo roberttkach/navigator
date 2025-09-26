@@ -1,15 +1,15 @@
 """Application dependency injection container."""
 from __future__ import annotations
 
-from aiogram.fsm.context import FSMContext
 from dependency_injector import containers, providers
+from aiogram.fsm.context import FSMContext
 from navigator.core.port.factory import ViewLedger
 from navigator.core.telemetry import Telemetry
 
 from .core import CoreContainer
+from .runtime import NavigatorRuntimeContainer
 from .storage import StorageContainer
 from .telegram import TelegramContainer
-from .runtime import NavigatorRuntimeContainer
 from .usecases import UseCaseContainer
 from .usecases.view import ViewSupportContainer
 
@@ -38,6 +38,7 @@ class IntegrationBindings(containers.DeclarativeContainer):
 
     core = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
+    view_container = providers.Dependency(default=TelegramContainer)
 
     storage = providers.Container(
         StorageContainer,
@@ -45,7 +46,7 @@ class IntegrationBindings(containers.DeclarativeContainer):
         telemetry=telemetry,
     )
     view = providers.Container(
-        TelegramContainer,
+        view_container,
         core=core.provided.core,
         telemetry=telemetry,
     )
@@ -96,6 +97,7 @@ class AppContainer(containers.DeclarativeContainer):
     ledger = providers.Dependency(instance_of=ViewLedger)
     alert = providers.Dependency()
     telemetry = providers.Dependency(instance_of=Telemetry)
+    view_container = providers.Dependency(default=TelegramContainer)
 
     _core = providers.Container(
         CoreBindings,
@@ -109,6 +111,7 @@ class AppContainer(containers.DeclarativeContainer):
         IntegrationBindings,
         core=_core,
         telemetry=telemetry,
+        view_container=view_container,
     )
     _usecase = providers.Container(
         UseCaseBindings,

@@ -9,7 +9,7 @@ from navigator.adapters.telegram.serializer import (
     TelegramLinkPreviewCodec,
 )
 from navigator.app.service.view.album import AlbumService
-from navigator.app.service.view.executor import EditExecutor
+from navigator.app.service.view.executor import create_edit_executor
 from navigator.app.service.view.inline import InlineHandler, InlineEditor, InlineGuard, InlineRemapper
 from navigator.core.telemetry import Telemetry
 
@@ -47,7 +47,11 @@ class TelegramContainer(containers.DeclarativeContainer):
         editor=scribe,
         telemetry=telemetry,
     )
-    executor = providers.Factory(EditExecutor.create, gateway=gateway, telemetry=telemetry)
+    executor = providers.Factory(
+        create_edit_executor,
+        gateway=gateway,
+        telemetry=telemetry,
+    )
     album = providers.Factory(
         AlbumService,
         executor=executor,
