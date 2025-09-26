@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import Callable, List
 
 from aiogram import Bot
 
@@ -168,40 +168,14 @@ class TelegramGateway(MessageGateway):
 
     def __init__(
         self,
-        bot: Bot,
         *,
-        codec: MarkupCodec,
-        limits: Limits,
-        schema: ExtraSchema,
-        policy: MediaPathPolicy,
-        screen: SignatureScreen,
-        preview: LinkPreviewCodec | None = None,
-        chunk: int = 100,
-        truncate: bool = False,
-        deletepause: float = 0.05,
-        telemetry: Telemetry,
-        transport: TelegramMessageTransport | None = None,
-        deletion: TelegramDeletionManager | None = None,
-        notifier: TelegramNotifier | None = None,
+        transport: TelegramMessageTransport,
+        deletion: TelegramDeletionManager,
+        notifier: TelegramNotifier,
     ) -> None:
-        self._transport = transport or TelegramMessageTransport(
-            bot,
-            codec=codec,
-            limits=limits,
-            schema=schema,
-            policy=policy,
-            screen=screen,
-            preview=preview,
-            truncate=truncate,
-            telemetry=telemetry,
-        )
-        self._deletion = deletion or TelegramDeletionManager(
-            bot,
-            chunk=chunk,
-            delay=deletepause,
-            telemetry=telemetry,
-        )
-        self._notifier = notifier or TelegramNotifier(bot, telemetry=telemetry)
+        self._transport = transport
+        self._deletion = deletion
+        self._notifier = notifier
 
     async def send(self, scope: Scope, payload: Payload) -> Result:
         return await self._transport.send(scope, payload)
@@ -225,4 +199,46 @@ class TelegramGateway(MessageGateway):
         await self._notifier.alert(scope, text)
 
 
-__all__ = ["TelegramGateway"]
+def create_gateway(
+    bot: Bot,
+    *,
+    codec: MarkupCodec,
+    limits: Limits,
+    schema: ExtraSchema,
+    policy: MediaPathPolicy,
+    screen: SignatureScreen,
+    preview: LinkPreviewCodec | None = None,
+    chunk: int = 100,
+    truncate: bool = False,
+    deletepause: float = 0.05,
+    telemetry: Telemetry,
+    transport_factory: Callable[..., TelegramMessageTransport] = TelegramMessageTransport,
+    deletion_factory: Callable[..., TelegramDeletionManager] = TelegramDeletionManager,
+    notifier_factory: Callable[..., TelegramNotifier] = TelegramNotifier,
+) -> TelegramGateway:
+    transport = transport_factory(
+        bot,
+        codec=codec,
+        limits=limits,
+        schema=schema,
+        policy=policy,
+        screen=screen,
+        preview=preview,
+        truncate=truncate,
+        telemetry=telemetry,
+    )
+    deletion = deletion_factory(
+        bot,
+        chunk=chunk,
+        delay=deletepause,
+        telemetry=telemetry,
+    )
+    notifier = notifier_factory(bot, telemetry=telemetry)
+    return TelegramGateway(
+        transport=transport,
+        deletion=deletion,
+        notifier=notifier,
+    )
+
+
+__all__ = ["TelegramGateway", "create_gateway"]
