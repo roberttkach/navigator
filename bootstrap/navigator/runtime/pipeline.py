@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from navigator.app.service.navigator_runtime import NavigatorRuntime
+from navigator.app.service.navigator_runtime.runtime import NavigatorRuntime
 from navigator.core.contracts import MissingAlert
 
 from ..context import BootstrapContext, ViewContainerFactory

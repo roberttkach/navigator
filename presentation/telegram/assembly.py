@@ -8,17 +8,18 @@ from typing import Protocol, cast
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
-from navigator.app.service.navigator_runtime import (
+from navigator.app.service.navigator_runtime import assemble_navigator
+from navigator.contracts.runtime import (
     NavigatorAssemblyOverrides,
     NavigatorRuntimeInstrument,
-    assemble_navigator,
 )
 from navigator.core.contracts import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.presentation.navigator import Navigator
 
 from .alerts import missing
-from .instrumentation import instrument as default_instrument
+from .instrumentation import instrument_for_router
+from .router import router as default_router
 from .scope import outline
 
 
@@ -44,7 +45,7 @@ class TelegramRuntimeConfiguration:
     ) -> "TelegramRuntimeConfiguration":
         instruments: Sequence[NavigatorRuntimeInstrument]
         if instrumentation is None:
-            instruments = (default_instrument,)
+            instruments = (instrument_for_router(default_router),)
         else:
             instruments = tuple(instrumentation)
         return cls(instrumentation=instruments, missing_alert=missing_alert or missing)

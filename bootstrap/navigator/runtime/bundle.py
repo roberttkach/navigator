@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from navigator.app.service.navigator_runtime import NavigatorRuntime
+
+from navigator.app.service.navigator_runtime.runtime import NavigatorRuntime
 from navigator.core.telemetry import Telemetry
 
 from ..container_types import RuntimeContainer

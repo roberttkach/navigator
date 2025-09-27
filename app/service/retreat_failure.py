@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Mapping
+from typing import Iterable
 
 from navigator.core.error import (
     HistoryEmpty,
@@ -46,22 +46,4 @@ class RetreatFailureResolver:
         return str(error) or self._DEFAULT_NOTE
 
 
-class RetreatFailureNoticePresenter:
-    """Map domain-specific failure notes to presentation lexemes."""
-
-    def __init__(
-        self,
-        *,
-        mapping: Mapping[str, str] | None = None,
-        fallback: str = "missing",
-    ) -> None:
-        self._mapping = dict(mapping or {"barred": "barred"})
-        self._fallback = fallback
-
-    def present(self, note: str | None) -> str:
-        if not note:
-            return self._fallback
-        return self._mapping.get(note, self._fallback)
-
-
-__all__ = ["RetreatFailureNoticePresenter", "RetreatFailureResolver"]
+__all__ = ["RetreatFailureResolver"]
