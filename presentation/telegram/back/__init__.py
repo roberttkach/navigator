@@ -10,7 +10,7 @@ from .handler import RetreatHandler
 from .orchestrator import RetreatOrchestrator
 from .outcome import RetreatOutcome
 from .providers import default_retreat_providers
-from .protocols import NavigatorBack, Translator
+from .protocols import NavigatorBack, RetreatFailureTranslator, Translator
 from .result import RetreatResult
 from .telemetry import RetreatTelemetry
 from .workflow import RetreatBackExecutor, RetreatFailureHandler, RetreatWorkflow
@@ -27,6 +27,7 @@ __all__ = [
     "RetreatTelemetry",
     "RetreatBackExecutor",
     "RetreatFailureHandler",
+    "RetreatFailureTranslator",
     "RetreatWorkflow",
     "Translator",
     "default_retreat_providers",

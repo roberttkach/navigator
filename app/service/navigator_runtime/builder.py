@@ -33,6 +33,80 @@ from .runtime_inputs import (
 
 
 @dataclass(frozen=True)
+class RuntimeBuildContext:
+    """Shared context values used across specialised runtime builders."""
+
+    guard: Guardian
+    scope: Scope
+
+
+@dataclass(frozen=True)
+class HistoryServiceBuilder:
+    """Construct history services using consistent runtime context."""
+
+    context: RuntimeBuildContext
+
+    def build(
+        self,
+        contracts: HistoryContracts,
+        *,
+        reporter: NavigatorReporter,
+        bundler: PayloadBundler,
+    ) -> NavigatorHistoryService:
+        return build_history_service(
+            contracts,
+            guard=self.context.guard,
+            scope=self.context.scope,
+            reporter=reporter,
+            bundler=bundler,
+        )
+
+
+@dataclass(frozen=True)
+class StateServiceBuilder:
+    """Create state services while isolating dependency wiring."""
+
+    context: RuntimeBuildContext
+
+    def build(
+        self,
+        contracts: StateContracts,
+        *,
+        reporter: NavigatorReporter,
+        missing_alert: MissingAlert | None,
+    ) -> NavigatorStateService:
+        return build_state_service(
+            contracts,
+            guard=self.context.guard,
+            scope=self.context.scope,
+            reporter=reporter,
+            missing_alert=missing_alert,
+        )
+
+
+@dataclass(frozen=True)
+class TailServiceBuilder:
+    """Prepare tail services with explicit runtime context."""
+
+    context: RuntimeBuildContext
+
+    def build(
+        self,
+        contracts: TailContracts,
+        *,
+        telemetry: Telemetry | None,
+        tail_telemetry: TailTelemetry | None,
+    ) -> NavigatorTail:
+        return build_tail_service(
+            contracts,
+            guard=self.context.guard,
+            scope=self.context.scope,
+            telemetry=telemetry,
+            tail_telemetry=tail_telemetry,
+        )
+
+
+@dataclass(frozen=True)
 class RuntimeAssemblyPlan:
     """Describe the collaborators required to assemble the runtime."""
 
@@ -44,8 +118,10 @@ class NavigatorRuntimeBuilder:
     """Incrementally assemble navigator runtime components."""
 
     def __init__(self, *, guard: Guardian, scope: Scope) -> None:
-        self._guard = guard
-        self._scope = scope
+        context = RuntimeBuildContext(guard=guard, scope=scope)
+        self._history_builder = HistoryServiceBuilder(context)
+        self._state_builder = StateServiceBuilder(context)
+        self._tail_builder = TailServiceBuilder(context)
 
     def build_history(
         self,
@@ -54,10 +130,8 @@ class NavigatorRuntimeBuilder:
         reporter: NavigatorReporter,
         bundler: PayloadBundler,
     ) -> NavigatorHistoryService:
-        return build_history_service(
+        return self._history_builder.build(
             contracts,
-            guard=self._guard,
-            scope=self._scope,
             reporter=reporter,
             bundler=bundler,
         )
@@ -69,10 +143,8 @@ class NavigatorRuntimeBuilder:
         reporter: NavigatorReporter,
         missing_alert: MissingAlert | None,
     ) -> NavigatorStateService:
-        return build_state_service(
+        return self._state_builder.build(
             contracts,
-            guard=self._guard,
-            scope=self._scope,
             reporter=reporter,
             missing_alert=missing_alert,
         )
@@ -84,10 +156,8 @@ class NavigatorRuntimeBuilder:
         telemetry: Telemetry | None,
         tail_telemetry: TailTelemetry | None,
     ) -> NavigatorTail:
-        return build_tail_service(
+        return self._tail_builder.build(
             contracts,
-            guard=self._guard,
-            scope=self._scope,
             telemetry=telemetry,
             tail_telemetry=tail_telemetry,
         )
@@ -194,11 +264,15 @@ def build_navigator_runtime(
 
 
 __all__ = [
+    "HistoryServiceBuilder",
     "HistoryContracts",
     "NavigatorRuntimeContracts",
+    "RuntimeBuildContext",
     "RuntimeAssemblyPlan",
     "StateContracts",
+    "StateServiceBuilder",
     "TailContracts",
+    "TailServiceBuilder",
     "NavigatorRuntimeAssembler",
     "NavigatorRuntimeBuilder",
     "build_navigator_runtime",

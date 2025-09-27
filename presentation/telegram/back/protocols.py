@@ -19,4 +19,16 @@ class NavigatorBack(Protocol):
 Translator = Callable[[str, str], str]
 
 
-__all__ = ["NavigatorBack", "RetreatHistory", "Translator"]
+class RetreatFailureTranslator(Protocol):
+    """Translate domain errors into retreat specific failure notes."""
+
+    def translate(self, error: Exception) -> str | None:
+        """Return a failure note understood by presentation workflow."""
+
+
+__all__ = [
+    "NavigatorBack",
+    "RetreatFailureTranslator",
+    "RetreatHistory",
+    "Translator",
+]

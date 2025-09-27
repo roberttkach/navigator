@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Protocol
 
 from aiogram import F, Router
@@ -10,11 +11,15 @@ from navigator.core.telemetry import Telemetry
 from navigator.presentation.alerts import lexeme
 from navigator.presentation.telegram.back import (
     NavigatorBack,
+    RetreatFailureTranslator,
     RetreatHandler,
     RetreatOutcome,
     Translator,
     create_retreat_handler,
     default_retreat_providers,
+)
+from navigator.presentation.telegram.failures import (
+    default_retreat_failure_translator,
 )
 
 router = Router(name="navigator_handlers")
@@ -28,6 +33,9 @@ class RetreatDependencies:
 
     telemetry: Telemetry
     translator: Translator = lexeme
+    failures: Callable[[], RetreatFailureTranslator] = field(
+        default=default_retreat_failure_translator
+    )
 
 
 class RetreatCallback(Protocol):
@@ -42,7 +50,7 @@ class RetreatCallback(Protocol):
 def build_retreat_handler(dependencies: RetreatDependencies) -> RetreatHandler:
     """Create a retreat handler with explicit dependencies."""
 
-    providers = default_retreat_providers()
+    providers = default_retreat_providers(failures=dependencies.failures)
     return create_retreat_handler(
         dependencies.telemetry,
         dependencies.translator,
