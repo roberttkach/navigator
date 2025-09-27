@@ -28,21 +28,9 @@ class NavigatorRuntimeBuilder:
         *,
         plan: RuntimeAssemblyPlan,
     ) -> NavigatorRuntime:
-        history = self._builders.history.build(
-            plan.contracts.history,
-            reporter=plan.collaborators.reporter,
-            bundler=plan.collaborators.bundler,
-        )
-        state = self._builders.state.build(
-            plan.contracts.state,
-            reporter=plan.collaborators.reporter,
-            missing_alert=plan.collaborators.missing_alert,
-        )
-        tail = self._builders.tail.build(
-            plan.contracts.tail,
-            telemetry=plan.collaborators.telemetry,
-            tail_telemetry=plan.collaborators.tail_telemetry,
-        )
+        history = plan.history.build_with(self._builders.history)
+        state = plan.state.build_with(self._builders.state)
+        tail = plan.tail.build_with(self._builders.tail)
         return NavigatorRuntime(history=history, state=state, tail=tail)
 
 

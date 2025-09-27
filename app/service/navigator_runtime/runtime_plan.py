@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Mapping
 
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
@@ -20,11 +21,25 @@ from .usecases import NavigatorUseCases
 
 
 @dataclass(frozen=True)
+class ComponentAssemblyRequest:
+    """Describe how a specific runtime component should be built."""
+
+    contract: object
+    parameters: Mapping[str, Any]
+
+    def build_with(self, builder: object) -> object:
+        """Execute the build action against the provided component builder."""
+
+        return builder.build(self.contract, **self.parameters)
+
+
+@dataclass(frozen=True)
 class RuntimeAssemblyPlan:
     """Describe the collaborators required to assemble the runtime."""
 
-    contracts: NavigatorRuntimeContracts
-    collaborators: RuntimeCollaborators
+    history: ComponentAssemblyRequest
+    state: ComponentAssemblyRequest
+    tail: ComponentAssemblyRequest
 
 
 def create_runtime_plan(
@@ -51,10 +66,32 @@ def create_runtime_plan(
         tail_telemetry=tail_telemetry,
         missing_alert=missing_alert,
     )
-    return RuntimeAssemblyPlan(
-        contracts=resolved_contracts,
-        collaborators=collaborators,
+    history = ComponentAssemblyRequest(
+        contract=resolved_contracts.history,
+        parameters={
+            "reporter": collaborators.reporter,
+            "bundler": collaborators.bundler,
+        },
     )
+    state = ComponentAssemblyRequest(
+        contract=resolved_contracts.state,
+        parameters={
+            "reporter": collaborators.reporter,
+            "missing_alert": collaborators.missing_alert,
+        },
+    )
+    tail = ComponentAssemblyRequest(
+        contract=resolved_contracts.tail,
+        parameters={
+            "telemetry": collaborators.telemetry,
+            "tail_telemetry": collaborators.tail_telemetry,
+        },
+    )
+    return RuntimeAssemblyPlan(history=history, state=state, tail=tail)
 
 
-__all__ = ["RuntimeAssemblyPlan", "create_runtime_plan"]
+__all__ = [
+    "ComponentAssemblyRequest",
+    "RuntimeAssemblyPlan",
+    "create_runtime_plan",
+]

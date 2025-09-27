@@ -16,17 +16,19 @@ from ...core.value.content import Payload
 from ...core.value.message import Scope
 from .add_components import (
     AppendEntryAssembler,
-    AppendHistoryAccess,
     AppendHistoryWriter,
     AppendPayloadAdapter,
     AppendRenderPlanner,
+    HistorySnapshotAccess,
+    StateStatusAccess,
 )
 from .render_contract import RenderOutcome
 
 
 @dataclass(frozen=True)
 class AppendDependencies:
-    history: AppendHistoryAccess
+    history: HistorySnapshotAccess
+    state: StateStatusAccess
     payloads: AppendPayloadAdapter
     planner: AppendRenderPlanner
     assembler: AppendEntryAssembler
@@ -67,7 +69,7 @@ class AppendPipelineFactory:
         )
         rendering = AppendRendering(self._dependencies.planner, channel)
         persistence = AppendPersistence(
-            self._dependencies.history,
+            self._dependencies.state,
             self._dependencies.assembler,
             self._dependencies.writer,
         )
@@ -121,7 +123,7 @@ class AppendPreparationResult:
 class AppendPreparation:
     """Prepare normalized payload bundles and history snapshots."""
 
-    def __init__(self, history: AppendHistoryAccess, payloads: AppendPayloadAdapter) -> None:
+    def __init__(self, history: HistorySnapshotAccess, payloads: AppendPayloadAdapter) -> None:
         self._history = history
         self._payloads = payloads
 
@@ -156,11 +158,11 @@ class AppendPersistence:
 
     def __init__(
         self,
-        history: AppendHistoryAccess,
+        state: StateStatusAccess,
         assembler: AppendEntryAssembler,
         writer: AppendHistoryWriter,
     ) -> None:
-        self._history = history
+        self._state = state
         self._assembler = assembler
         self._writer = writer
 
@@ -172,7 +174,7 @@ class AppendPersistence:
         *,
         root: bool = False,
     ) -> None:
-        status = await self._history.status()
+        status = await self._state.status()
         entry = self._assembler.build_entry(
             prepared.adjusted,
             render,
