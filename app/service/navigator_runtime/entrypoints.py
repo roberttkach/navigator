@@ -9,10 +9,12 @@ from navigator.core.contracts import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.core.value.message import Scope
 
-from navigator.adapters.navigator_runtime import BootstrapRuntimeAssembler
-
 from .facade import NavigatorFacade
 from .runtime_assembly_port import RuntimeAssemblyPort, RuntimeAssemblyRequest
+from .runtime_assembly_resolver import (
+    RuntimeAssemblyProvider,
+    resolve_runtime_assembler,
+)
 
 FacadeT = TypeVar("FacadeT", bound=NavigatorFacade)
 
@@ -29,6 +31,7 @@ async def assemble_navigator(
     resolution: "ContainerResolution" | None = None,
     facade_type: Type[FacadeT] = NavigatorFacade,
     assembler: RuntimeAssemblyPort[RuntimeAssemblyRequest] | None = None,
+    provider: RuntimeAssemblyProvider | None = None,
 ) -> FacadeT:
     """Assemble a navigator facade for the provided runtime inputs."""
 
@@ -42,7 +45,11 @@ async def assemble_navigator(
         overrides=overrides,
         resolution=resolution,
     )
-    runtime_assembler = assembler or BootstrapRuntimeAssembler()
+    runtime_assembler = resolve_runtime_assembler(
+        assembler=assembler,
+        provider=provider,
+        resolution=resolution,
+    )
     runtime = await runtime_assembler.assemble(request)
     navigator = facade_type(runtime)
     return navigator

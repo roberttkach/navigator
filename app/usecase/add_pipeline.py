@@ -33,12 +33,22 @@ class AppendPreparationFactory:
 
 @dataclass(frozen=True)
 class AppendRenderingFactory:
-    """Create rendering stages while deferring channel binding."""
+    """Create rendering stages without binding telemetry channels."""
 
     planner: AppendRenderPlanner
 
-    def create(self, channel: TelemetryChannel) -> "AppendRendering":
-        return AppendRendering(self.planner, channel)
+    def create(self) -> "AppendRendering":
+        return AppendRendering(self.planner)
+
+
+@dataclass(frozen=True)
+class AppendRenderNotifications:
+    """Handle render-specific telemetry side effects."""
+
+    channel: TelemetryChannel
+
+    def skipped(self) -> None:
+        self.channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="add")
 
 
 @dataclass(frozen=True)
@@ -59,6 +69,7 @@ class AppendPipeline:
 
     preparation: "AppendPreparation"
     rendering: "AppendRendering"
+    render_notifications: AppendRenderNotifications
     persistence: "AppendPersistence"
 
 
@@ -86,11 +97,10 @@ class AppendPreparation:
 
 
 class AppendRendering:
-    """Coordinate render planning and skip detection."""
+    """Coordinate render planning without performing side effects."""
 
-    def __init__(self, planner: AppendRenderPlanner, channel: TelemetryChannel) -> None:
+    def __init__(self, planner: AppendRenderPlanner) -> None:
         self._planner = planner
-        self._channel = channel
 
     async def plan(
         self,
@@ -99,7 +109,6 @@ class AppendRendering:
     ) -> RenderOutcome | None:
         render = await self._planner.plan(scope, prepared.adjusted, prepared.trail)
         if not render or not render.ids or not render.changed:
-            self._channel.emit(logging.INFO, LogCode.RENDER_SKIP, op="add")
             return None
         return render
 
@@ -143,6 +152,7 @@ class AppendWorkflow:
     def __init__(self, pipeline: AppendPipeline) -> None:
         self._preparation = pipeline.preparation
         self._rendering = pipeline.rendering
+        self._notifications = pipeline.render_notifications
         self._persistence = pipeline.persistence
 
     @classmethod
@@ -164,6 +174,7 @@ class AppendWorkflow:
         prepared = await self._preparation.prepare(scope, bundle)
         render = await self._rendering.plan(scope, prepared)
         if render is None:
+            self._notifications.skipped()
             return
         await self._persistence.persist(prepared, render, view, root=root)
 
@@ -185,7 +196,8 @@ class AppendPipelineFactory:
     def create(self, channel: TelemetryChannel) -> AppendPipeline:
         return AppendPipeline(
             preparation=self._preparation.create(),
-            rendering=self._rendering.create(channel),
+            rendering=self._rendering.create(),
+            render_notifications=AppendRenderNotifications(channel),
             persistence=self._persistence.create(),
         )
 
@@ -198,6 +210,7 @@ __all__ = [
     "AppendPreparation",
     "AppendPreparationFactory",
     "AppendPreparationResult",
+    "AppendRenderNotifications",
     "AppendRendering",
     "AppendRenderingFactory",
     "AppendWorkflow",

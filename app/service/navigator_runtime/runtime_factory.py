@@ -14,10 +14,13 @@ from .runtime_planning import (  # re-export for backwards compatibility
     RuntimeCollaboratorPlanner,
     RuntimeContractPlanner,
     RuntimePlanRequestPlanner,
-    RuntimePlannerDependencies,
     build_runtime_collaborators,
     build_runtime_contract_selection,
     create_runtime_plan_request,
+)
+from .runtime_plan_request_builder import (
+    RuntimeInstrumentationDependencies,
+    RuntimeNotificationDependencies,
 )
 
 
@@ -51,7 +54,8 @@ __all__ = [
     "RuntimeContractPlanner",
     "RuntimePlanRequestPlanner",
     "RuntimeAssemblyPlan",
-    "RuntimePlannerDependencies",
+    "RuntimeInstrumentationDependencies",
+    "RuntimeNotificationDependencies",
     "build_navigator_runtime",
     "build_runtime_collaborators",
     "build_runtime_contract_selection",

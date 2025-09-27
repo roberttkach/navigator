@@ -1,7 +1,7 @@
 """Builders producing runtime plan requests from domain inputs."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
@@ -33,43 +33,6 @@ class RuntimeNotificationDependencies:
 
 
 @dataclass(frozen=True)
-class RuntimePlannerDependencies:
-    """Bundle cohesive collaborator groups used during plan creation."""
-
-    instrumentation: RuntimeInstrumentationDependencies = field(
-        default_factory=RuntimeInstrumentationDependencies
-    )
-    notifications: RuntimeNotificationDependencies = field(
-        default_factory=RuntimeNotificationDependencies
-    )
-    bundler: PayloadBundler | None = None
-
-    @classmethod
-    def from_components(
-        cls,
-        *,
-        telemetry: Telemetry | None = None,
-        tail_telemetry: TailTelemetry | None = None,
-        reporter: NavigatorReporter | None = None,
-        missing_alert: MissingAlert | None = None,
-        bundler: PayloadBundler | None = None,
-    ) -> "RuntimePlannerDependencies":
-        """Create dependencies from primitive components."""
-
-        return cls(
-            instrumentation=RuntimeInstrumentationDependencies(
-                telemetry=telemetry,
-                tail=tail_telemetry,
-            ),
-            notifications=RuntimeNotificationDependencies(
-                reporter=reporter,
-                missing_alert=missing_alert,
-            ),
-            bundler=bundler,
-        )
-
-
-@dataclass(frozen=True)
 class RuntimeContractSelector:
     """Build contract selections isolating domain knowledge."""
 
@@ -92,17 +55,21 @@ class RuntimeCollaboratorFactory:
         self,
         *,
         scope: Scope,
-        dependencies: RuntimePlannerDependencies,
+        instrumentation: RuntimeInstrumentationDependencies | None = None,
+        notifications: RuntimeNotificationDependencies | None = None,
+        bundler: PayloadBundler | None = None,
     ) -> RuntimeCollaboratorRequest:
         """Return a collaborator request describing runtime auxiliaries."""
 
+        instrumentation = instrumentation or RuntimeInstrumentationDependencies()
+        notifications = notifications or RuntimeNotificationDependencies()
         return RuntimeCollaboratorRequest(
             scope=scope,
-            telemetry=dependencies.instrumentation.telemetry,
-            reporter=dependencies.notifications.reporter,
-            bundler=dependencies.bundler,
-            tail_telemetry=dependencies.instrumentation.tail,
-            missing_alert=dependencies.notifications.missing_alert,
+            telemetry=instrumentation.telemetry,
+            reporter=notifications.reporter,
+            bundler=bundler,
+            tail_telemetry=instrumentation.tail,
+            missing_alert=notifications.missing_alert,
         )
 
 
@@ -119,7 +86,9 @@ class RuntimePlanRequestBuilder:
         scope: Scope,
         usecases: NavigatorUseCases | None = None,
         contracts: NavigatorRuntimeContracts | None = None,
-        dependencies: RuntimePlannerDependencies,
+        instrumentation: RuntimeInstrumentationDependencies | None = None,
+        notifications: RuntimeNotificationDependencies | None = None,
+        bundler: PayloadBundler | None = None,
     ) -> RuntimePlanRequest:
         """Create a runtime plan request aggregating domain and tooling inputs."""
 
@@ -129,7 +98,9 @@ class RuntimePlanRequestBuilder:
         )
         collaborator_request = self.collaborator_factory.create(
             scope=scope,
-            dependencies=dependencies,
+            instrumentation=instrumentation,
+            notifications=notifications,
+            bundler=bundler,
         )
         return RuntimePlanRequest(
             contracts=contract_source,
@@ -143,5 +114,4 @@ __all__ = [
     "RuntimePlanRequestBuilder",
     "RuntimeInstrumentationDependencies",
     "RuntimeNotificationDependencies",
-    "RuntimePlannerDependencies",
 ]

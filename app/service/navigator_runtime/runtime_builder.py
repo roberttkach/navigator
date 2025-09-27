@@ -28,9 +28,9 @@ class NavigatorRuntimeBuilder:
         *,
         plan: RuntimeAssemblyPlan,
     ) -> NavigatorRuntime:
-        history = plan.history.build_with(self._builders.history)
-        state = plan.state.build_with(self._builders.state)
-        tail = plan.tail.build_with(self._builders.tail)
+        history = self._builders.history.build_from_plan(plan)
+        state = self._builders.state.build_from_plan(plan)
+        tail = self._builders.tail.build_from_plan(plan)
         return NavigatorRuntime(history=history, state=state, tail=tail)
 
 
