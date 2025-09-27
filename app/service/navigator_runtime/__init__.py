@@ -1,6 +1,11 @@
 """Navigator runtime package exposing orchestration helpers."""
 from __future__ import annotations
 
+from .api_contracts import (
+    NavigatorAssemblyOverrides,
+    NavigatorRuntimeBundleLike,
+    NavigatorRuntimeInstrument,
+)
 from .assembly import build_runtime_from_dependencies
 from .builder import build_navigator_runtime
 from .contracts import HistoryContracts, NavigatorRuntimeContracts, StateContracts, TailContracts
@@ -30,8 +35,11 @@ from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
 __all__ = [
+    "NavigatorAssemblyOverrides",
     "NavigatorBackContext",
     "NavigatorBackEvent",
+    "NavigatorRuntimeInstrument",
+    "NavigatorRuntimeBundleLike",
     "build_navigator_runtime",
     "build_runtime_from_dependencies",
     "HistoryAddOperation",

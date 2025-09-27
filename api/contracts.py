@@ -5,15 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Awaitable, Protocol, SupportsInt, runtime_checkable
 
+from navigator.app.service.navigator_runtime.api_contracts import (
+    NavigatorAssemblyOverrides,
+    NavigatorRuntimeBundleLike,
+    NavigatorRuntimeInstrument,
+)
 from ..core.contracts.back import NavigatorBackContext
 from ..core.contracts.state import StateLike
-
-
-@dataclass(slots=True)
-class NavigatorAssemblyOverrides:
-    """Configuration overrides accepted by the public API."""
-
-    view_container: Any | None = None
 
 
 @dataclass(slots=True)
@@ -78,21 +76,6 @@ class NavigatorLike(Protocol):
     history: NavigatorHistoryLike
     state: NavigatorStateLike
     tail: NavigatorTailLike
-
-
-@runtime_checkable
-class NavigatorRuntimeBundleLike(Protocol):
-    """Structural contract describing runtime bundles exposed to the API."""
-
-    telemetry: Any
-    container: Any
-    runtime: Any
-
-
-class NavigatorRuntimeInstrument(Protocol):
-    """Protocol describing runtime instrumentation hooks accepted by the API."""
-
-    def __call__(self, bundle: NavigatorRuntimeBundleLike) -> None: ...
 
 
 __all__ = [

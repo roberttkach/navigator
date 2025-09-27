@@ -4,7 +4,7 @@ from __future__ import annotations
 from .adapter import LedgerAdapter
 from .assembly import NavigatorAssembler, assemble
 from .container import ContainerFactory
-from .context import BootstrapContext, scope_from_dto
+from .context import BootstrapContext
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
 from .telemetry import TelemetryFactory, calibrate_telemetry
 
@@ -19,5 +19,4 @@ __all__ = [
     "TelemetryFactory",
     "assemble",
     "calibrate_telemetry",
-    "scope_from_dto",
 ]

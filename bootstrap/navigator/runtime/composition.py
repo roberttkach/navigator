@@ -6,7 +6,7 @@ from navigator.app.service.navigator_runtime.activation import create_activation
 from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
 from navigator.core.telemetry import Telemetry
 
-from ..context import BootstrapContext, scope_from_dto
+from ..context import BootstrapContext
 from ..telemetry import calibrate_telemetry
 
 
@@ -25,12 +25,10 @@ class NavigatorRuntimeComposer:
         snapshot: NavigatorRuntimeSnapshot,
         context: BootstrapContext,
     ) -> NavigatorRuntime:
-        scope = scope_from_dto(context.scope)
-        missing_alert = context.missing_alert
         plan = create_activation_plan(
             snapshot,
-            scope,
-            missing_alert=missing_alert,
+            context.scope,
+            missing_alert=context.missing_alert,
         )
         return plan.activate()
 

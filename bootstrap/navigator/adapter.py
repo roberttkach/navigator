@@ -1,14 +1,12 @@
-"""Adapters bridging DTO infrastructure with the domain layer."""
 from __future__ import annotations
 
-from navigator.api.contracts import ViewLedgerDTO
 from navigator.core.port.factory import ViewForge, ViewLedger
 
 
 class LedgerAdapter(ViewLedger):
-    """Expose a DTO-backed ledger through the domain ``ViewLedger``."""
+    """Expose a ledger through the domain ``ViewLedger`` interface."""
 
-    def __init__(self, ledger: ViewLedgerDTO) -> None:
+    def __init__(self, ledger: ViewLedger) -> None:
         self._ledger = ledger
 
     def get(self, key: str) -> ViewForge:
