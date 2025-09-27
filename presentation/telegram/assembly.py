@@ -8,7 +8,6 @@ from typing import Protocol, cast
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
-from navigator.adapters.navigator_runtime import bootstrap_runtime_assembler_resolver
 from navigator.app.service.navigator_runtime import (
     NavigatorRuntimeProvider,
     RuntimeAssemblyConfiguration,
@@ -26,8 +25,10 @@ from navigator.core.port.factory import ViewLedger
 from navigator.presentation.navigator import Navigator
 
 from .alerts import missing
-from .instrumentation import instrument_for_router
-from .router import router as default_router
+from .runtime_defaults import (
+    default_instrumentation_factory,
+    default_runtime_resolver,
+)
 from .scope import outline
 
 
@@ -83,6 +84,67 @@ class TelegramRuntimeConfiguration:
 
 
 @dataclass(frozen=True)
+class TelegramRuntimeDependencies:
+    """Resolve runtime assembly collaborators for the Telegram façade."""
+
+    instrumentation_factory: Callable[[], Iterable[NavigatorRuntimeInstrument]]
+    assembler_resolver: RuntimeAssemblerResolver | None
+    provider: RuntimeAssemblyProvider | None
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        instrumentation_factory: Callable[
+            [], Iterable[NavigatorRuntimeInstrument]
+        ] | None = None,
+        runtime_resolver: RuntimeAssemblerResolver | None = None,
+        assembly_provider: RuntimeAssemblyProvider | None = None,
+    ) -> "TelegramRuntimeDependencies":
+        """Build a dependency bundle using presentation defaults where required."""
+
+        factory = instrumentation_factory or default_instrumentation_factory
+        resolver = runtime_resolver or default_runtime_resolver()
+        return cls(
+            instrumentation_factory=factory,
+            assembler_resolver=resolver,
+            provider=assembly_provider,
+        )
+
+    def configuration(
+        self,
+        *,
+        base: TelegramRuntimeConfiguration | None = None,
+    ) -> TelegramRuntimeConfiguration:
+        """Return a runtime configuration resolved from provided dependencies."""
+
+        if base is not None:
+            return base
+        return TelegramRuntimeConfiguration.create(
+            instrumentation_factory=self.instrumentation_factory,
+            assembler_resolver=self.assembler_resolver,
+            provider=self.provider,
+        )
+
+    def provider_for(
+        self,
+        *,
+        configuration: TelegramRuntimeConfiguration,
+        overrides: NavigatorAssemblyOverrides | None,
+        provider: NavigatorRuntimeProvider[Navigator] | None,
+    ) -> NavigatorRuntimeProvider[Navigator]:
+        """Return a runtime provider configured for Telegram assembly."""
+
+        if provider is not None:
+            return provider
+        runtime_configuration = configuration.as_configuration(overrides)
+        return NavigatorRuntimeProvider(
+            assemble_navigator,
+            configuration=runtime_configuration,
+        )
+
+
+@dataclass(frozen=True)
 class TelegramNavigatorAssembler:
     """Concrete assembler translating Telegram primitives for navigator runtime."""
 
@@ -98,21 +160,17 @@ class TelegramNavigatorAssembler:
         assembly_provider: RuntimeAssemblyProvider | None = None,
     ) -> None:
         self._ledger = ledger
-        default_factory = (
-            instrumentation_factory
-            or (lambda: (instrument_for_router(default_router),))
+        dependencies = TelegramRuntimeDependencies.create(
+            instrumentation_factory=instrumentation_factory,
+            runtime_resolver=runtime_resolver,
+            assembly_provider=assembly_provider,
         )
-        resolved_resolver = runtime_resolver or bootstrap_runtime_assembler_resolver()
-        resolved_provider = assembly_provider
-        config = configuration or TelegramRuntimeConfiguration.create(
-            instrumentation_factory=default_factory,
-            assembler_resolver=resolved_resolver,
-            provider=resolved_provider,
-        )
-        self._configuration = config
-        self._provider = provider or NavigatorRuntimeProvider(
-            assemble_navigator,
-            configuration=self._configuration.as_configuration(overrides),
+        resolved_configuration = dependencies.configuration(base=configuration)
+        self._configuration = resolved_configuration
+        self._provider = dependencies.provider_for(
+            configuration=resolved_configuration,
+            overrides=overrides,
+            provider=provider,
         )
 
     async def assemble(self, event: TelegramObject, state: FSMContext) -> Navigator:
@@ -132,5 +190,6 @@ __all__ = [
     "NavigatorAssembler",
     "NavigatorInstrument",
     "TelegramNavigatorAssembler",
+    "TelegramRuntimeDependencies",
     "TelegramRuntimeConfiguration",
 ]
