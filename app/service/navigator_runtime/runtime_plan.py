@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from navigator.core.value.message import Scope
+
 from .contracts import NavigatorRuntimeContracts, RuntimeContractSource
 from .runtime_inputs import (
     RuntimeCollaboratorRequest,
@@ -31,6 +34,12 @@ class RuntimePlanRequest:
 
     contracts: RuntimeContractSource
     collaborators: RuntimeCollaboratorRequest
+
+    @property
+    def scope(self) -> Scope:
+        """Return the scope associated with the collaborator request."""
+
+        return self.collaborators.scope
 
 
 def resolve_runtime_plan_inputs(request: RuntimePlanRequest) -> RuntimePlanInputs:

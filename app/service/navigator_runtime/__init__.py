@@ -6,6 +6,7 @@ from .entrypoints import (
     NavigatorAssemblyService,
     NavigatorFacadeFactory,
     RuntimeAssemblyRequestFactory,
+    resolve_assembly_service,
     assemble_navigator,
 )
 from .presentation import (
@@ -55,6 +56,7 @@ __all__ = [
     "RuntimeAssemblyRequestFactory",
     "NavigatorAssemblyService",
     "NavigatorFacadeFactory",
+    "resolve_assembly_service",
     "assemble_navigator",
     "build_navigator_runtime",
     "build_runtime_collaborators",

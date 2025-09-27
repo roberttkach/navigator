@@ -6,6 +6,7 @@ from .tail_components import (
     TailGateway,
     TailLocker,
     TailTelemetry,
+    TailViewFactory,
 )
 from .tail_view import TailView
 
@@ -19,41 +20,31 @@ class NavigatorTail:
         gateway: TailGateway,
         locker: TailLocker,
         telemetry: TailTelemetry,
+        view_factory: TailViewFactory,
     ) -> None:
         self._gateway = gateway
         self._locker = locker
         self._telemetry = telemetry
+        self._view_factory = view_factory
 
     async def get(self) -> TailView | None:
-        self._telemetry.emit("last.get")
-        async with self._locker.acquire():
+        self._telemetry.record_get()
+        async with self._locker.acquire() as scope:
             identifier = await self._gateway.peek()
         if identifier is None:
             return None
-        return TailView(
-            identifier=identifier,
-            inline=bool(self._locker.scope.inline),
-            chat=self._locker.scope.chat,
-        )
+        return self._view_factory.create(scope=scope, identifier=identifier)
 
     async def delete(self) -> None:
-        self._telemetry.emit("last.delete")
+        self._telemetry.record_delete()
         async with self._locker.acquire() as scope:
             await self._gateway.delete(scope)
 
     async def edit(self, request: TailEditRequest) -> int | None:
         description = request.describe()
-        self._telemetry.emit(
-            "last.edit",
-            payload={
-                "text": description.text,
-                "media": description.media,
-                "group": description.group,
-            },
-        )
+        self._telemetry.record_edit(description)
         async with self._locker.acquire() as scope:
-            result = await self._gateway.edit(scope, request)
-        return result
+            return await self._gateway.edit(scope, request)
 
 
 __all__ = ["NavigatorTail"]
