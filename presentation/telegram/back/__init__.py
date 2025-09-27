@@ -13,7 +13,7 @@ from .failures import RetreatFailurePolicy
 from .orchestrator import RetreatOrchestrator
 from .reporting import RetreatOutcomeReporter
 from .outcome import RetreatOutcome
-from .providers import (
+from .retreat_providers import (
     RetreatOrchestratorProvidersFactory,
     RetreatOutcomeProvidersFactory,
     RetreatWorkflowProvidersFactory,

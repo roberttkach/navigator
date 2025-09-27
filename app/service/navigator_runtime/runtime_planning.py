@@ -67,25 +67,17 @@ class RuntimeCollaboratorPlanner:
 
 @dataclass(frozen=True)
 class RuntimePlanRequestPlanner:
-    """Assemble runtime plan requests from individual planning steps."""
+    """Assemble runtime plan requests from configured request builders."""
 
     builder: RuntimePlanRequestBuilder
-    contracts: RuntimeContractPlanner
-    collaborators: RuntimeCollaboratorPlanner
 
     @classmethod
     def create_default(cls) -> "RuntimePlanRequestPlanner":
-        contract_planner = RuntimeContractPlanner.create_default()
-        collaborator_planner = RuntimeCollaboratorPlanner.create_default()
         builder = RuntimePlanRequestBuilder(
-            contract_selector=contract_planner.selector,
-            collaborator_factory=collaborator_planner.factory,
+            contract_selector=RuntimeContractSelector(),
+            collaborator_factory=RuntimeCollaboratorFactory(),
         )
-        return cls(
-            builder=builder,
-            contracts=contract_planner,
-            collaborators=collaborator_planner,
-        )
+        return cls(builder=builder)
 
     def build(
         self,
@@ -101,29 +93,6 @@ class RuntimePlanRequestPlanner:
             scope=scope,
             usecases=usecases,
             contracts=contracts,
-            instrumentation=instrumentation,
-            notifications=notifications,
-            bundler=bundler,
-        )
-
-    def select(
-        self,
-        *,
-        usecases: NavigatorUseCases | None = None,
-        contracts: NavigatorRuntimeContracts | None = None,
-    ) -> RuntimeContractSelection:
-        return self.contracts.select(usecases=usecases, contracts=contracts)
-
-    def request(
-        self,
-        *,
-        scope: Scope,
-        instrumentation: RuntimeInstrumentationDependencies | None = None,
-        notifications: RuntimeNotificationDependencies | None = None,
-        bundler: PayloadBundler | None = None,
-    ) -> RuntimeCollaboratorRequest:
-        return self.collaborators.request(
-            scope=scope,
             instrumentation=instrumentation,
             notifications=notifications,
             bundler=bundler,

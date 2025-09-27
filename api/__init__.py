@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, cast
 
+from navigator.adapters.navigator_runtime import bootstrap_runtime_assembler_resolver
 from navigator.app.service.navigator_runtime.entrypoints import assemble_navigator
 from ._scope import scope_from_dto
 from .contracts import (
@@ -35,6 +36,7 @@ async def assemble(
         instrumentation=instrumentation,
         missing_alert=missing_alert,
         overrides=overrides,
+        assembler_resolver=bootstrap_runtime_assembler_resolver(),
     )
     return cast(NavigatorLike, navigator)
 

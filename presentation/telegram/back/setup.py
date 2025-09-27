@@ -7,7 +7,7 @@ from .callbacks import RetreatCallback, adapt_retreat_handler
 from .dependencies import RetreatDependencies
 from .factory import create_retreat_handler
 from .handler import RetreatHandler
-from .providers import default_retreat_providers
+from .retreat_providers import default_retreat_providers
 
 
 @dataclass(slots=True)
