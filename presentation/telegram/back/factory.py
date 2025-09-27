@@ -11,11 +11,10 @@ from .context import RetreatContextBuilder
 from .handler import RetreatHandler
 from .orchestrator import RetreatOrchestrator
 from .outcome import RetreatOutcomeFactory
-from .protocols import Translator
+from .protocols import RetreatFailureTranslator, Translator
 from .telemetry import RetreatTelemetry
 
 if TYPE_CHECKING:
-    from navigator.app.service.retreat_failure import RetreatFailureResolver
     from .workflow import RetreatWorkflow
 
 
@@ -24,8 +23,8 @@ class RetreatHandlerProviders:
     """Expose hooks to lazily create retreat handler collaborators."""
 
     context: Callable[[], RetreatContextBuilder]
-    failures: Callable[[], "RetreatFailureResolver"]
-    workflow: Callable[[RetreatContextBuilder, "RetreatFailureResolver"], "RetreatWorkflow"]
+    failures: Callable[[], RetreatFailureTranslator]
+    workflow: Callable[[RetreatContextBuilder, RetreatFailureTranslator], "RetreatWorkflow"]
     instrumentation: Callable[[Telemetry], RetreatTelemetry]
     orchestrator: Callable[[RetreatTelemetry, "RetreatWorkflow"], RetreatOrchestrator]
     outcomes: Callable[[Translator], RetreatOutcomeFactory]
@@ -36,7 +35,7 @@ class RetreatHandlerOverrides:
     """Optional dependencies that may replace individual collaborators."""
 
     context: RetreatContextBuilder | None = None
-    failures: "RetreatFailureResolver" | None = None
+    failures: RetreatFailureTranslator | None = None
     workflow: "RetreatWorkflow" | None = None
     instrumentation: RetreatTelemetry | None = None
     orchestrator: RetreatOrchestrator | None = None

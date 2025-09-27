@@ -7,10 +7,8 @@ from collections.abc import Mapping
 from aiogram.types import CallbackQuery
 
 from navigator.core.contracts.back import NavigatorBackContext
-from navigator.app.service.retreat_failure import RetreatFailureResolver
-
 from .context import RetreatContextBuilder
-from .protocols import NavigatorBack
+from .protocols import NavigatorBack, RetreatFailureTranslator
 from .result import RetreatResult
 
 
@@ -33,7 +31,7 @@ class RetreatBackExecutor:
 class RetreatFailureHandler:
     """Translate application failures into user-facing retreat results."""
 
-    def __init__(self, resolver: RetreatFailureResolver) -> None:
+    def __init__(self, resolver: RetreatFailureTranslator) -> None:
         self._resolver = resolver
 
     def handle(self, error: Exception) -> RetreatResult | None:
@@ -60,7 +58,7 @@ class RetreatWorkflow:
         cls,
         *,
         context: RetreatContextBuilder,
-        failures: RetreatFailureResolver,
+        failures: RetreatFailureTranslator,
     ) -> "RetreatWorkflow":
         return cls(
             executor=RetreatBackExecutor(context),

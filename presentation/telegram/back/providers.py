@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
-from navigator.app.service.retreat_failure import RetreatFailureResolver
+from collections.abc import Callable
+
 from .context import RetreatContextBuilder
 from .factory import RetreatHandlerProviders
 from .orchestrator import RetreatOrchestrator
 from .outcome import RetreatOutcomeFactory
-from .protocols import Translator
+from .protocols import RetreatFailureTranslator, Translator
 from .telemetry import RetreatTelemetry
 from .workflow import RetreatWorkflow
 
 
-def default_retreat_providers() -> RetreatHandlerProviders:
+def default_retreat_providers(
+    *, failures: Callable[[], RetreatFailureTranslator]
+) -> RetreatHandlerProviders:
     """Return providers wiring application services for retreat handling."""
 
     def build_workflow(
-        context: RetreatContextBuilder, failures: RetreatFailureResolver
+        context: RetreatContextBuilder, failures: RetreatFailureTranslator
     ) -> RetreatWorkflow:
         return RetreatWorkflow.from_builders(context=context, failures=failures)
 
@@ -30,7 +33,7 @@ def default_retreat_providers() -> RetreatHandlerProviders:
 
     return RetreatHandlerProviders(
         context=RetreatContextBuilder,
-        failures=RetreatFailureResolver,
+        failures=failures,
         workflow=build_workflow,
         instrumentation=lambda telemetry: RetreatTelemetry(telemetry),
         orchestrator=build_orchestrator,
