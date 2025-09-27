@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from .adapter import LedgerAdapter
-from .assembly import NavigatorAssembler, assemble
+from .assembler import NavigatorAssembler, NavigatorAssemblerBuilder
+from .assembly import AssemblerServices, assemble, create_assembler_services
 from .container import ContainerFactory, ContainerFactoryBuilder
 from .context import BootstrapContext
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
@@ -15,9 +16,12 @@ __all__ = [
     "ContainerRuntimeFactory",
     "LedgerAdapter",
     "NavigatorAssembler",
+    "NavigatorAssemblerBuilder",
     "NavigatorFactory",
     "NavigatorRuntimeBundle",
     "TelemetryFactory",
+    "AssemblerServices",
     "assemble",
+    "create_assembler_services",
     "calibrate_telemetry",
 ]

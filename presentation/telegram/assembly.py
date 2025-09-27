@@ -8,7 +8,12 @@ from typing import Protocol, cast
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
-from navigator.app.service.navigator_runtime import assemble_navigator
+from navigator.app.service.navigator_runtime import (
+    NavigatorRuntimeProvider,
+    RuntimeAssemblyConfiguration,
+    assemble_navigator,
+    default_configuration,
+)
 from navigator.contracts.runtime import (
     NavigatorAssemblyOverrides,
     NavigatorRuntimeInstrument,
@@ -50,6 +55,16 @@ class TelegramRuntimeConfiguration:
             instruments = tuple(instrumentation)
         return cls(instrumentation=instruments, missing_alert=missing_alert or missing)
 
+    def as_configuration(self, overrides: NavigatorAssemblyOverrides | None) -> RuntimeAssemblyConfiguration[Navigator]:
+        """Translate Telegram configuration into a runtime configuration."""
+
+        return default_configuration(
+            instrumentation=tuple(self.instrumentation),
+            missing_alert=self.missing_alert,
+            overrides=overrides,
+            facade_type=Navigator,
+        )
+
 
 @dataclass(frozen=True)
 class TelegramNavigatorAssembler:
@@ -61,21 +76,21 @@ class TelegramNavigatorAssembler:
         *,
         configuration: TelegramRuntimeConfiguration | None = None,
         overrides: NavigatorAssemblyOverrides | None = None,
+        provider: NavigatorRuntimeProvider[Navigator] | None = None,
     ) -> None:
         self._ledger = ledger
         self._configuration = configuration or TelegramRuntimeConfiguration.create()
-        self._overrides = overrides
+        self._provider = provider or NavigatorRuntimeProvider(
+            assemble_navigator,
+            configuration=self._configuration.as_configuration(overrides),
+        )
 
     async def assemble(self, event: TelegramObject, state: FSMContext) -> Navigator:
-        navigator = await assemble_navigator(
+        navigator = await self._provider.assemble(
             event=event,
             state=state,
             ledger=self._ledger,
             scope=outline(event),
-            instrumentation=self._configuration.instrumentation,
-            missing_alert=self._configuration.missing_alert,
-            overrides=self._overrides,
-            facade_type=Navigator,
         )
         return cast(Navigator, navigator)
 

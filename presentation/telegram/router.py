@@ -79,34 +79,43 @@ def _retreat_callback(handler: RetreatHandler) -> RetreatCallback:
 
 
 @dataclass(slots=True)
-class RetreatRouterConfigurator:
-    """Install retreat callback handlers on a dedicated router."""
+class RetreatCallbackFactory:
+    """Create retreat callbacks independent from router registration."""
 
-    router: Router
-
-    def build(self, dependencies: RetreatDependencies) -> RetreatCallback:
-        """Return a callback without mutating the underlying router."""
-
+    def create(self, dependencies: RetreatDependencies) -> RetreatCallback:
         handler = build_retreat_handler(dependencies)
         return _retreat_callback(handler)
 
-    def register(self, callback: RetreatCallback) -> None:
-        """Attach ``callback`` to the configured router."""
 
+@dataclass(slots=True)
+class RetreatRouterInstaller:
+    """Attach retreat callbacks to a router instance."""
+
+    router: Router
+
+    def install(self, callback: RetreatCallback) -> None:
         self.router.callback_query.register(callback, F.data == BACK_CALLBACK_DATA)
 
-    def configure(self, dependencies: RetreatDependencies) -> RetreatCallback:
-        """Create a retreat callback and register it on the router."""
 
-        callback = self.build(dependencies)
-        self.register(callback)
+@dataclass(slots=True)
+class RetreatRouterConfigurator:
+    """Compose callback factories with router installers."""
+
+    factory: RetreatCallbackFactory
+    installer: RetreatRouterInstaller
+
+    def configure(self, dependencies: RetreatDependencies) -> RetreatCallback:
+        callback = self.factory.create(dependencies)
+        self.installer.install(callback)
         return callback
 
 
 def retreat_configurator(target: Router | None = None) -> RetreatRouterConfigurator:
     """Return a configurator bound to ``target`` or the module router."""
 
-    return RetreatRouterConfigurator(target or router)
+    installer = RetreatRouterInstaller(target or router)
+    factory = RetreatCallbackFactory()
+    return RetreatRouterConfigurator(factory=factory, installer=installer)
 
 
 def configure_retreat(
@@ -126,7 +135,9 @@ __all__ = [
     "BACK_CALLBACK_DATA",
     "RetreatDependencies",
     "RetreatCallback",
+    "RetreatCallbackFactory",
     "RetreatRouterConfigurator",
+    "RetreatRouterInstaller",
     "build_retreat_handler",
     "configure_retreat",
     "retreat_configurator",
