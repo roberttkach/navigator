@@ -26,13 +26,36 @@ from .render_contract import RenderOutcome
 
 
 @dataclass(frozen=True)
-class AppendDependencies:
+class AppendPreparationFactory:
+    """Create preparation stages with grouped dependencies."""
+
     history: HistorySnapshotAccess
-    state: StateStatusAccess
     payloads: AppendPayloadAdapter
+
+    def create(self) -> "AppendPreparation":
+        return AppendPreparation(self.history, self.payloads)
+
+
+@dataclass(frozen=True)
+class AppendRenderingFactory:
+    """Create rendering stages while deferring channel binding."""
+
     planner: AppendRenderPlanner
+
+    def create(self, channel: TelemetryChannel) -> "AppendRendering":
+        return AppendRendering(self.planner, channel)
+
+
+@dataclass(frozen=True)
+class AppendPersistenceFactory:
+    """Create persistence stages from cohesive collaborators."""
+
+    state: StateStatusAccess
     assembler: AppendEntryAssembler
     writer: AppendHistoryWriter
+
+    def create(self) -> "AppendPersistence":
+        return AppendPersistence(self.state, self.assembler, self.writer)
 
 
 @dataclass(frozen=True)
@@ -57,26 +80,24 @@ class AppendInstrumentation:
 
 
 class AppendPipelineFactory:
-    """Create append pipeline stages from declarative dependencies."""
+    """Create append pipeline stages from cohesive stage factories."""
 
-    def __init__(self, dependencies: AppendDependencies) -> None:
-        self._dependencies = dependencies
+    def __init__(
+            self,
+            *,
+            preparation: AppendPreparationFactory,
+            rendering: AppendRenderingFactory,
+            persistence: AppendPersistenceFactory,
+    ) -> None:
+        self._preparation = preparation
+        self._rendering = rendering
+        self._persistence = persistence
 
     def create(self, channel: TelemetryChannel) -> AppendPipeline:
-        preparation = AppendPreparation(
-            self._dependencies.history,
-            self._dependencies.payloads,
-        )
-        rendering = AppendRendering(self._dependencies.planner, channel)
-        persistence = AppendPersistence(
-            self._dependencies.state,
-            self._dependencies.assembler,
-            self._dependencies.writer,
-        )
         return AppendPipeline(
-            preparation=preparation,
-            rendering=rendering,
-            persistence=persistence,
+            preparation=self._preparation.create(),
+            rendering=self._rendering.create(channel),
+            persistence=self._persistence.create(),
         )
 
 

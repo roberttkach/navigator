@@ -59,7 +59,11 @@ class TailUseCaseContainer(containers.DeclarativeContainer):
         journal=tail_history_journal,
     )
     tail_mutator = providers.Factory(TailHistoryMutator)
-    tail_prime = providers.Factory(PrimeEntryFactory, clock=core.clock)
+    tail_prime = providers.Factory(
+        PrimeEntryFactory,
+        clock=core.clock,
+        entities=storage.entities,
+    )
     tail_decision = providers.Factory(
         TailDecisionService,
         rendering=core.rendering,

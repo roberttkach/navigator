@@ -16,6 +16,7 @@ from ...core.error import (
 from ...core.port.clock import Clock
 from ...core.port.factory import ViewLedger
 from ...core.service.history.extra import cleanse
+from ...core.util.entities import EntitySanitizer
 from ...core.typing.result import GroupMeta, MediaMeta, Meta, TextMeta
 from ...core.value.content import Payload
 
@@ -113,11 +114,13 @@ def _clean_extra(
         base: Optional[Entry],
         index: int,
         length: int,
+        *,
+        entities: EntitySanitizer,
 ) -> Optional[dict[str, Any]]:
     """Return sanitised extra metadata for ``payload`` at ``index``."""
 
     source = payload.extra if payload.extra is not None else _previous_extra(base, index)
-    return cleanse(source, length=length)
+    return cleanse(source, length=length, entities=entities)
 
 
 def _view_if_known(ledger: ViewLedger, view: Optional[str]) -> Optional[str]:
@@ -131,9 +134,16 @@ def _view_if_known(ledger: ViewLedger, view: Optional[str]) -> Optional[str]:
 class EntryMapper:
     """Translate rendering outcomes into persisted history entries."""
 
-    def __init__(self, ledger: ViewLedger, clock: Clock):
+    def __init__(
+            self,
+            ledger: ViewLedger,
+            clock: Clock,
+            *,
+            entities: EntitySanitizer,
+    ) -> None:
         self._ledger = ledger
         self._clock = clock
+        self._entities = entities
 
     def convert(
             self,
@@ -162,7 +172,12 @@ class EntryMapper:
             base: Optional[Entry],
     ) -> List[Message]:
         timestamp = self._clock.now()
-        composer = _MessageComposer(outcome=outcome, base=base, timestamp=timestamp)
+        composer = _MessageComposer(
+            outcome=outcome,
+            base=base,
+            timestamp=timestamp,
+            entities=self._entities,
+        )
         return [composer.build(index, payload) for index, payload in enumerate(payloads)]
 
 
@@ -175,10 +190,12 @@ class _MessageComposer:
             outcome: "Outcome",
             base: Optional[Entry],
             timestamp: datetime,
+            entities: EntitySanitizer,
     ) -> None:
         self._outcome = outcome
         self._base = base
         self._timestamp = timestamp
+        self._entities = entities
 
     def build(self, index: int, payload: Payload) -> Message:
         meta = self._outcome.meta_at(index)
@@ -208,7 +225,13 @@ class _MessageComposer:
             group: Optional[Iterable[MediaItem]],
     ) -> Optional[dict[str, Any]]:
         length = _caption_length(text, media, group)
-        return _clean_extra(payload, self._base, index, length)
+        return _clean_extra(
+            payload,
+            self._base,
+            index,
+            length,
+            entities=self._entities,
+        )
 
 
 class Outcome:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from navigator.core.port.extraschema import ExtraSchema
 from navigator.core.service.history.extra import cleanse as history_cleanse
-from navigator.core.util.entities import sanitize
+from .entities import TELEGRAM_ENTITY_SANITIZER
 from navigator.core.value.message import Scope
 from typing import Any, Dict
 
@@ -29,7 +29,7 @@ class TelegramExtraSchema(ExtraSchema):
         return self._compose(scope, extra, span, media, editing=True)
 
     def history(self, extra: dict | None, *, length: int) -> dict | None:
-        return history_cleanse(extra, length=length)
+        return history_cleanse(extra, length=length, entities=TELEGRAM_ENTITY_SANITIZER)
 
     def _compose(
             self,
@@ -125,7 +125,7 @@ class TelegramExtraSchema(ExtraSchema):
         entities = extra.get("entities")
         if not entities:
             return None
-        return sanitize(entities, span or 0) or None
+        return TELEGRAM_ENTITY_SANITIZER.sanitize(entities, span or 0) or None
 
 
 __all__ = ["TelegramExtraSchema"]

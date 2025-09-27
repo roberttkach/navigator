@@ -4,9 +4,11 @@ from __future__ import annotations
 from dependency_injector import containers, providers
 
 from navigator.app.usecase.add import (
-    AppendDependencies,
     AppendInstrumentation,
     AppendPipelineFactory,
+    AppendPreparationFactory,
+    AppendPersistenceFactory,
+    AppendRenderingFactory,
     AppendWorkflow,
     Appender,
 )
@@ -46,7 +48,7 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
     payloads = providers.Factory(AppendPayloadAdapter)
     planner = providers.Factory(AppendRenderPlanner, planner=view_support.planner)
     assembler = providers.Factory(AppendEntryAssembler, mapper=storage.mapper)
-    pipeline_factory = providers.Factory(
+    history_pipeline_factory = providers.Factory(
         HistoryPersistencePipelineFactory,
         archive=storage.chronicle,
         ledger=storage.latest,
@@ -56,20 +58,28 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
     )
     writer = providers.Factory(
         AppendHistoryWriter,
-        pipeline_factory=pipeline_factory,
+        pipeline_factory=history_pipeline_factory,
     )
-    bundle = providers.Factory(
-        AppendDependencies,
+    preparation_factory = providers.Factory(
+        AppendPreparationFactory,
         history=history_snapshot,
-        state=state_status,
         payloads=payloads,
+    )
+    rendering_factory = providers.Factory(
+        AppendRenderingFactory,
         planner=planner,
+    )
+    persistence_factory = providers.Factory(
+        AppendPersistenceFactory,
+        state=state_status,
         assembler=assembler,
         writer=writer,
     )
-    pipeline_factory = providers.Factory(
+    append_pipeline_factory = providers.Factory(
         AppendPipelineFactory,
-        dependencies=bundle,
+        preparation=preparation_factory,
+        rendering=rendering_factory,
+        persistence=persistence_factory,
     )
     instrumentation = providers.Factory(
         AppendInstrumentation.from_telemetry,
@@ -77,7 +87,7 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
     )
     workflow = providers.Factory(
         AppendWorkflow.from_factory,
-        factory=pipeline_factory,
+        factory=append_pipeline_factory,
         channel=instrumentation.provided.channel,
     )
     usecase = providers.Factory(

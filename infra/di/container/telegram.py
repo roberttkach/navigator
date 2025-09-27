@@ -1,6 +1,7 @@
 from dependency_injector import containers, providers
 
 from navigator.adapters.telegram.codec import AiogramCodec
+from navigator.adapters.telegram.entities import TELEGRAM_ENTITY_SANITIZER
 from navigator.adapters.telegram.gateway import create_gateway
 from navigator.adapters.telegram.media import TelegramMediaPolicy
 from navigator.adapters.telegram.serializer import (
@@ -22,6 +23,7 @@ class TelegramContainer(containers.DeclarativeContainer):
     schema = providers.Factory(TelegramExtraSchema)
     preview = providers.Factory(TelegramLinkPreviewCodec)
     policy = providers.Factory(TelegramMediaPolicy, strict=core.settings.provided.strictpath)
+    entities = providers.Object(TELEGRAM_ENTITY_SANITIZER)
     screen = providers.Factory(SignatureScreen, telemetry=telemetry)
     gateway = providers.Factory(
         create_gateway,

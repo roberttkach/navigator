@@ -1,84 +1,49 @@
-"""Provide sanitizers for Telegram entity metadata."""
+"""Provide reusable sanitizers for entity metadata payloads."""
 
 from __future__ import annotations
 
-import logging
-from typing import Any, Callable, Dict, List, Mapping, Tuple, cast
-
-from ..telemetry import LogCode, Telemetry
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Tuple, cast
 
 EntityDict = Dict[str, Any]
 EntityMapping = Mapping[str, Any]
 OptionalFieldRule = Tuple[str, Callable[[Any], bool]]
 
 
-def _is_str(value: Any) -> bool:
-    """Return ``True`` when ``value`` is a string instance."""
+@dataclass(frozen=True, slots=True)
+class EntitySchema:
+    """Describe validation rules consumed by :class:`EntitySanitizer`."""
 
-    return isinstance(value, str)
+    allowed_types: Iterable[str] = field(default_factory=tuple)
+    optional_fields: Mapping[str, Tuple[OptionalFieldRule, ...]] = field(
+        default_factory=dict
+    )
 
-
-def _is_present(value: Any) -> bool:
-    """Return ``True`` when ``value`` is present (not ``None``)."""
-
-    return value is not None
-
-
-_ALLOWED_ENTITY_TYPES = frozenset(
-    {
-        "mention",
-        "hashtag",
-        "cashtag",
-        "bot_command",
-        "url",
-        "email",
-        "phone_number",
-        "bold",
-        "italic",
-        "underline",
-        "strikethrough",
-        "spoiler",
-        "code",
-        "pre",
-        "text_link",
-        "text_mention",
-        "custom_emoji",
-        "blockquote",
-        "expandable_blockquote",
-    }
-)
-
-_OPTIONAL_FIELD_RULES: Dict[str, Tuple[OptionalFieldRule, ...]] = {
-    "text_link": (("url", _is_str),),
-    "text_mention": (("user", _is_present),),
-    "pre": (("language", _is_str),),
-    "custom_emoji": (("custom_emoji_id", _is_str),),
-}
+    def __post_init__(self) -> None:  # pragma: no cover - dataclass internals
+        object.__setattr__(self, "allowed_types", frozenset(self.allowed_types))
+        normalized = {
+            key: tuple(rules)
+            for key, rules in self.optional_fields.items()
+        }
+        object.__setattr__(self, "optional_fields", normalized)
 
 
-def sanitize(
-        entities: Any,
-        length: int,
-        *,
-        telemetry: Telemetry | None = None,
+class EntitySanitizer:
+    """Sanitize entity payloads using a declarative :class:`EntitySchema`."""
+
+    def __init__(self, schema: EntitySchema) -> None:
+        self._schema = schema
+
+    def sanitize(self, entities: Any, length: int) -> List[EntityDict]:
+        """Return sanitized message entities limited by the given length."""
+
+        limit = _normalize_limit(length)
+        return _sanitize_collection(entities, limit, self._schema)
+
+
+def _sanitize_collection(
+        entities: Any, limit: int, schema: EntitySchema
 ) -> List[EntityDict]:
-    """Return sanitized message entities limited by the given length."""
-
-    channel = telemetry.channel(__name__) if telemetry else None
-    limit = _normalize_limit(length)
-    sanitized = _sanitize_collection(entities, limit)
-
-    if entities and not sanitized and channel is not None:
-        channel.emit(
-            logging.DEBUG,
-            LogCode.EXTRA_UNKNOWN_DROPPED,
-            note="entities_dropped_all",
-        )
-
-    return sanitized
-
-
-def _sanitize_collection(entities: Any, limit: int) -> List[EntityDict]:
     """Return sanitized entity objects extracted from ``entities`` input."""
 
     if not isinstance(entities, list):
@@ -86,20 +51,22 @@ def _sanitize_collection(entities: Any, limit: int) -> List[EntityDict]:
 
     sanitized: List[EntityDict] = []
     for entity in entities:
-        data = _sanitize_entity(entity, limit)
+        data = _sanitize_entity(entity, limit, schema)
         if data is not None:
             sanitized.append(data)
     return sanitized
 
 
-def _sanitize_entity(entity: Any, limit: int) -> EntityDict | None:
+def _sanitize_entity(
+        entity: Any, limit: int, schema: EntitySchema
+) -> EntityDict | None:
     """Sanitize a single entity mapping, returning ``None`` if invalid."""
 
     if not isinstance(entity, dict):
         return None
 
     kind_value = entity.get("type")
-    if kind_value not in _ALLOWED_ENTITY_TYPES:
+    if kind_value not in schema.allowed_types:
         return None
 
     kind = cast(str, kind_value)
@@ -109,7 +76,7 @@ def _sanitize_entity(entity: Any, limit: int) -> EntityDict | None:
 
     offset, length = span
     payload: EntityDict = {"type": kind, "offset": offset, "length": length}
-    payload.update(_collect_optional_fields(kind, entity))
+    payload.update(_collect_optional_fields(kind, entity, schema))
     return payload
 
 
@@ -131,11 +98,13 @@ def _extract_span(entity: EntityMapping, limit: int) -> Tuple[int, int] | None:
     return offset, span
 
 
-def _collect_optional_fields(kind: str, entity: EntityMapping) -> EntityDict:
+def _collect_optional_fields(
+        kind: str, entity: EntityMapping, schema: EntitySchema
+) -> EntityDict:
     """Collect optional attributes recognised for the provided entity kind."""
 
     extracted: EntityDict = {}
-    rules = _OPTIONAL_FIELD_RULES.get(kind, ())
+    rules = schema.optional_fields.get(kind, ())
     for field, predicate in rules:
         value = entity.get(field)
         if predicate(value):
@@ -150,3 +119,7 @@ def _normalize_limit(length: int) -> int:
         return max(0, int(length))
     except (TypeError, ValueError):
         return 0
+
+
+__all__ = ["EntitySanitizer", "EntitySchema", "OptionalFieldRule"]
+

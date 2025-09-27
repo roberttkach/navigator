@@ -7,7 +7,7 @@ from typing import Iterable
 from navigator.core.value.message import Scope
 
 from ..executor import EditExecutor
-from .planner import AlbumMutation
+from .mutation_plan import AlbumMutation
 
 
 class AlbumMutationExecutor:
