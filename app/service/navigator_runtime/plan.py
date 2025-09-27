@@ -1,7 +1,7 @@
 """Activation plan primitives shared across navigator runtime services."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from navigator.core.value.message import Scope
 
@@ -11,15 +11,43 @@ from .dependencies import (
     RuntimeTelemetryServices,
 )
 from .runtime import NavigatorRuntime
-from .runtime_factory import (
-    NavigatorRuntimeAssembly,
+from .runtime_activation_builder import RuntimeActivationBuilder
+from .runtime_plan import RuntimePlanRequest
+from .runtime_plan_dependencies import (
     RuntimeInstrumentationDependencies,
     RuntimeNotificationDependencies,
-    RuntimePlanRequest,
-    build_navigator_runtime,
-    build_runtime_collaborators,
-    build_runtime_contract_selection,
 )
+from .runtime_planning import RuntimePlanRequestPlanner
+
+
+@dataclass(frozen=True)
+class RuntimePlanRequestFactory:
+    """Create runtime plan requests from activation services."""
+
+    planner: RuntimePlanRequestPlanner = field(
+        default_factory=RuntimePlanRequestPlanner.create_default
+    )
+
+    def create(
+        self,
+        *,
+        domain: RuntimeDomainServices,
+        telemetry: RuntimeTelemetryServices,
+        scope: Scope,
+        safety: RuntimeSafetyServices,
+    ) -> RuntimePlanRequest:
+        instrumentation = RuntimeInstrumentationDependencies(
+            telemetry=telemetry.telemetry,
+        )
+        notifications = RuntimeNotificationDependencies(
+            missing_alert=safety.missing_alert,
+        )
+        return self.planner.build(
+            scope=scope,
+            usecases=domain.usecases,
+            instrumentation=instrumentation,
+            notifications=notifications,
+        )
 
 
 @dataclass(frozen=True)
@@ -30,28 +58,24 @@ class RuntimeActivationPlan:
     telemetry: RuntimeTelemetryServices
     scope: Scope
     safety: RuntimeSafetyServices
+    request_factory: RuntimePlanRequestFactory = field(default_factory=RuntimePlanRequestFactory)
+    runtime_builder: RuntimeActivationBuilder = field(
+        default_factory=RuntimeActivationBuilder
+    )
 
     def activate(self) -> NavigatorRuntime:
         """Build a runtime instance according to the stored plan."""
 
-        plan_request = self._create_plan_request()
-        assembly = NavigatorRuntimeAssembly(guard=self.safety.guard, plan=plan_request)
-        return build_navigator_runtime(assembly=assembly)
-
-    def _create_plan_request(self) -> RuntimePlanRequest:
-        """Compose the runtime plan request using dedicated builders."""
-
-        contracts = build_runtime_contract_selection(usecases=self.domain.usecases)
-        collaborators = build_runtime_collaborators(
+        plan_request = self.request_factory.create(
+            domain=self.domain,
+            telemetry=self.telemetry,
             scope=self.scope,
-            instrumentation=RuntimeInstrumentationDependencies(
-                telemetry=self.telemetry.telemetry,
-            ),
-            notifications=RuntimeNotificationDependencies(
-                missing_alert=self.safety.missing_alert,
-            ),
+            safety=self.safety,
         )
-        return RuntimePlanRequest(contracts=contracts, collaborators=collaborators)
+        return self.runtime_builder.build(
+            guard=self.safety.guard,
+            plan=plan_request,
+        )
 
 
-__all__ = ["RuntimeActivationPlan"]
+__all__ = ["RuntimeActivationPlan", "RuntimePlanRequestFactory"]

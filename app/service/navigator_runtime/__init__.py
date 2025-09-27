@@ -16,9 +16,8 @@ from .presentation import (
 )
 from .runtime_collaborator_factory import RuntimeCollaboratorFactory
 from .runtime_contract_selector import RuntimeContractSelector
-from .runtime_factory import (
-    NavigatorRuntimeAssembly,
-    build_navigator_runtime,
+from .runtime_factory import NavigatorRuntimeAssembly, build_navigator_runtime
+from .runtime_planning import (
     build_runtime_collaborators,
     build_runtime_contract_selection,
     create_runtime_plan_request,

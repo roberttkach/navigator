@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 from dataclasses import dataclass
+
 from typing import TYPE_CHECKING, Generic, Type, TypeVar
 
 from navigator.contracts.runtime import (
@@ -96,6 +99,73 @@ class NavigatorAssemblyService(Generic[FacadeT]):
         return self.facade_factory.create(runtime, facade_type)
 
 
+@dataclass(frozen=True)
+class NavigatorAssemblyWorkflow(Generic[FacadeT]):
+    """Isolate assembly collaborator selection from the entrypoint."""
+
+    provider: RuntimeAssemblyProvider | None = None
+
+    def create_service(
+        self,
+        *,
+        request_factory: RuntimeAssemblyRequestFactory | None,
+        assembler_resolver: RuntimeAssemblerResolver | None,
+        facade_factory: NavigatorFacadeFactory[FacadeT] | None,
+    ) -> NavigatorAssemblyService[FacadeT]:
+        request_builder = request_factory or RuntimeAssemblyRequestFactory()
+        facade_builder = facade_factory or NavigatorFacadeFactory()
+        resolver = self._resolve_resolver(assembler_resolver)
+        return NavigatorAssemblyService(
+            request_factory=request_builder,
+            resolver=resolver,
+            facade_factory=facade_builder,
+        )
+
+    async def assemble(
+        self,
+        *,
+        event: object,
+        state: object,
+        ledger: ViewLedger,
+        scope: Scope,
+        instrumentation: Iterable[NavigatorRuntimeInstrument] | None,
+        missing_alert: MissingAlert | None,
+        overrides: NavigatorAssemblyOverrides | None,
+        resolution: "ContainerResolution" | None,
+        facade_type: Type[FacadeT],
+        assembler: RuntimeAssemblyPort[RuntimeAssemblyRequest] | None,
+        request_factory: RuntimeAssemblyRequestFactory | None,
+        assembler_resolver: RuntimeAssemblerResolver | None,
+        facade_factory: NavigatorFacadeFactory[FacadeT] | None,
+    ) -> FacadeT:
+        service = self.create_service(
+            request_factory=request_factory,
+            assembler_resolver=assembler_resolver,
+            facade_factory=facade_factory,
+        )
+        return await service.assemble(
+            event=event,
+            state=state,
+            ledger=ledger,
+            scope=scope,
+            instrumentation=instrumentation,
+            missing_alert=missing_alert,
+            overrides=overrides,
+            resolution=resolution,
+            facade_type=facade_type,
+            assembler=assembler,
+        )
+
+    def _resolve_resolver(
+        self, assembler_resolver: RuntimeAssemblerResolver | None
+    ) -> RuntimeAssemblerResolver:
+        if assembler_resolver is not None:
+            return assembler_resolver
+        if self.provider is None:
+            raise RuntimeError("Runtime assembler provider is not configured")
+        return RuntimeAssemblerResolver(provider=self.provider)
+
+
 async def assemble_navigator(
     *,
     event: object,
@@ -115,20 +185,10 @@ async def assemble_navigator(
 ) -> FacadeT:
     """Assemble a navigator facade for the provided runtime inputs."""
 
-    request_builder = request_factory or RuntimeAssemblyRequestFactory()
-    facade_builder = facade_factory or NavigatorFacadeFactory()
-    resolver = assembler_resolver
-    if resolver is None:
-        if provider is None:
-            raise RuntimeError("Runtime assembler provider is not configured")
-        resolver = RuntimeAssemblerResolver(provider=provider)
-    runtime_resolver = resolver
-    navigator_service: NavigatorAssemblyService[FacadeT] = NavigatorAssemblyService(
-        request_factory=request_builder,
-        resolver=runtime_resolver,
-        facade_factory=facade_builder,
+    workflow: NavigatorAssemblyWorkflow[FacadeT] = NavigatorAssemblyWorkflow(
+        provider=provider,
     )
-    return await navigator_service.assemble(
+    return await workflow.assemble(
         event=event,
         state=state,
         ledger=ledger,
@@ -139,12 +199,16 @@ async def assemble_navigator(
         resolution=resolution,
         facade_type=facade_type,
         assembler=assembler,
+        request_factory=request_factory,
+        assembler_resolver=assembler_resolver,
+        facade_factory=facade_factory,
     )
 
 
 __all__ = [
     "NavigatorAssemblyService",
     "NavigatorFacadeFactory",
+    "NavigatorAssemblyWorkflow",
     "RuntimeAssemblyRequestFactory",
     "assemble_navigator",
 ]
