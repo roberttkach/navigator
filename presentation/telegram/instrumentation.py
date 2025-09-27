@@ -25,8 +25,7 @@ def build_retreat_instrument(
     def _instrument(bundle: NavigatorRuntimeBundleLike) -> None:
         configurator = factory(bundle)
         dependencies = RetreatDependencies(telemetry=bundle.telemetry)
-        callback = configurator.build(dependencies)
-        configurator.register(callback)
+        configurator.configure(dependencies)
 
     return _instrument
 

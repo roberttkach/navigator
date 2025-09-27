@@ -1,90 +1,21 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, field
-from typing import Any, Awaitable, Protocol
+from dataclasses import dataclass
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery
 
-from navigator.core.telemetry import Telemetry
-from navigator.presentation.alerts import lexeme
-from navigator.presentation.telegram.back import (
-    NavigatorBack,
-    RetreatFailureNotes,
-    RetreatFailureTranslator,
-    RetreatHandler,
-    RetreatOutcome,
-    Translator,
-    create_retreat_handler,
-    default_retreat_providers,
-)
-from navigator.presentation.telegram.failures import (
-    default_retreat_failure_notes,
-    default_retreat_failure_translator,
+from navigator.presentation.telegram.back import NavigatorBack
+from navigator.presentation.telegram.back.callbacks import RetreatCallback
+from navigator.presentation.telegram.back.dependencies import RetreatDependencies
+from navigator.presentation.telegram.back.setup import (
+    RetreatCallbackFactory,
+    RetreatHandlerBuilder,
+    create_retreat_callback,
 )
 
 router = Router(name="navigator_handlers")
 
 BACK_CALLBACK_DATA = "back"
-
-
-@dataclass(frozen=True)
-class RetreatDependencies:
-    """Dependencies required to configure retreat handling."""
-
-    telemetry: Telemetry
-    translator: Translator = lexeme
-    failures: Callable[[], RetreatFailureTranslator] = field(
-        default=default_retreat_failure_translator
-    )
-    notes: Callable[[], RetreatFailureNotes] = field(
-        default=default_retreat_failure_notes
-    )
-
-
-class RetreatCallback(Protocol):
-    def __call__(
-        self,
-        cb: CallbackQuery,
-        navigator: NavigatorBack,
-        **data: dict[str, Any],
-    ) -> Awaitable[None]: ...
-
-
-def build_retreat_handler(dependencies: RetreatDependencies) -> RetreatHandler:
-    """Create a retreat handler with explicit dependencies."""
-
-    providers = default_retreat_providers(
-        failures=dependencies.failures,
-        notes=dependencies.notes,
-    )
-    return create_retreat_handler(
-        dependencies.telemetry,
-        dependencies.translator,
-        providers=providers,
-    )
-
-
-def _retreat_callback(handler: RetreatHandler) -> RetreatCallback:
-    async def _callback(
-        cb: CallbackQuery,
-        navigator: NavigatorBack,
-        **data: dict[str, Any],
-    ) -> None:
-        outcome: RetreatOutcome = await handler(cb, navigator, data)
-        await cb.answer(outcome.text, show_alert=outcome.show_alert)
-
-    return _callback
-
-
-@dataclass(slots=True)
-class RetreatCallbackFactory:
-    """Create retreat callbacks independent from router registration."""
-
-    def create(self, dependencies: RetreatDependencies) -> RetreatCallback:
-        handler = build_retreat_handler(dependencies)
-        return _retreat_callback(handler)
 
 
 @dataclass(slots=True)
@@ -114,7 +45,7 @@ def retreat_configurator(target: Router | None = None) -> RetreatRouterConfigura
     """Return a configurator bound to ``target`` or the module router."""
 
     installer = RetreatRouterInstaller(target or router)
-    factory = RetreatCallbackFactory()
+    factory = RetreatCallbackFactory(builder=RetreatHandlerBuilder())
     return RetreatRouterConfigurator(factory=factory, installer=installer)
 
 
@@ -131,14 +62,15 @@ def configure_retreat(
 
 __all__ = [
     "router",
-    "NavigatorBack",
     "BACK_CALLBACK_DATA",
-    "RetreatDependencies",
+    "NavigatorBack",
     "RetreatCallback",
     "RetreatCallbackFactory",
+    "RetreatDependencies",
+    "RetreatHandlerBuilder",
     "RetreatRouterConfigurator",
     "RetreatRouterInstaller",
-    "build_retreat_handler",
     "configure_retreat",
+    "create_retreat_callback",
     "retreat_configurator",
 ]
