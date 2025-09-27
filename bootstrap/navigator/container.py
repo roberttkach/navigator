@@ -11,20 +11,56 @@ from .container_types import ContainerBuilder, ContainerRequest, RuntimeContaine
 from .context import BootstrapContext, ViewContainerFactory
 
 
+class ContainerRequestFactory:
+    """Create container requests from bootstrap context information."""
+
+    def __init__(self, *, telemetry: Telemetry, alert: MissingAlert) -> None:
+        self._telemetry = telemetry
+        self._default_alert = alert
+
+    def create(
+        self,
+        context: BootstrapContext,
+        *,
+        view_container: ViewContainerFactory,
+    ) -> ContainerRequest:
+        """Build a container request isolating ledger adaptation and alerts."""
+
+        return ContainerRequest(
+            event=context.event,
+            state=context.state,
+            ledger=self._adapt_ledger(context),
+            alert=self._select_alert(context),
+            telemetry=self._telemetry,
+            view_container=view_container,
+        )
+
+    def _select_alert(self, context: BootstrapContext) -> MissingAlert:
+        return context.missing_alert or self._default_alert
+
+    @staticmethod
+    def _adapt_ledger(context: BootstrapContext) -> LedgerAdapter:
+        return LedgerAdapter(context.ledger)
+
+
 class ContainerFactory:
     """Construct application containers for the navigator runtime."""
 
     def __init__(
         self,
-        telemetry: Telemetry,
         *,
+        telemetry: Telemetry,
         alert: MissingAlert | None = None,
         view_container: ViewContainerFactory | None = None,
         builder: ContainerBuilder | None = None,
         resolution: ContainerResolution | None = None,
+        request_factory: ContainerRequestFactory | None = None,
     ) -> None:
-        self._telemetry = telemetry
-        self._alert = alert or (lambda scope: "")
+        default_alert = alert or (lambda scope: "")
+        self._request_factory = request_factory or ContainerRequestFactory(
+            telemetry=telemetry,
+            alert=default_alert,
+        )
         self._collaborators = ContainerCollaboratorsResolver(
             default_view=view_container,
             default_builder=builder,
@@ -32,17 +68,12 @@ class ContainerFactory:
         )
 
     def create(self, context: BootstrapContext) -> RuntimeContainer:
-        alert = context.missing_alert or self._alert
         collaborators = self._collaborators.resolve(context)
-        request = ContainerRequest(
-            event=context.event,
-            state=context.state,
-            ledger=LedgerAdapter(context.ledger),
-            alert=alert,
-            telemetry=self._telemetry,
+        request = self._request_factory.create(
+            context,
             view_container=collaborators.view_container,
         )
         return collaborators.builder.build(request)
 
 
-__all__ = ["ContainerFactory"]
+__all__ = ["ContainerFactory", "ContainerRequestFactory"]

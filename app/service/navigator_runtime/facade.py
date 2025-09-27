@@ -1,13 +1,13 @@
 """Generic navigator facade for application runtime consumers."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, SupportsInt
 
 from navigator.app.dto.content import Content, Node
 
 from navigator.core.contracts.back import NavigatorBackContext
-from .bundler import bundle_from_dto
+from .bundler import PayloadBundleSource, bundle_from_dto
 from .history import NavigatorHistoryService
 from .runtime import NavigatorRuntime
 from .state import NavigatorStateService
@@ -17,10 +17,21 @@ from navigator.core.contracts.state import StateLike
 
 
 @dataclass(frozen=True)
+class HistoryContentTranslator:
+    """Translate facade DTOs into bundle sources understood by the service."""
+
+    def to_source(self, content: Content | Node) -> PayloadBundleSource:
+        return bundle_from_dto(content)
+
+
+@dataclass(frozen=True)
 class NavigatorHistoryFacade:
     """Expose history oriented runtime capabilities."""
 
     service: NavigatorHistoryService
+    translator: HistoryContentTranslator = field(
+        default_factory=HistoryContentTranslator
+    )
 
     async def add(
         self,
@@ -29,10 +40,14 @@ class NavigatorHistoryFacade:
         key: str | None = None,
         root: bool = False,
     ) -> None:
-        await self.service.add(bundle_from_dto(content), key=key, root=root)
+        await self.service.add(
+            self.translator.to_source(content),
+            key=key,
+            root=root,
+        )
 
     async def replace(self, content: Content | Node) -> None:
-        await self.service.replace(bundle_from_dto(content))
+        await self.service.replace(self.translator.to_source(content))
 
     async def rebase(self, message: int | SupportsInt) -> None:
         await self.service.rebase(message)
@@ -81,6 +96,7 @@ class NavigatorFacade:
 
 
 __all__ = [
+    "HistoryContentTranslator",
     "NavigatorFacade",
     "NavigatorHistoryFacade",
     "NavigatorStateFacade",

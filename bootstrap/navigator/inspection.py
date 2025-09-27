@@ -9,8 +9,7 @@ from .container_types import RuntimeContainer
 def inspect_container(container: RuntimeContainer) -> NavigatorRuntimeSnapshot:
     """Collect runtime dependencies and configuration from the container."""
 
-    runtime = container.runtime()
-    return runtime.snapshot()
+    return container.snapshot()
 
 
 __all__ = ["inspect_container"]

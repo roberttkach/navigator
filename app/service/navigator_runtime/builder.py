@@ -1,6 +1,8 @@
 """Factory helpers building the navigator runtime."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from navigator.app.locks.guard import Guardian
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
@@ -28,6 +30,14 @@ from .runtime_inputs import (
     prepare_runtime_collaborators,
     resolve_runtime_contracts,
 )
+
+
+@dataclass(frozen=True)
+class RuntimeAssemblyPlan:
+    """Describe the collaborators required to assemble the runtime."""
+
+    contracts: NavigatorRuntimeContracts
+    collaborators: RuntimeCollaborators
 
 
 class NavigatorRuntimeBuilder:
@@ -106,6 +116,55 @@ class NavigatorRuntimeBuilder:
         return NavigatorRuntime(history=history, state=state, tail=tail)
 
 
+class NavigatorRuntimeAssembler:
+    """Coordinate builder usage around a well-defined assembly plan."""
+
+    def __init__(self, builder: NavigatorRuntimeBuilder) -> None:
+        self._builder = builder
+
+    @classmethod
+    def from_context(
+        cls, *, guard: Guardian, scope: Scope
+    ) -> "NavigatorRuntimeAssembler":
+        return cls(NavigatorRuntimeBuilder(guard=guard, scope=scope))
+
+    def assemble(self, plan: RuntimeAssemblyPlan) -> NavigatorRuntime:
+        return self._builder.assemble(
+            contracts=plan.contracts,
+            collaborators=plan.collaborators,
+        )
+
+
+def create_runtime_plan(
+    *,
+    usecases: NavigatorUseCases | None,
+    contracts: NavigatorRuntimeContracts | None,
+    scope: Scope,
+    telemetry: Telemetry | None,
+    bundler: PayloadBundler | None,
+    reporter: NavigatorReporter | None,
+    missing_alert: MissingAlert | None,
+    tail_telemetry: TailTelemetry | None,
+) -> RuntimeAssemblyPlan:
+    """Resolve runtime collaborators and contracts into a buildable plan."""
+
+    resolved_contracts = resolve_runtime_contracts(
+        usecases=usecases, contracts=contracts
+    )
+    collaborators = prepare_runtime_collaborators(
+        scope=scope,
+        telemetry=telemetry,
+        reporter=reporter,
+        bundler=bundler,
+        tail_telemetry=tail_telemetry,
+        missing_alert=missing_alert,
+    )
+    return RuntimeAssemblyPlan(
+        contracts=resolved_contracts,
+        collaborators=collaborators,
+    )
+
+
 def build_navigator_runtime(
     *,
     usecases: NavigatorUseCases | None = None,
@@ -120,27 +179,28 @@ def build_navigator_runtime(
 ) -> NavigatorRuntime:
     """Create a navigator runtime wiring use cases with cross-cutting tools."""
 
-    builder = NavigatorRuntimeBuilder(guard=guard, scope=scope)
-    resolved_contracts = resolve_runtime_contracts(usecases=usecases, contracts=contracts)
-    collaborators = prepare_runtime_collaborators(
+    plan = create_runtime_plan(
+        usecases=usecases,
+        contracts=contracts,
         scope=scope,
         telemetry=telemetry,
-        reporter=reporter,
         bundler=bundler,
-        tail_telemetry=tail_telemetry,
+        reporter=reporter,
         missing_alert=missing_alert,
+        tail_telemetry=tail_telemetry,
     )
-    return builder.assemble(
-        contracts=resolved_contracts,
-        collaborators=collaborators,
-    )
+    assembler = NavigatorRuntimeAssembler.from_context(guard=guard, scope=scope)
+    return assembler.assemble(plan)
 
 
 __all__ = [
     "HistoryContracts",
     "NavigatorRuntimeContracts",
+    "RuntimeAssemblyPlan",
     "StateContracts",
     "TailContracts",
+    "NavigatorRuntimeAssembler",
     "NavigatorRuntimeBuilder",
     "build_navigator_runtime",
+    "create_runtime_plan",
 ]

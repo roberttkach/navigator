@@ -26,6 +26,8 @@ class RuntimeContainer(Protocol):
 
     def runtime(self) -> RuntimeSnapshotSource: ...
 
+    def snapshot(self) -> NavigatorRuntimeSnapshot: ...
+
 
 @dataclass(frozen=True)
 class ContainerRequest:

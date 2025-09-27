@@ -1,6 +1,7 @@
 """History-oriented operations orchestrated by the navigator runtime."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, SupportsInt
 
 from navigator.app.locks.guard import Guardian
@@ -42,6 +43,19 @@ class _HistoryOperation:
             await action()
 
 
+@dataclass(frozen=True)
+class HistoryAppendRequest:
+    """Payload bundle prepared for history append operations."""
+
+    payloads: list[object]
+    key: str | None
+    root: bool
+
+    @property
+    def count(self) -> int:
+        return len(self.payloads)
+
+
 class HistoryPayloadAppender:
     """Prepare payload bundles and delegate execution to the use-case."""
 
@@ -54,17 +68,22 @@ class HistoryPayloadAppender:
 
         return self._bundler.bundle(source)
 
-    async def append(
+    def prepare(
         self,
-        scope,
-        payloads: list[object],
-        key: str | None,
+        source: PayloadBundleSource,
         *,
+        key: str | None,
         root: bool,
-    ) -> None:
-        """Execute the append use-case with prepared ``payloads``."""
+    ) -> HistoryAppendRequest:
+        """Return a structured append request derived from ``source``."""
 
-        await self._appender.execute(scope, payloads, key, root=root)
+        payloads = self.bundle(source)
+        return HistoryAppendRequest(payloads=payloads, key=key, root=root)
+
+    async def append(self, scope, request: HistoryAppendRequest) -> None:
+        """Execute the append use-case using a prepared ``request``."""
+
+        await self._appender.execute(scope, request.payloads, request.key, root=request.root)
 
 
 class HistoryAddOperation(_HistoryOperation):
@@ -88,17 +107,17 @@ class HistoryAddOperation(_HistoryOperation):
         key: str | None = None,
         root: bool = False,
     ) -> None:
-        bundled = self._payloads.bundle(content)
+        request = self._payloads.prepare(content, key=key, root=root)
 
         async def action() -> None:
-            await self._payloads.append(self._scope, bundled, key, root=root)
+            await self._payloads.append(self._scope, request)
 
         await self._run(
             "add",
             action,
-            key=key,
-            root=root,
-            payload={"count": len(bundled)},
+            key=request.key,
+            root=request.root,
+            payload={"count": request.count},
         )
 
 
@@ -236,6 +255,7 @@ class NavigatorHistoryService:
 
 
 __all__ = [
+    "HistoryAppendRequest",
     "HistoryPayloadAppender",
     "HistoryAddOperation",
     "HistoryBackOperation",
