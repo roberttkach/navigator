@@ -22,7 +22,7 @@ class NavigatorRuntimeAssembly:
     def scope(self) -> Scope:
         """Expose scope associated with the runtime plan."""
 
-        return self.plan.collaborators.scope
+        return self.plan.scope
 
 
 def build_navigator_runtime(*, assembly: NavigatorRuntimeAssembly) -> NavigatorRuntime:

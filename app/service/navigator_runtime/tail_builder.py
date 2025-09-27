@@ -7,7 +7,7 @@ from navigator.core.value.message import Scope
 
 from .contracts import TailContracts
 from .tail import NavigatorTail
-from .tail_components import TailGateway, TailLocker, TailTelemetry
+from .tail_components import TailGateway, TailLocker, TailTelemetry, TailViewFactory
 
 
 def build_tail_service(
@@ -17,6 +17,7 @@ def build_tail_service(
     scope: Scope,
     telemetry: Telemetry | None = None,
     tail_telemetry: TailTelemetry | None = None,
+    view_factory: TailViewFactory | None = None,
 ) -> NavigatorTail:
     """Construct navigator tail services decoupled from other concerns."""
 
@@ -27,7 +28,13 @@ def build_tail_service(
         if telemetry is None:
             raise ValueError("telemetry or tail_telemetry must be provided")
         metrics = TailTelemetry.from_telemetry(telemetry, scope)
-    return NavigatorTail(gateway=gateway, locker=locker, telemetry=metrics)
+    factory = view_factory or TailViewFactory()
+    return NavigatorTail(
+        gateway=gateway,
+        locker=locker,
+        telemetry=metrics,
+        view_factory=factory,
+    )
 
 
 __all__ = ["build_tail_service"]

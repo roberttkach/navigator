@@ -13,6 +13,7 @@ from .edit_request import (
 from .gateway import TailGateway
 from .locker import TailLocker
 from .telemetry import TailTelemetry
+from .view_factory import TailViewFactory
 
 __all__ = [
     "TailContentEditRequest",
@@ -23,6 +24,7 @@ __all__ = [
     "TailPayloadConverter",
     "TailPayloadEditRequest",
     "TailTelemetry",
+    "TailViewFactory",
     "dto_edit_request",
     "payload_edit_request",
 ]
