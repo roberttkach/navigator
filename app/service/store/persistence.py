@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 
 from ....core.entity.history import Entry
 from ....core.port.history import HistoryRepository
@@ -145,6 +146,28 @@ class HistoryPersistencePipeline:
         await self._marker.update(trimmed, operation=operation)
 
 
+@dataclass(frozen=True)
+class HistoryPersistencePipelineFactory:
+    """Provide ready-to-use history persistence pipelines on demand."""
+
+    archive: HistoryRepository
+    ledger: LatestRepository
+    prune_history: Callable[[list[Entry], int], list[Entry]]
+    limit: int
+    telemetry: Telemetry | None = None
+
+    def create(self) -> HistoryPersistencePipeline:
+        """Instantiate a pipeline with the configured collaborators."""
+
+        return HistoryPersistencePipeline(
+            archive=self.archive,
+            ledger=self.ledger,
+            prune_history=self.prune_history,
+            limit=self.limit,
+            telemetry=self.telemetry,
+        )
+
+
 async def persist(
     archive: HistoryRepository,
     ledger: LatestRepository,
@@ -169,6 +192,7 @@ async def persist(
 
 __all__ = [
     "HistoryArchiver",
+    "HistoryPersistencePipelineFactory",
     "HistoryPersistencePipeline",
     "HistoryTrimmer",
     "LatestMarkerUpdater",

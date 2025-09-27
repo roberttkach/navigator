@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
 
 from navigator.core.telemetry import Telemetry
 
@@ -12,7 +11,11 @@ from .history import NavigatorHistoryService
 from .history_builder import build_history_service
 from .reporter import NavigatorReporter
 from .runtime_context import RuntimeBuildContext
-from .runtime_plan import ComponentAssemblyRequest
+from .runtime_plan import (
+    HistoryAssemblyRequest,
+    StateAssemblyRequest,
+    TailAssemblyRequest,
+)
 from .state import NavigatorStateService
 from .state_builder import build_state_service
 from .tail import NavigatorTail
@@ -43,10 +46,13 @@ class HistoryServiceBuilder:
         )
 
     def build_component(
-        self, request: ComponentAssemblyRequest
+        self, request: HistoryAssemblyRequest
     ) -> NavigatorHistoryService:
-        contracts = cast(HistoryContracts, request.contract)
-        return self.build(contracts, **dict(request.parameters))
+        return self.build(
+            request.contract,
+            reporter=request.reporter,
+            bundler=request.bundler,
+        )
 
 
 @dataclass(frozen=True)
@@ -71,10 +77,13 @@ class StateServiceBuilder:
         )
 
     def build_component(
-        self, request: ComponentAssemblyRequest
+        self, request: StateAssemblyRequest
     ) -> NavigatorStateService:
-        contracts = cast(StateContracts, request.contract)
-        return self.build(contracts, **dict(request.parameters))
+        return self.build(
+            request.contract,
+            reporter=request.reporter,
+            missing_alert=request.missing_alert,
+        )
 
 
 @dataclass(frozen=True)
@@ -99,10 +108,13 @@ class TailServiceBuilder:
         )
 
     def build_component(
-        self, request: ComponentAssemblyRequest
+        self, request: TailAssemblyRequest
     ) -> NavigatorTail:
-        contracts = cast(TailContracts, request.contract)
-        return self.build(contracts, **dict(request.parameters))
+        return self.build(
+            request.contract,
+            telemetry=request.telemetry,
+            tail_telemetry=request.tail_telemetry,
+        )
 
 
 @dataclass(frozen=True)

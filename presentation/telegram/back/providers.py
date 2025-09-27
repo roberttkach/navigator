@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from .context import RetreatContextBuilder
 from .factory import RetreatHandlerProviders
@@ -19,6 +20,33 @@ from .telemetry import RetreatTelemetry
 from .workflow import RetreatWorkflow
 
 
+@dataclass(frozen=True)
+class RetreatOrchestratorFactory:
+    """Create orchestrators while abstracting concrete implementations."""
+
+    telemetry_factory: Callable[[RetreatTelemetry], TelemetryScopeFactory]
+    failure_policy_factory: Callable[[], RetreatFailurePolicy]
+    runner_factory: Callable[
+        [RetreatWorkflow, RetreatFailurePolicy], RetreatWorkflowRunner
+    ]
+    reporter_factory: Callable[[], RetreatOutcomeReporter]
+
+    def create(
+        self, instrumentation: RetreatTelemetry, workflow: RetreatWorkflow
+    ) -> RetreatOrchestrator:
+        """Build an orchestrator using configured collaborators."""
+
+        policy = self.failure_policy_factory()
+        telemetry = self.telemetry_factory(instrumentation)
+        runner = self.runner_factory(workflow, policy)
+        reporter = self.reporter_factory()
+        return RetreatOrchestrator(
+            telemetry=telemetry,
+            runner=runner,
+            reporter=reporter,
+        )
+
+
 def default_retreat_providers(
     *, failures: Callable[[], RetreatFailureTranslator]
 ) -> RetreatHandlerProviders:
@@ -29,18 +57,17 @@ def default_retreat_providers(
     ) -> RetreatWorkflow:
         return RetreatWorkflow.from_builders(context=context, failures=failures)
 
+    orchestrators = RetreatOrchestratorFactory(
+        telemetry_factory=TelemetryScopeFactory,
+        failure_policy_factory=RetreatFailurePolicy,
+        runner_factory=lambda workflow, policy: RetreatWorkflowRunner(workflow, policy),
+        reporter_factory=RetreatOutcomeReporter,
+    )
+
     def build_orchestrator(
         instrumentation: RetreatTelemetry, workflow: RetreatWorkflow
     ) -> RetreatOrchestrator:
-        telemetry = TelemetryScopeFactory(instrumentation)
-        failure_policy = RetreatFailurePolicy()
-        runner = RetreatWorkflowRunner(workflow, failure_policy)
-        reporter = RetreatOutcomeReporter()
-        return RetreatOrchestrator(
-            telemetry=telemetry,
-            runner=runner,
-            reporter=reporter,
-        )
+        return orchestrators.create(instrumentation, workflow)
 
     def build_outcomes(translator: Translator) -> RetreatOutcomeFactory:
         return RetreatOutcomeFactory(translator)
@@ -55,4 +82,4 @@ def default_retreat_providers(
     )
 
 
-__all__ = ["default_retreat_providers"]
+__all__ = ["RetreatOrchestratorFactory", "default_retreat_providers"]

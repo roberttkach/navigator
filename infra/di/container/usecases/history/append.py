@@ -19,7 +19,9 @@ from navigator.app.usecase.add_components import (
     HistorySnapshotAccess,
     StateStatusAccess,
 )
+from navigator.app.service.store import HistoryPersistencePipelineFactory
 from navigator.core.telemetry import Telemetry
+from navigator.core.service.history.policy import prune as prune_history
 
 
 class AppendUseCaseContainer(containers.DeclarativeContainer):
@@ -44,12 +46,17 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
     payloads = providers.Factory(AppendPayloadAdapter)
     planner = providers.Factory(AppendRenderPlanner, planner=view_support.planner)
     assembler = providers.Factory(AppendEntryAssembler, mapper=storage.mapper)
-    writer = providers.Factory(
-        AppendHistoryWriter,
+    pipeline_factory = providers.Factory(
+        HistoryPersistencePipelineFactory,
         archive=storage.chronicle,
-        tail=storage.latest,
+        ledger=storage.latest,
+        prune_history=prune_history,
         limit=history_limit,
         telemetry=telemetry,
+    )
+    writer = providers.Factory(
+        AppendHistoryWriter,
+        pipeline_factory=pipeline_factory,
     )
     bundle = providers.Factory(
         AppendDependencies,
