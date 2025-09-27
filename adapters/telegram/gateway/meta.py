@@ -1,39 +1,24 @@
+"""Utilities for translating Telegram messages to navigator metadata."""
 from __future__ import annotations
 
-from aiogram.types import Message
 from dataclasses import replace
+from typing import Any
+
+from aiogram.types import Message
+
 from navigator.core.port.message import Result
 from navigator.core.typing.result import MediaMeta, Meta, TextMeta
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
-from typing import Any, Dict, Optional
 
 
-def targets(scope: Scope, message: Optional[int] = None, *, topical: bool = True) -> Dict[str, Any]:
-    data: Dict[str, Any] = {}
-    if scope.inline:
-        data["inline_message_id"] = scope.inline
-    elif scope.business:
-        data["business_connection_id"] = scope.business
-        if message is not None:
-            data["message_id"] = message
-    else:
-        data["chat_id"] = scope.chat
-        if message is not None:
-            data["message_id"] = message
-    if topical and not scope.inline and scope.topic is not None:
-        if getattr(scope, "direct", False):
-            data["direct_messages_topic_id"] = scope.topic
-        else:
-            data["message_thread_id"] = scope.topic
-    return data
+def digest_message(message: Message) -> Meta:
+    """Convert a Telegram message into a navigator meta representation."""
 
-
-def _digest(message: Message) -> Meta:
     if getattr(message, "media_group_id", None):
         raise ValueError("grouped messages must be handled separately")
     if message.text is not None and not any(
-            [message.photo, message.document, message.video, message.audio, message.animation]
+        [message.photo, message.document, message.video, message.audio, message.animation]
     ):
         return TextMeta(text=message.text)
     if message.photo:
@@ -53,10 +38,12 @@ def _digest(message: Message) -> Meta:
     return TextMeta(text=message.text)
 
 
-def extract(outcome: Any, payload: Payload, scope: Scope) -> Meta:
+def extract_meta(outcome: Any, payload: Payload, scope: Scope) -> Meta:
+    """Derive meta information from a delivery outcome or payload description."""
+
     token = getattr(scope, "inline", None)
     if isinstance(outcome, Message):
-        meta = _digest(outcome)
+        meta = digest_message(outcome)
         return replace(meta, inline=token)
     if getattr(payload, "group", None):
         raise AssertionError("grouped payloads handled separately")
@@ -66,10 +53,12 @@ def extract(outcome: Any, payload: Payload, scope: Scope) -> Meta:
     return TextMeta(text=getattr(payload, "text", None), inline=token)
 
 
-def derive(message: Message, payload: Payload, scope: Scope) -> Result:
-    meta = extract(message, payload, scope)
+def derive_result(message: Message, payload: Payload, scope: Scope) -> Result:
+    """Produce a domain result from Telegram primitives."""
+
+    meta = extract_meta(message, payload, scope)
     identifier = message.message_id
     return Result(id=identifier, extra=[], meta=meta)
 
 
-__all__ = ["targets", "extract", "derive"]
+__all__ = ["digest_message", "extract_meta", "derive_result"]

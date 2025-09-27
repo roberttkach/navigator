@@ -13,13 +13,13 @@ from navigator.core.telemetry import Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from . import util
+from .meta import extract_meta
 from .edit import recast, retitle, rewrite
 from ..serializer.screen import SignatureScreen
 
 
 def _message_result(outcome: object, identifier: int, payload: Payload, scope: Scope) -> Result:
-    meta = util.extract(outcome, payload, scope)
+    meta = extract_meta(outcome, payload, scope)
     result_id = getattr(outcome, "message_id", identifier)
     return Result(id=result_id, extra=[], meta=meta)
 

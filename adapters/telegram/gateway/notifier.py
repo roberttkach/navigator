@@ -8,7 +8,7 @@ from aiogram import Bot
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.message import Scope
 
-from . import util
+from .targeting import resolve_targets
 
 
 class TelegramNotifier:
@@ -21,7 +21,7 @@ class TelegramNotifier:
     async def alert(self, scope: Scope, text: str) -> None:
         if scope.inline or not text:
             return
-        kwargs = util.targets(scope)
+        kwargs = resolve_targets(scope)
         await self._bot.send_message(text=text, **kwargs)
         self._channel.emit(
             logging.INFO,

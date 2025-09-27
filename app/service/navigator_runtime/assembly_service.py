@@ -25,11 +25,59 @@ FacadeT = TypeVar("FacadeT", bound=NavigatorFacade)
 
 
 @dataclass(frozen=True)
-class NavigatorAssemblyService(Generic[FacadeT]):
-    """Coordinate request creation, assembler resolution and facade instantiation."""
+class RuntimeAssemblyPipeline:
+    """Encapsulate the steps required to assemble a runtime instance."""
 
     request_factory: RuntimeAssemblyRequestFactory
     resolver: RuntimeAssemblerResolver
+
+    def build_request(
+        self,
+        *,
+        event: object,
+        state: object,
+        ledger: ViewLedger,
+        scope: Scope,
+        instrumentation: Iterable[NavigatorRuntimeInstrument] | None,
+        missing_alert: MissingAlert | None,
+        overrides: NavigatorAssemblyOverrides | None,
+        resolution: "ContainerResolution" | None,
+    ) -> RuntimeAssemblyRequest:
+        return self.request_factory.create(
+            event=event,
+            state=state,
+            ledger=ledger,
+            scope=scope,
+            instrumentation=instrumentation,
+            missing_alert=missing_alert,
+            overrides=overrides,
+            resolution=resolution,
+        )
+
+    def resolve_assembler(
+        self,
+        *,
+        assembler: RuntimeAssemblyPort[RuntimeAssemblyRequest] | None,
+        resolution: "ContainerResolution" | None,
+    ) -> RuntimeAssemblyPort[RuntimeAssemblyRequest]:
+        return self.resolver.resolve(
+            assembler=assembler,
+            resolution=resolution,
+        )
+
+    async def assemble_runtime(
+        self,
+        request: RuntimeAssemblyRequest,
+        assembler: RuntimeAssemblyPort[RuntimeAssemblyRequest],
+    ) -> object:
+        return await assembler.assemble(request)
+
+
+@dataclass(frozen=True)
+class NavigatorAssemblyService(Generic[FacadeT]):
+    """Coordinate runtime assembly through a pipeline and compose facades."""
+
+    pipeline: RuntimeAssemblyPipeline
     facade_factory: NavigatorFacadeFactory[FacadeT]
 
     async def assemble(
@@ -46,7 +94,7 @@ class NavigatorAssemblyService(Generic[FacadeT]):
         facade_type: Type[FacadeT],
         assembler: RuntimeAssemblyPort[RuntimeAssemblyRequest] | None,
     ) -> FacadeT:
-        request = self.request_factory.create(
+        request = self.pipeline.build_request(
             event=event,
             state=state,
             ledger=ledger,
@@ -56,11 +104,11 @@ class NavigatorAssemblyService(Generic[FacadeT]):
             overrides=overrides,
             resolution=resolution,
         )
-        runtime_assembler = self.resolver.resolve(
+        runtime_assembler = self.pipeline.resolve_assembler(
             assembler=assembler,
             resolution=resolution,
         )
-        runtime = await runtime_assembler.assemble(request)
+        runtime = await self.pipeline.assemble_runtime(request, runtime_assembler)
         return self.facade_factory.create(runtime, facade_type)
 
 
@@ -79,9 +127,12 @@ def resolve_assembly_service(
         provider=provider,
         assembler_resolver=assembler_resolver,
     )
-    return NavigatorAssemblyService(
+    pipeline = RuntimeAssemblyPipeline(
         request_factory=request_builder,
         resolver=resolver,
+    )
+    return NavigatorAssemblyService(
+        pipeline=pipeline,
         facade_factory=facade_builder,
     )
 
@@ -98,7 +149,11 @@ def _resolve_resolver(
     return RuntimeAssemblerResolver(provider=provider)
 
 
-__all__ = ["NavigatorAssemblyService", "resolve_assembly_service"]
+__all__ = [
+    "NavigatorAssemblyService",
+    "RuntimeAssemblyPipeline",
+    "resolve_assembly_service",
+]
 
 
 if False:  # pragma: no cover - typing only
