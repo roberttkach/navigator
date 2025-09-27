@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Protocol, cast
 
 from aiogram.fsm.context import FSMContext
@@ -17,9 +17,8 @@ from .runtime_provider import (
     AssemblyProvider,
     RuntimeEntrypoint,
     RuntimeResolver,
+    TelegramRuntimeBuilder,
     TelegramRuntimeConfiguration,
-    TelegramRuntimeDependencies,
-    TelegramRuntimeProviderFactory,
 )
 from .scope import outline
 
@@ -50,24 +49,17 @@ class TelegramNavigatorAssembler:
         assembly_provider: AssemblyProvider | None = None,
         entrypoint: RuntimeEntrypoint | None = None,
     ) -> "TelegramNavigatorAssembler":
-        dependencies = TelegramRuntimeDependencies.create(
+        builder = TelegramRuntimeBuilder.create(
             instrumentation_factory=instrumentation_factory,
             runtime_resolver=runtime_resolver,
             assembly_provider=assembly_provider,
             entrypoint=entrypoint,
         )
-        resolved_configuration = dependencies.configuration(
-            base=configuration, facade_type=Navigator
-        )
-        if resolved_configuration.facade_type is None:
-            resolved_configuration = replace(
-                resolved_configuration, facade_type=Navigator
-            )
-        provider_factory = TelegramRuntimeProviderFactory(dependencies)
-        runtime_provider = provider_factory.create(
-            configuration=resolved_configuration,
+        runtime_provider = builder.build_provider(
+            base_configuration=configuration,
             overrides=overrides,
             provider=provider,
+            facade_type=Navigator,
         )
         return cls(ledger=ledger, provider=runtime_provider)
 
@@ -89,5 +81,5 @@ __all__ = [
     "NavigatorInstrument",
     "TelegramNavigatorAssembler",
     "TelegramRuntimeConfiguration",
-    "TelegramRuntimeDependencies",
+    "TelegramRuntimeBuilder",
 ]

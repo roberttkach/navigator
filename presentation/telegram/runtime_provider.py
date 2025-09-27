@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from navigator.app.service.navigator_runtime import (
     NavigatorRuntimeProvider,
@@ -77,13 +77,49 @@ class TelegramRuntimeConfiguration:
 
 
 @dataclass(frozen=True)
-class TelegramRuntimeDependencies:
-    """Resolve runtime assembly collaborators for the Telegram façade."""
+class TelegramInstrumentationPolicy:
+    """Describe how instrumentation for the runtime should be produced."""
 
-    instrumentation_factory: Callable[[], Iterable[NavigatorRuntimeInstrument]]
+    factory: Callable[[], Iterable[NavigatorRuntimeInstrument]]
+
+    @classmethod
+    def create(
+        cls,
+        factory: Callable[[], Iterable[NavigatorRuntimeInstrument]] | None = None,
+    ) -> "TelegramInstrumentationPolicy":
+        return cls(factory=factory or default_instrumentation_factory)
+
+
+@dataclass(frozen=True)
+class TelegramAssemblyCollaborators:
+    """Capture collaborators required to assemble a runtime."""
+
     assembler_resolver: RuntimeAssemblerResolver | None
     provider: RuntimeAssemblyProvider | None
-    entrypoint: RuntimeAssemblyEntrypoint | None = None
+    entrypoint: RuntimeAssemblyEntrypoint
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        runtime_resolver: RuntimeAssemblerResolver | None = None,
+        assembly_provider: RuntimeAssemblyProvider | None = None,
+        entrypoint: RuntimeAssemblyEntrypoint | None = None,
+    ) -> "TelegramAssemblyCollaborators":
+        resolver = runtime_resolver or default_runtime_resolver()
+        return cls(
+            assembler_resolver=resolver,
+            provider=assembly_provider,
+            entrypoint=entrypoint or assemble_navigator,
+        )
+
+
+@dataclass(frozen=True)
+class TelegramRuntimeDependencies:
+    """Group runtime collaborators with instrumentation policies."""
+
+    instrumentation: TelegramInstrumentationPolicy
+    assembly: TelegramAssemblyCollaborators
 
     @classmethod
     def create(
@@ -96,31 +132,35 @@ class TelegramRuntimeDependencies:
         assembly_provider: RuntimeAssemblyProvider | None = None,
         entrypoint: RuntimeAssemblyEntrypoint | None = None,
     ) -> "TelegramRuntimeDependencies":
-        """Build a dependency bundle using presentation defaults where required."""
-
-        factory = instrumentation_factory or default_instrumentation_factory
-        resolver = runtime_resolver or default_runtime_resolver()
-        return cls(
-            instrumentation_factory=factory,
-            assembler_resolver=resolver,
-            provider=assembly_provider,
-            entrypoint=entrypoint or assemble_navigator,
+        instrumentation = TelegramInstrumentationPolicy.create(
+            factory=instrumentation_factory
         )
+        assembly = TelegramAssemblyCollaborators.create(
+            runtime_resolver=runtime_resolver,
+            assembly_provider=assembly_provider,
+            entrypoint=entrypoint,
+        )
+        return cls(instrumentation=instrumentation, assembly=assembly)
 
-    def configuration(
+
+@dataclass(frozen=True)
+class TelegramRuntimeConfigurationResolver:
+    """Resolve configuration objects using the provided dependencies."""
+
+    dependencies: TelegramRuntimeDependencies
+
+    def resolve(
         self,
         *,
         base: TelegramRuntimeConfiguration | None = None,
         facade_type: type | None = None,
     ) -> TelegramRuntimeConfiguration:
-        """Return a runtime configuration resolved from provided dependencies."""
-
         if base is not None:
             return base
         return TelegramRuntimeConfiguration.create(
-            instrumentation_factory=self.instrumentation_factory,
-            assembler_resolver=self.assembler_resolver,
-            provider=self.provider,
+            instrumentation_factory=self.dependencies.instrumentation.factory,
+            assembler_resolver=self.dependencies.assembly.assembler_resolver,
+            provider=self.dependencies.assembly.provider,
             facade_type=facade_type,
         )
 
@@ -141,10 +181,61 @@ class TelegramRuntimeProviderFactory:
         if provider is not None:
             return provider
         runtime_configuration = configuration.as_configuration(overrides)
-        entrypoint = self.dependencies.entrypoint or assemble_navigator
         return NavigatorRuntimeProvider(
-            entrypoint,
+            self.dependencies.assembly.entrypoint,
             configuration=runtime_configuration,
+        )
+
+
+@dataclass(frozen=True)
+class TelegramRuntimeBuilder:
+    """Orchestrate the construction of navigator runtime providers."""
+
+    dependencies: TelegramRuntimeDependencies
+    configuration_resolver: TelegramRuntimeConfigurationResolver
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        instrumentation_factory: Callable[
+            [], Iterable[NavigatorRuntimeInstrument]
+        ] | None = None,
+        runtime_resolver: RuntimeAssemblerResolver | None = None,
+        assembly_provider: RuntimeAssemblyProvider | None = None,
+        entrypoint: RuntimeAssemblyEntrypoint | None = None,
+    ) -> "TelegramRuntimeBuilder":
+        dependencies = TelegramRuntimeDependencies.create(
+            instrumentation_factory=instrumentation_factory,
+            runtime_resolver=runtime_resolver,
+            assembly_provider=assembly_provider,
+            entrypoint=entrypoint,
+        )
+        configuration_resolver = TelegramRuntimeConfigurationResolver(dependencies)
+        return cls(
+            dependencies=dependencies,
+            configuration_resolver=configuration_resolver,
+        )
+
+    def build_provider(
+        self,
+        *,
+        base_configuration: TelegramRuntimeConfiguration | None,
+        overrides: NavigatorAssemblyOverrides | None,
+        provider: NavigatorRuntimeProvider | None,
+        facade_type: type | None,
+    ) -> NavigatorRuntimeProvider:
+        configuration = self.configuration_resolver.resolve(
+            base=base_configuration,
+            facade_type=facade_type,
+        )
+        if configuration.facade_type is None and facade_type is not None:
+            configuration = replace(configuration, facade_type=facade_type)
+        factory = TelegramRuntimeProviderFactory(self.dependencies)
+        return factory.create(
+            configuration=configuration,
+            overrides=overrides,
+            provider=provider,
         )
 
 
@@ -161,5 +252,7 @@ __all__ = [
     "AssemblyProvider",
     "TelegramRuntimeConfiguration",
     "TelegramRuntimeDependencies",
+    "TelegramRuntimeConfigurationResolver",
     "TelegramRuntimeProviderFactory",
+    "TelegramRuntimeBuilder",
 ]
