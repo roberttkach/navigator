@@ -1,161 +1,58 @@
 """Top-level assembly entrypoints orchestrating runtime creation."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
 from navigator.contracts.runtime import NavigatorRuntimeInstrument
 from navigator.core.contracts import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.core.value.message import Scope
 
-from .context import BootstrapContext, ViewContainerFactory
-from .container_resolution import ContainerResolution, create_container_resolution
+from .assembler import NavigatorAssemblerBuilder
+from .context_factory import BootstrapContextFactory
 from .instrumentation import as_sequence
-from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
+from .runtime import NavigatorFactory, NavigatorRuntimeBundle
+from .runtime_instrumentation import InstrumentationDecorator
+from .runtime_resolution import RuntimeFactoryResolver, create_runtime_factory_resolver
 
 
 @dataclass(slots=True)
-class ViewContainerResolver:
-    """Resolve the view container using configured resolution policy."""
-
-    resolution: ContainerResolution
-
-    def resolve(self, candidate: ViewContainerFactory | None) -> ViewContainerFactory:
-        if candidate is not None:
-            return candidate
-        return self.resolution.resolve_view_container()
-
-
-@dataclass(slots=True)
-class RuntimeFactoryResolver:
-    """Resolve runtime factories from bootstrap collaborators."""
-
-    view_resolver: ViewContainerResolver
-    default_view: ViewContainerFactory | None = None
-
-    def resolve(
-        self,
-        *,
-        runtime_factory: NavigatorFactory | None,
-        context_view: ViewContainerFactory | None,
-    ) -> NavigatorFactory:
-        if runtime_factory is not None:
-            return runtime_factory
-        candidate = context_view or self.default_view
-        container = self.view_resolver.resolve(candidate)
-        return ContainerRuntimeFactory(view_container=container)
-
-
-@dataclass(slots=True)
-class InstrumentationDecorator:
-    """Decorate factories with runtime instrumentation hooks."""
-
-    instruments: Sequence[NavigatorRuntimeInstrument]
-
-    def apply(self, factory: NavigatorFactory) -> NavigatorFactory:
-        if not self.instruments:
-            return factory
-        return InstrumentedNavigatorFactory(factory, self.instruments)
-
-
-@dataclass(slots=True)
-class BootstrapContextFactory:
-    """Construct bootstrap context objects from raw payloads."""
-
-    def create(
-        self,
-        *,
-        event: object,
-        state: object,
-        ledger: ViewLedger,
-        scope: Scope,
-        missing_alert: MissingAlert | None,
-        view_container: ViewContainerFactory | None,
-    ) -> BootstrapContext:
-        return BootstrapContext(
-            event=event,
-            state=state,
-            ledger=ledger,
-            scope=scope,
-            missing_alert=missing_alert,
-            view_container=view_container,
-        )
-
-
-class InstrumentedNavigatorFactory(NavigatorFactory):
-    """Decorate runtime factories with instrumentation hooks."""
-
-    def __init__(
-        self,
-        base: NavigatorFactory,
-        instrumentation: Sequence[NavigatorRuntimeInstrument],
-    ) -> None:
-        self._base = base
-        self._instrumentation = instrumentation
-
-    async def create(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
-        bundle = await self._base.create(context)
-        for instrument in self._instrumentation:
-            instrument(bundle)
-        return bundle
-
-
-class NavigatorAssembler:
-    """Compose navigator runtime bundles from bootstrap context."""
-
-    def __init__(
-        self,
-        *,
-        resolver: RuntimeFactoryResolver,
-        decorator: InstrumentationDecorator,
-        runtime_factory: NavigatorFactory | None = None,
-    ) -> None:
-        self._resolver = resolver
-        self._decorator = decorator
-        self._runtime_factory = runtime_factory
-
-    async def build(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
-        base = self._resolver.resolve(
-            runtime_factory=self._runtime_factory,
-            context_view=context.view_container,
-        )
-        factory = self._decorator.apply(base)
-        return await factory.create(context)
-
-
-@dataclass(slots=True)
-class NavigatorAssemblerBuilder:
-    """Prepare assembler collaborators isolating configuration policies."""
+class AssemblerServices:
+    """Group collaborators required to construct navigator assemblers."""
 
     resolver: RuntimeFactoryResolver
     decorator: InstrumentationDecorator
+    context_factory: BootstrapContextFactory
 
-    def create(self, runtime_factory: NavigatorFactory | None = None) -> NavigatorAssembler:
-        return NavigatorAssembler(
-            resolver=self.resolver,
-            decorator=self.decorator,
-            runtime_factory=runtime_factory,
-        )
+    def builder(self) -> NavigatorAssemblerBuilder:
+        return NavigatorAssemblerBuilder(resolver=self.resolver, decorator=self.decorator)
 
-    @classmethod
-    def configure(
-        cls,
-        *,
-        instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
-        view_container: ViewContainerFactory | None = None,
-        resolution: ContainerResolution | None = None,
-        resolver: RuntimeFactoryResolver | None = None,
-        decorator: InstrumentationDecorator | None = None,
-    ) -> "NavigatorAssemblerBuilder":
-        resolved_resolution = resolution or create_container_resolution()
-        resolved_resolver = resolver or RuntimeFactoryResolver(
-            ViewContainerResolver(resolved_resolution),
-            default_view=view_container,
-        )
-        instruments = instrumentation or ()
-        resolved_decorator = decorator or InstrumentationDecorator(tuple(instruments))
-        return cls(resolver=resolved_resolver, decorator=resolved_decorator)
+
+def create_assembler_services(
+    *,
+    instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
+    view_container: ViewContainerFactory | None = None,
+    resolution: ContainerResolution | None = None,
+    resolver: RuntimeFactoryResolver | None = None,
+    decorator: InstrumentationDecorator | None = None,
+    context_factory: BootstrapContextFactory | None = None,
+) -> AssemblerServices:
+    """Resolve assembler dependencies into a single configuration object."""
+
+    instruments = instrumentation or ()
+    resolved_resolver = create_runtime_factory_resolver(
+        resolution=resolution,
+        default_view=view_container,
+        resolver=resolver,
+    )
+    resolved_decorator = decorator or InstrumentationDecorator(tuple(instruments))
+    resolved_context_factory = context_factory or BootstrapContextFactory()
+    return AssemblerServices(
+        resolver=resolved_resolver,
+        decorator=resolved_decorator,
+        context_factory=resolved_context_factory,
+    )
 
 
 async def assemble(
@@ -173,14 +70,15 @@ async def assemble(
 ) -> NavigatorRuntimeBundle:
     """High level entrypoint assembling navigator runtime bundles."""
 
-    builder = NavigatorAssemblerBuilder.configure(
-        instrumentation=instrumentation,
+    services = create_assembler_services(
+        instrumentation=as_sequence(instrumentation),
         view_container=view_container,
         resolution=resolution,
+        context_factory=context_factory,
     )
+    builder = services.builder()
     assembler = builder.create(runtime_factory)
-    factory = context_factory or BootstrapContextFactory()
-    context = factory.create(
+    context = services.context_factory.create(
         event=event,
         state=state,
         ledger=ledger,
@@ -191,12 +89,17 @@ async def assemble(
     return await assembler.build(context)
 
 
+from .container_resolution import ContainerResolution  # noqa: E402  circular
+from .context import ViewContainerFactory  # noqa: E402
+
 __all__ = [
-    "assemble",
+    "AssemblerServices",
     "BootstrapContextFactory",
     "InstrumentationDecorator",
-    "NavigatorAssembler",
     "NavigatorAssemblerBuilder",
+    "NavigatorFactory",
+    "NavigatorRuntimeBundle",
     "RuntimeFactoryResolver",
-    "ViewContainerResolver",
+    "assemble",
+    "create_assembler_services",
 ]
