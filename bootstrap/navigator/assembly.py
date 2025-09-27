@@ -108,22 +108,13 @@ class NavigatorAssembler:
 
     def __init__(
         self,
-        runtime_factory: NavigatorFactory | None = None,
         *,
-        instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
-        view_container: ViewContainerFactory | None = None,
-        resolution: ContainerResolution | None = None,
-        factory_resolver: RuntimeFactoryResolver | None = None,
-        decorator: InstrumentationDecorator | None = None,
+        resolver: RuntimeFactoryResolver,
+        decorator: InstrumentationDecorator,
+        runtime_factory: NavigatorFactory | None = None,
     ) -> None:
-        resolved = resolution or create_container_resolution()
-        resolver = factory_resolver or RuntimeFactoryResolver(
-            ViewContainerResolver(resolved),
-            default_view=view_container,
-        )
         self._resolver = resolver
-        instruments = instrumentation or ()
-        self._decorator = decorator or InstrumentationDecorator(tuple(instruments))
+        self._decorator = decorator
         self._runtime_factory = runtime_factory
 
     async def build(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
@@ -133,6 +124,40 @@ class NavigatorAssembler:
         )
         factory = self._decorator.apply(base)
         return await factory.create(context)
+
+
+@dataclass(slots=True)
+class NavigatorAssemblerBuilder:
+    """Prepare assembler collaborators isolating configuration policies."""
+
+    resolver: RuntimeFactoryResolver
+    decorator: InstrumentationDecorator
+
+    def create(self, runtime_factory: NavigatorFactory | None = None) -> NavigatorAssembler:
+        return NavigatorAssembler(
+            resolver=self.resolver,
+            decorator=self.decorator,
+            runtime_factory=runtime_factory,
+        )
+
+    @classmethod
+    def configure(
+        cls,
+        *,
+        instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
+        view_container: ViewContainerFactory | None = None,
+        resolution: ContainerResolution | None = None,
+        resolver: RuntimeFactoryResolver | None = None,
+        decorator: InstrumentationDecorator | None = None,
+    ) -> "NavigatorAssemblerBuilder":
+        resolved_resolution = resolution or create_container_resolution()
+        resolved_resolver = resolver or RuntimeFactoryResolver(
+            ViewContainerResolver(resolved_resolution),
+            default_view=view_container,
+        )
+        instruments = instrumentation or ()
+        resolved_decorator = decorator or InstrumentationDecorator(tuple(instruments))
+        return cls(resolver=resolved_resolver, decorator=resolved_decorator)
 
 
 async def assemble(
@@ -157,11 +182,12 @@ async def assemble(
         view_container=view_container,
     )
     instruments = as_sequence(instrumentation)
-    assembler = NavigatorAssembler(
+    builder = NavigatorAssemblerBuilder.configure(
         instrumentation=instruments,
         view_container=view_container,
         resolution=resolution,
     )
+    assembler = builder.create()
     return await assembler.build(context)
 
 
@@ -170,6 +196,7 @@ __all__ = [
     "InstrumentationDecorator",
     "InstrumentedNavigatorFactory",
     "NavigatorAssembler",
+    "NavigatorAssemblerBuilder",
     "RuntimeFactoryResolver",
     "ViewContainerResolver",
     "assemble",

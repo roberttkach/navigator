@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 from navigator.core.telemetry import Telemetry
 
@@ -11,6 +12,7 @@ from .history import NavigatorHistoryService
 from .history_builder import build_history_service
 from .reporter import NavigatorReporter
 from .runtime_context import RuntimeBuildContext
+from .runtime_plan import ComponentAssemblyRequest
 from .state import NavigatorStateService
 from .state_builder import build_state_service
 from .tail import NavigatorTail
@@ -40,6 +42,12 @@ class HistoryServiceBuilder:
             bundler=bundler,
         )
 
+    def build_component(
+        self, request: ComponentAssemblyRequest
+    ) -> NavigatorHistoryService:
+        contracts = cast(HistoryContracts, request.contract)
+        return self.build(contracts, **dict(request.parameters))
+
 
 @dataclass(frozen=True)
 class StateServiceBuilder:
@@ -62,6 +70,12 @@ class StateServiceBuilder:
             missing_alert=missing_alert,
         )
 
+    def build_component(
+        self, request: ComponentAssemblyRequest
+    ) -> NavigatorStateService:
+        contracts = cast(StateContracts, request.contract)
+        return self.build(contracts, **dict(request.parameters))
+
 
 @dataclass(frozen=True)
 class TailServiceBuilder:
@@ -83,6 +97,12 @@ class TailServiceBuilder:
             telemetry=telemetry,
             tail_telemetry=tail_telemetry,
         )
+
+    def build_component(
+        self, request: ComponentAssemblyRequest
+    ) -> NavigatorTail:
+        contracts = cast(TailContracts, request.contract)
+        return self.build(contracts, **dict(request.parameters))
 
 
 @dataclass(frozen=True)

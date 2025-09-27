@@ -1,6 +1,8 @@
 """Factories assembling the dependency injection container for the runtime."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from navigator.core.contracts import MissingAlert
 from navigator.core.telemetry import Telemetry
 
@@ -49,23 +51,11 @@ class ContainerFactory:
     def __init__(
         self,
         *,
-        telemetry: Telemetry,
-        alert: MissingAlert | None = None,
-        view_container: ViewContainerFactory | None = None,
-        builder: ContainerBuilder | None = None,
-        resolution: ContainerResolution | None = None,
-        request_factory: ContainerRequestFactory | None = None,
+        collaborators: ContainerCollaboratorsResolver,
+        request_factory: ContainerRequestFactory,
     ) -> None:
-        default_alert = alert or (lambda scope: "")
-        self._request_factory = request_factory or ContainerRequestFactory(
-            telemetry=telemetry,
-            alert=default_alert,
-        )
-        self._collaborators = ContainerCollaboratorsResolver(
-            default_view=view_container,
-            default_builder=builder,
-            resolution=resolution or create_container_resolution(),
-        )
+        self._collaborators = collaborators
+        self._request_factory = request_factory
 
     def create(self, context: BootstrapContext) -> RuntimeContainer:
         collaborators = self._collaborators.resolve(context)
@@ -76,4 +66,38 @@ class ContainerFactory:
         return collaborators.builder.build(request)
 
 
-__all__ = ["ContainerFactory", "ContainerRequestFactory"]
+@dataclass(slots=True)
+class ContainerFactoryBuilder:
+    """Wire container factory collaborators behind a configuration layer."""
+
+    telemetry: Telemetry
+    alert: MissingAlert | None = None
+    view_container: ViewContainerFactory | None = None
+    builder: ContainerBuilder | None = None
+    resolution: ContainerResolution | None = None
+    request_factory: ContainerRequestFactory | None = None
+    collaborators: ContainerCollaboratorsResolver | None = None
+
+    def build(self) -> ContainerFactory:
+        default_alert = self.alert or (lambda scope: "")
+        request_factory = self.request_factory or ContainerRequestFactory(
+            telemetry=self.telemetry,
+            alert=default_alert,
+        )
+        resolution = self.resolution or create_container_resolution()
+        collaborators = self.collaborators or ContainerCollaboratorsResolver(
+            default_view=self.view_container,
+            default_builder=self.builder,
+            resolution=resolution,
+        )
+        return ContainerFactory(
+            collaborators=collaborators,
+            request_factory=request_factory,
+        )
+
+
+__all__ = [
+    "ContainerFactory",
+    "ContainerFactoryBuilder",
+    "ContainerRequestFactory",
+]
