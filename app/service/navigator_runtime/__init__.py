@@ -7,7 +7,7 @@ from .api_contracts import (
     NavigatorRuntimeInstrument,
 )
 from .assembly import build_runtime_from_dependencies
-from .builder import build_navigator_runtime
+from .runtime_factory import build_navigator_runtime
 from .contracts import HistoryContracts, NavigatorRuntimeContracts, StateContracts, TailContracts
 from navigator.core.contracts.back import NavigatorBackContext, NavigatorBackEvent
 from .bundler import PayloadBundler

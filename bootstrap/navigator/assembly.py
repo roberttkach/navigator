@@ -13,6 +13,7 @@ from navigator.core.value.message import Scope
 
 from .context import BootstrapContext, ViewContainerFactory
 from .container_resolution import ContainerResolution, create_container_resolution
+from .instrumentation import as_sequence
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
 
 
@@ -58,20 +59,6 @@ class InstrumentationDecorator:
         if not self.instruments:
             return factory
         return InstrumentedNavigatorFactory(factory, self.instruments)
-
-
-@dataclass(slots=True)
-class InstrumentationPlanner:
-    """Normalize instrumentation iterables into stable sequences."""
-
-    def plan(
-        self, payload: Iterable[NavigatorRuntimeInstrument] | None
-    ) -> Sequence[NavigatorRuntimeInstrument]:
-        if payload is None:
-            return ()
-        if isinstance(payload, tuple):
-            return payload
-        return tuple(payload)
 
 
 @dataclass(slots=True)
@@ -169,7 +156,7 @@ async def assemble(
         missing_alert=missing_alert,
         view_container=view_container,
     )
-    instruments = InstrumentationPlanner().plan(instrumentation)
+    instruments = as_sequence(instrumentation)
     assembler = NavigatorAssembler(
         instrumentation=instruments,
         view_container=view_container,
@@ -181,7 +168,6 @@ async def assemble(
 __all__ = [
     "BootstrapContextFactory",
     "InstrumentationDecorator",
-    "InstrumentationPlanner",
     "InstrumentedNavigatorFactory",
     "NavigatorAssembler",
     "RuntimeFactoryResolver",
