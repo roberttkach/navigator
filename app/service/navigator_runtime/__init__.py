@@ -2,7 +2,12 @@
 from __future__ import annotations
 
 from .assembly import build_runtime_from_dependencies
-from .entrypoints import assemble_navigator
+from .entrypoints import (
+    NavigatorAssemblyService,
+    NavigatorFacadeFactory,
+    RuntimeAssemblyRequestFactory,
+    assemble_navigator,
+)
 from .presentation import (
     NavigatorRuntimeProvider,
     RuntimeAssemblyConfiguration,
@@ -21,7 +26,8 @@ from .runtime_factory import (
 from .runtime import NavigatorRuntime
 from .runtime_assembly_port import RuntimeAssemblyPort, RuntimeAssemblyRequest
 from .runtime_assembly_resolver import (
-    BootstrapRuntimeAssemblyProvider,
+    RuntimeAssemblerResolver,
+    RuntimeAssemblyFactoryProvider,
     RuntimeAssemblyProvider,
     resolve_runtime_assembler,
 )
@@ -32,14 +38,18 @@ __all__ = [
     "NavigatorRuntimeAssembly",
     "NavigatorRuntimeProvider",
     "NavigatorUseCases",
-    "BootstrapRuntimeAssemblyProvider",
     "RuntimeInstrumentationDependencies",
     "RuntimeNotificationDependencies",
     "RuntimeAssemblyPort",
     "RuntimeAssemblyRequest",
+    "RuntimeAssemblerResolver",
+    "RuntimeAssemblyFactoryProvider",
     "RuntimeAssemblyProvider",
     "RuntimeAssemblyConfiguration",
     "RuntimeAssemblyEntrypoint",
+    "RuntimeAssemblyRequestFactory",
+    "NavigatorAssemblyService",
+    "NavigatorFacadeFactory",
     "assemble_navigator",
     "build_navigator_runtime",
     "build_runtime_collaborators",

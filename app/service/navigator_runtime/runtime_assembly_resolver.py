@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -20,18 +21,34 @@ class RuntimeAssemblyProvider(Protocol):
 
 
 @dataclass(slots=True)
-class BootstrapRuntimeAssemblyProvider(RuntimeAssemblyProvider):
-    """Bridge application assembly with the default bootstrap assembler."""
+class RuntimeAssemblyFactoryProvider(RuntimeAssemblyProvider):
+    """Adapter turning callables into runtime assembly providers."""
+
+    factory: Callable[["ContainerResolution" | None], RuntimeAssemblyPort[RuntimeAssemblyRequest]]
 
     def acquire(
         self,
         *,
         resolution: "ContainerResolution" | None = None,
     ) -> RuntimeAssemblyPort[RuntimeAssemblyRequest]:
-        # Import performed lazily to keep adapter coupling outside call sites.
-        from navigator.adapters.navigator_runtime import BootstrapRuntimeAssembler
+        return self.factory(resolution)
 
-        return BootstrapRuntimeAssembler()
+
+@dataclass(slots=True)
+class RuntimeAssemblerResolver:
+    """Resolve runtime assemblers from configured providers or overrides."""
+
+    provider: RuntimeAssemblyProvider
+
+    def resolve(
+        self,
+        *,
+        assembler: RuntimeAssemblyPort[RuntimeAssemblyRequest] | None,
+        resolution: "ContainerResolution" | None,
+    ) -> RuntimeAssemblyPort[RuntimeAssemblyRequest]:
+        if assembler is not None:
+            return assembler
+        return self.provider.acquire(resolution=resolution)
 
 
 def resolve_runtime_assembler(
@@ -44,12 +61,15 @@ def resolve_runtime_assembler(
 
     if assembler is not None:
         return assembler
-    supplier = provider or BootstrapRuntimeAssemblyProvider()
-    return supplier.acquire(resolution=resolution)
+    if provider is None:
+        raise RuntimeError("Runtime assembler provider is not configured")
+    resolver = RuntimeAssemblerResolver(provider=provider)
+    return resolver.resolve(assembler=None, resolution=resolution)
 
 
 __all__ = [
-    "BootstrapRuntimeAssemblyProvider",
+    "RuntimeAssemblerResolver",
+    "RuntimeAssemblyFactoryProvider",
     "RuntimeAssemblyProvider",
     "resolve_runtime_assembler",
 ]

@@ -10,6 +10,7 @@ from navigator.core.port.factory import ViewLedger
 from navigator.core.value.message import Scope
 
 from .facade import NavigatorFacade
+from .runtime_assembly_resolver import RuntimeAssemblerResolver, RuntimeAssemblyProvider
 
 FacadeT = TypeVar("FacadeT", bound=NavigatorFacade)
 
@@ -37,6 +38,8 @@ class RuntimeAssemblyConfiguration(Generic[FacadeT]):
     missing_alert: MissingAlert | None = None
     overrides: NavigatorAssemblyOverrides | None = None
     facade_type: type[FacadeT] | None = None
+    assembler_resolver: RuntimeAssemblerResolver | None = None
+    provider: RuntimeAssemblyProvider | None = None
 
 
 class NavigatorRuntimeProvider(Generic[FacadeT]):
@@ -70,6 +73,8 @@ class NavigatorRuntimeProvider(Generic[FacadeT]):
             missing_alert=self._configuration.missing_alert,
             overrides=self._configuration.overrides,
             facade_type=self._configuration.facade_type,
+            assembler_resolver=self._configuration.assembler_resolver,
+            provider=self._configuration.provider,
         )
 
 
@@ -79,6 +84,8 @@ def default_configuration(
     missing_alert: MissingAlert | None = None,
     overrides: NavigatorAssemblyOverrides | None = None,
     facade_type: type[FacadeT] | None = None,
+    assembler_resolver: RuntimeAssemblerResolver | None = None,
+    provider: RuntimeAssemblyProvider | None = None,
 ) -> RuntimeAssemblyConfiguration[FacadeT]:
     """Return a configuration tuple normalising instrumentation payloads."""
 
@@ -88,6 +95,8 @@ def default_configuration(
         missing_alert=missing_alert,
         overrides=overrides,
         facade_type=facade_type,
+        assembler_resolver=assembler_resolver,
+        provider=provider,
     )
 
 
