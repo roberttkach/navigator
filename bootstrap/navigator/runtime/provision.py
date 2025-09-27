@@ -8,7 +8,7 @@ from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSna
 from navigator.core.telemetry import Telemetry
 
 from ..context import BootstrapContext, ViewContainerFactory
-from ..container import ContainerFactoryBuilder
+from ..container import ContainerFactoryBuilder, ContainerFactoryContext
 from ..container_types import ContainerBuilder, RuntimeContainer
 from ..inspection import inspect_container
 from ..telemetry import TelemetryFactory
@@ -48,12 +48,13 @@ class ContainerAssembler:
         self._builder = builder
 
     def assemble(self, telemetry: Telemetry, context: BootstrapContext) -> RuntimeContainer:
-        factory = ContainerFactoryBuilder(
+        context = ContainerFactoryContext(
             telemetry=telemetry,
             alert=self._missing_alert,
             view_container=self._view_container,
             builder=self._builder,
-        ).build()
+        )
+        factory = ContainerFactoryBuilder(context).build()
         return factory.create(context)
 
 

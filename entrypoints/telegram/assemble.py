@@ -13,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 async def assemble(event: Any, state: Any, ledger: ViewLedger) -> "Navigator":
-    assembler = TelegramNavigatorAssembler(
+    assembler = TelegramNavigatorAssembler.create(
         ledger, configuration=TelegramRuntimeConfiguration.create()
     )
     return await assembler.assemble(event, state)
