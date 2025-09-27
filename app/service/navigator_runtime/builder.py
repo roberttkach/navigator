@@ -23,6 +23,11 @@ from .tail_builder import build_tail_service
 from .tail_components import TailTelemetry
 from .types import MissingAlert
 from .usecases import NavigatorUseCases
+from .runtime_inputs import (
+    RuntimeCollaborators,
+    prepare_runtime_collaborators,
+    resolve_runtime_contracts,
+)
 
 
 class NavigatorRuntimeBuilder:
@@ -31,38 +36,6 @@ class NavigatorRuntimeBuilder:
     def __init__(self, *, guard: Guardian, scope: Scope) -> None:
         self._guard = guard
         self._scope = scope
-
-    def resolve_contracts(
-        self,
-        *,
-        usecases: NavigatorUseCases | None,
-        contracts: NavigatorRuntimeContracts | None,
-    ) -> NavigatorRuntimeContracts:
-        if contracts is not None:
-            return contracts
-        if usecases is None:
-            raise ValueError("either usecases or contracts must be provided")
-        return NavigatorRuntimeContracts.from_usecases(usecases)
-
-    @staticmethod
-    def resolve_bundler(bundler: PayloadBundler | None) -> PayloadBundler:
-        return bundler or PayloadBundler()
-
-    def resolve_reporter(
-        self,
-        telemetry: Telemetry | None,
-        reporter: NavigatorReporter | None,
-    ) -> NavigatorReporter:
-        if reporter is not None:
-            return reporter
-        if telemetry is None:
-            raise ValueError("telemetry must be provided when reporter is not supplied")
-        return NavigatorReporter(telemetry, self._scope)
-
-    @staticmethod
-    def ensure_telemetry(telemetry: Telemetry | None, tail_telemetry: TailTelemetry | None) -> None:
-        if telemetry is None and tail_telemetry is None:
-            raise ValueError("either telemetry or tail_telemetry must be provided")
 
     def build_history(
         self,
@@ -113,23 +86,22 @@ class NavigatorRuntimeBuilder:
         self,
         *,
         contracts: NavigatorRuntimeContracts,
-        reporter: NavigatorReporter,
-        bundler: PayloadBundler,
-        telemetry: Telemetry | None,
-        tail_telemetry: TailTelemetry | None,
-        missing_alert: MissingAlert | None,
+        collaborators: RuntimeCollaborators,
     ) -> NavigatorRuntime:
-        self.ensure_telemetry(telemetry, tail_telemetry)
-        history = self.build_history(contracts.history, reporter=reporter, bundler=bundler)
+        history = self.build_history(
+            contracts.history,
+            reporter=collaborators.reporter,
+            bundler=collaborators.bundler,
+        )
         state = self.build_state(
             contracts.state,
-            reporter=reporter,
-            missing_alert=missing_alert,
+            reporter=collaborators.reporter,
+            missing_alert=collaborators.missing_alert,
         )
         tail = self.build_tail(
             contracts.tail,
-            telemetry=telemetry,
-            tail_telemetry=tail_telemetry,
+            telemetry=collaborators.telemetry,
+            tail_telemetry=collaborators.tail_telemetry,
         )
         return NavigatorRuntime(history=history, state=state, tail=tail)
 
@@ -149,16 +121,18 @@ def build_navigator_runtime(
     """Create a navigator runtime wiring use cases with cross-cutting tools."""
 
     builder = NavigatorRuntimeBuilder(guard=guard, scope=scope)
-    resolved_contracts = builder.resolve_contracts(usecases=usecases, contracts=contracts)
-    resolved_bundler = builder.resolve_bundler(bundler)
-    resolved_reporter = builder.resolve_reporter(telemetry, reporter)
-    return builder.assemble(
-        contracts=resolved_contracts,
-        reporter=resolved_reporter,
-        bundler=resolved_bundler,
+    resolved_contracts = resolve_runtime_contracts(usecases=usecases, contracts=contracts)
+    collaborators = prepare_runtime_collaborators(
+        scope=scope,
         telemetry=telemetry,
+        reporter=reporter,
+        bundler=bundler,
         tail_telemetry=tail_telemetry,
         missing_alert=missing_alert,
+    )
+    return builder.assemble(
+        contracts=resolved_contracts,
+        collaborators=collaborators,
     )
 
 

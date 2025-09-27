@@ -5,7 +5,7 @@ from navigator.core.contracts import MissingAlert
 from navigator.core.telemetry import Telemetry
 
 from .adapter import LedgerAdapter
-from .container_resolution import resolve_container_builder, resolve_view_container
+from .container_collaborators import ContainerCollaboratorsResolver
 from .container_types import ContainerBuilder, ContainerRequest, RuntimeContainer
 from .context import BootstrapContext, ViewContainerFactory
 
@@ -23,24 +23,23 @@ class ContainerFactory:
     ) -> None:
         self._telemetry = telemetry
         self._alert = alert or (lambda scope: "")
-        self._view_container = view_container
-        self._builder = builder
+        self._collaborators = ContainerCollaboratorsResolver(
+            default_view=view_container,
+            default_builder=builder,
+        )
 
     def create(self, context: BootstrapContext) -> RuntimeContainer:
         alert = context.missing_alert or self._alert
-        view_container = context.view_container or self._view_container
-        if view_container is None:
-            view_container = resolve_view_container()
-        builder = self._builder or resolve_container_builder()
+        collaborators = self._collaborators.resolve(context)
         request = ContainerRequest(
             event=context.event,
             state=context.state,
             ledger=LedgerAdapter(context.ledger),
             alert=alert,
             telemetry=self._telemetry,
-            view_container=view_container,
+            view_container=collaborators.view_container,
         )
-        return builder.build(request)
+        return collaborators.builder.build(request)
 
 
 __all__ = ["ContainerFactory"]
