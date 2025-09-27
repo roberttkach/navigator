@@ -18,14 +18,13 @@ from navigator.app.service.view.restorer import ViewRestorer
 from navigator.core.telemetry import Telemetry
 
 
-class ViewSupportContainer(containers.DeclarativeContainer):
-    """Expose reusable view planning helpers for navigator use cases."""
+class ViewRenderPlanningContainer(containers.DeclarativeContainer):
+    """Compose planner related helpers for rendering flows."""
 
     core = providers.DependenciesContainer()
     view = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
-    gateway = providers.Delegate(view.gateway)
     executor = providers.Delegate(view.executor)
     inline = providers.Delegate(view.inline)
     album = providers.Delegate(view.album)
@@ -60,7 +59,49 @@ class ViewSupportContainer(containers.DeclarativeContainer):
         regular=regular_planner,
         preparer=render_preparer,
     )
+
+
+class ViewRestorationContainer(containers.DeclarativeContainer):
+    """Isolate view restoration responsibilities."""
+
+    core = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+
     restorer = providers.Factory(ViewRestorer, ledger=core.ledger, telemetry=telemetry)
+
+
+class ViewSupportContainer(containers.DeclarativeContainer):
+    """Expose reusable view planning helpers for navigator use cases."""
+
+    core = providers.DependenciesContainer()
+    view = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+
+    gateway = providers.Delegate(view.gateway)
+
+    planning = providers.Container(
+        ViewRenderPlanningContainer,
+        core=core,
+        view=view,
+        telemetry=telemetry,
+    )
+    restoration = providers.Container(
+        ViewRestorationContainer,
+        core=core,
+        telemetry=telemetry,
+    )
+
+    executor = planning.provided.executor
+    inline = planning.provided.inline
+    album = planning.provided.album
+    render_synchronizer = planning.provided.render_synchronizer
+    tail_operations = planning.provided.tail_operations
+    inline_planner = planning.provided.inline_planner
+    head_alignment = planning.provided.head_alignment
+    regular_planner = planning.provided.regular_planner
+    render_preparer = planning.provided.render_preparer
+    planner = planning.provided.planner
+    restorer = restoration.provided.restorer
 
 
 __all__ = ["ViewSupportContainer"]

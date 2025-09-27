@@ -1,3 +1,6 @@
+"""Telegram specific composition of infrastructure and view services."""
+from __future__ import annotations
+
 from dependency_injector import containers, providers
 
 from navigator.adapters.telegram.codec import AiogramCodec
@@ -15,7 +18,9 @@ from navigator.app.service.view.inline import InlineHandler, InlineEditor, Inlin
 from navigator.core.telemetry import Telemetry
 
 
-class TelegramContainer(containers.DeclarativeContainer):
+class TelegramInfrastructureContainer(containers.DeclarativeContainer):
+    """Assemble Telegram specific gateway and codec dependencies."""
+
     core = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
@@ -39,7 +44,16 @@ class TelegramContainer(containers.DeclarativeContainer):
         deletepause=core.settings.provided.deletepause,
         telemetry=telemetry,
     )
-    sentinel = providers.Factory(InlineGuard, policy=policy)
+
+
+class TelegramViewServicesContainer(containers.DeclarativeContainer):
+    """Build view level helpers on top of Telegram infrastructure."""
+
+    core = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+    infrastructure = providers.DependenciesContainer()
+
+    sentinel = providers.Factory(InlineGuard, policy=infrastructure.policy)
     mapper = providers.Factory(InlineRemapper)
     scribe = providers.Factory(InlineEditor)
     inline = providers.Factory(
@@ -51,7 +65,7 @@ class TelegramContainer(containers.DeclarativeContainer):
     )
     executor = providers.Factory(
         create_edit_executor,
-        gateway=gateway,
+        gateway=infrastructure.gateway,
         telemetry=telemetry,
     )
     album = providers.Factory(
@@ -61,6 +75,37 @@ class TelegramContainer(containers.DeclarativeContainer):
         thumbguard=core.settings.provided.thumbguard,
         telemetry=telemetry,
     )
+
+
+class TelegramContainer(containers.DeclarativeContainer):
+    core = providers.DependenciesContainer()
+    telemetry = providers.Dependency(instance_of=Telemetry)
+
+    infrastructure = providers.Container(
+        TelegramInfrastructureContainer,
+        core=core,
+        telemetry=telemetry,
+    )
+    view_services = providers.Container(
+        TelegramViewServicesContainer,
+        core=core,
+        telemetry=telemetry,
+        infrastructure=infrastructure,
+    )
+
+    codec = infrastructure.provided.codec
+    schema = infrastructure.provided.schema
+    preview = infrastructure.provided.preview
+    policy = infrastructure.provided.policy
+    entities = infrastructure.provided.entities
+    screen = infrastructure.provided.screen
+    gateway = infrastructure.provided.gateway
+    sentinel = view_services.provided.sentinel
+    mapper = view_services.provided.mapper
+    scribe = view_services.provided.scribe
+    inline = view_services.provided.inline
+    executor = view_services.provided.executor
+    album = view_services.provided.album
 
 
 __all__ = ["TelegramContainer"]

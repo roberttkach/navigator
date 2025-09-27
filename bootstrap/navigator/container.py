@@ -114,22 +114,44 @@ class ContainerFactoryBuilder:
     collaborators: ContainerCollaboratorsResolver | None = None
 
     def build(self) -> ContainerFactory:
-        request_selector = RequestFactorySelector(
+        blueprint = self._create_blueprint()
+        return blueprint.assemble()
+
+    def _create_blueprint(self) -> "ContainerFactoryBlueprint":
+        return ContainerFactoryBlueprint(
+            request_factory=self._select_request_factory(),
+            collaborators=self._select_collaborators(),
+        )
+
+    def _select_request_factory(self) -> ContainerRequestFactory:
+        selector = RequestFactorySelector(
             telemetry=self.telemetry,
             alert=self.alert,
             candidate=self.request_factory,
         )
-        collaborator_selector = CollaboratorResolverSelector(
+        return selector.select()
+
+    def _select_collaborators(self) -> ContainerCollaboratorsResolver:
+        selector = CollaboratorResolverSelector(
             view_container=self.view_container,
             builder=self.builder,
             resolution=self.resolution,
             candidate=self.collaborators,
         )
-        request_factory = request_selector.select()
-        collaborators = collaborator_selector.select()
+        return selector.select()
+
+
+@dataclass(slots=True)
+class ContainerFactoryBlueprint:
+    """Capture selected collaborators before building the factory."""
+
+    request_factory: ContainerRequestFactory
+    collaborators: ContainerCollaboratorsResolver
+
+    def assemble(self) -> ContainerFactory:
         return ContainerFactory(
-            collaborators=collaborators,
-            request_factory=request_factory,
+            collaborators=self.collaborators,
+            request_factory=self.request_factory,
         )
 
 
