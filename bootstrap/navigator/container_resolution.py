@@ -1,18 +1,12 @@
-"""Default resolution helpers for container-related collaborators."""
+"""Resolution helpers for container-related collaborators."""
 from __future__ import annotations
 
-import os
-from importlib import import_module
 from dataclasses import dataclass, replace
 from typing import Protocol, TypeVar, cast
 
+from .container_errors import ContainerResolutionError
 from .container_types import ContainerBuilder, ViewContainerFactory
-
-
-DEFAULT_VIEW_CONTAINER_PATH = "navigator.infra.di.container.telegram:TelegramContainer"
-DEFAULT_CONTAINER_BUILDER_PATH = "navigator.infra.di.container.builder:NavigatorContainerBuilder"
-ENV_VIEW_CONTAINER = "NAVIGATOR_VIEW_CONTAINER"
-ENV_CONTAINER_BUILDER = "NAVIGATOR_CONTAINER_BUILDER"
+from .default_container_loader import default_builder_loader, default_view_loader
 
 
 T_co = TypeVar("T_co")
@@ -22,33 +16,45 @@ class _Loader(Protocol[T_co]):
     def __call__(self) -> T_co: ...
 
 
-class ContainerResolutionError(LookupError):
-    """Raised when default container collaborators cannot be resolved."""
+@dataclass(frozen=True)
+class _ResolutionDefaults:
+    view: _Loader[ViewContainerFactory]
+    builder: _Loader[ContainerBuilder]
 
 
 @dataclass(frozen=True)
-class ContainerResolver:
-    """Resolve container collaborators without depending on global caches."""
+class _ResolutionOverrides:
+    view: _Loader[ViewContainerFactory] | None = None
+    builder: _Loader[ContainerBuilder] | None = None
 
-    view_loader: _Loader[ViewContainerFactory] | None = None
-    builder_loader: _Loader[ContainerBuilder] | None = None
 
-    def with_view(
+class ContainerResolutionRegistry:
+    """Manage overrides for container collaborator resolution."""
+
+    def __init__(self, defaults: _ResolutionDefaults) -> None:
+        self._defaults = defaults
+        self._overrides = _ResolutionOverrides()
+
+    def configure_view(
         self, candidate: _Loader[ViewContainerFactory] | ViewContainerFactory
-    ) -> "ContainerResolver":
-        return replace(self, view_loader=_ensure_view_loader(candidate))
+    ) -> None:
+        self._overrides = replace(
+            self._overrides, view=_ensure_view_loader(candidate)
+        )
 
-    def with_builder(
+    def configure_builder(
         self, candidate: _Loader[ContainerBuilder] | ContainerBuilder
-    ) -> "ContainerResolver":
-        return replace(self, builder_loader=_ensure_builder_loader(candidate))
+    ) -> None:
+        self._overrides = replace(
+            self._overrides, builder=_ensure_builder_loader(candidate)
+        )
 
     def view_factory(self) -> ViewContainerFactory:
-        loader = self.view_loader or _default_view_loader
+        loader = self._overrides.view or self._defaults.view
         return loader()
 
     def container_builder(self) -> ContainerBuilder:
-        loader = self.builder_loader or _default_builder_loader
+        loader = self._overrides.builder or self._defaults.builder
         builder = loader()
         if not hasattr(builder, "build"):
             raise ContainerResolutionError(
@@ -57,7 +63,11 @@ class ContainerResolver:
         return builder
 
 
-_resolver = ContainerResolver()
+_defaults = _ResolutionDefaults(
+    view=default_view_loader,
+    builder=default_builder_loader,
+)
+_registry = ContainerResolutionRegistry(_defaults)
 
 
 def configure_view_container(
@@ -65,8 +75,7 @@ def configure_view_container(
 ) -> None:
     """Override the default view container factory resolution."""
 
-    global _resolver
-    _resolver = _resolver.with_view(factory)
+    _registry.configure_view(factory)
 
 
 def configure_container_builder(
@@ -74,15 +83,14 @@ def configure_container_builder(
 ) -> None:
     """Override the default container builder resolution."""
 
-    global _resolver
-    _resolver = _resolver.with_builder(builder)
+    _registry.configure_builder(builder)
 
 
 def resolve_view_container() -> ViewContainerFactory:
     """Return the default view container factory."""
 
     try:
-        return _resolver.view_factory()
+        return _registry.view_factory()
     except (ImportError, AttributeError) as exc:
         raise ContainerResolutionError("Unable to resolve default view container") from exc
 
@@ -91,7 +99,7 @@ def resolve_container_builder() -> ContainerBuilder:
     """Return the default runtime container builder."""
 
     try:
-        return _resolver.container_builder()
+        return _registry.container_builder()
     except (ImportError, AttributeError, TypeError) as exc:
         raise ContainerResolutionError("Unable to resolve container builder") from exc
 
@@ -132,47 +140,8 @@ def _ensure_builder_loader(
     return _factory
 
 
-def _default_view_loader() -> ViewContainerFactory:
-    path = os.getenv(ENV_VIEW_CONTAINER, DEFAULT_VIEW_CONTAINER_PATH)
-    container = _import_symbol(path)
-    if not isinstance(container, type):
-        raise ContainerResolutionError(
-            f"Default view container '{path}' is not a container class"
-        )
-    return cast(ViewContainerFactory, container)
-
-
-def _default_builder_loader() -> ContainerBuilder:
-    path = os.getenv(ENV_CONTAINER_BUILDER, DEFAULT_CONTAINER_BUILDER_PATH)
-    symbol = _import_symbol(path)
-    if isinstance(symbol, type):
-        instance = symbol()  # type: ignore[call-arg]
-    else:
-        instance = symbol
-    if not hasattr(instance, "build"):
-        raise ContainerResolutionError(
-            f"Default builder '{path}' does not implement a 'build' method"
-        )
-    return cast(ContainerBuilder, instance)
-
-
-def _import_symbol(path: str):
-    module_path, _, attribute = path.partition(":")
-    if not module_path or not attribute:
-        raise ContainerResolutionError(
-            f"Invalid module path '{path}' provided for container resolution"
-        )
-    module = import_module(module_path)
-    try:
-        return getattr(module, attribute)
-    except AttributeError as exc:
-        raise ContainerResolutionError(
-            f"Module '{module_path}' does not expose attribute '{attribute}'"
-        ) from exc
-
-
 __all__ = [
-    "ContainerResolutionError",
+    "ContainerResolutionRegistry",
     "configure_container_builder",
     "configure_view_container",
     "resolve_container_builder",
