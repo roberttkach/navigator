@@ -9,10 +9,11 @@ from navigator.core.value.message import Scope
 from .dependencies import RuntimeDomainServices, RuntimeSafetyServices, RuntimeTelemetryServices
 from .runtime_factory import (
     NavigatorRuntimeAssembly,
+    RuntimePlannerDependencies,
+    RuntimePlanRequest,
     build_navigator_runtime,
     build_runtime_collaborators,
     build_runtime_contract_selection,
-    RuntimePlanRequest,
 )
 from .runtime import NavigatorRuntime
 
@@ -45,8 +46,10 @@ class RuntimeActivationPlan:
         contracts = build_runtime_contract_selection(usecases=self.domain.usecases)
         collaborators = build_runtime_collaborators(
             scope=self.scope,
-            telemetry=self.telemetry.telemetry,
-            missing_alert=self.safety.missing_alert,
+            dependencies=RuntimePlannerDependencies(
+                telemetry=self.telemetry.telemetry,
+                missing_alert=self.safety.missing_alert,
+            ),
         )
         return RuntimePlanRequest(contracts=contracts, collaborators=collaborators)
 
