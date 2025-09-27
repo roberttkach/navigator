@@ -11,25 +11,6 @@ from ....core.port.last import LatestRepository
 from ....core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 
-def _channel_for(telemetry: Telemetry | None) -> TelemetryChannel | None:
-    """Return a telemetry channel dedicated to storage operations."""
-
-    return telemetry.channel(__name__) if telemetry else None
-
-
-def _emit(
-    channel: TelemetryChannel | None,
-    level: int,
-    code: LogCode,
-    **payload: object,
-) -> None:
-    """Emit a telemetry envelope if ``channel`` is configured."""
-
-    if channel is None:
-        return
-    channel.emit(level, code, **payload)
-
-
 def _latest_marker(history: Sequence[Entry]) -> int | None:
     """Return the first message identifier for the most recent entry."""
 
@@ -41,6 +22,51 @@ def _latest_marker(history: Sequence[Entry]) -> int | None:
     return messages[0].id
 
 
+class HistoryTelemetryReporter:
+    """Emit telemetry envelopes describing persistence operations."""
+
+    def __init__(self, telemetry: Telemetry | None) -> None:
+        self._channel: TelemetryChannel | None = (
+            telemetry.channel(__name__) if telemetry else None
+        )
+
+    def trimmed(self, *, operation: str, before: int, after: int) -> None:
+        """Report history trimming when the snapshot was reduced."""
+
+        if self._channel is None or before == after:
+            return
+        self._channel.emit(
+            logging.DEBUG,
+            LogCode.HISTORY_TRIM,
+            op=operation,
+            history={"before": before, "after": after},
+        )
+
+    def saved(self, *, operation: str, size: int) -> None:
+        """Report snapshot archiving."""
+
+        if self._channel is None:
+            return
+        self._channel.emit(
+            logging.DEBUG,
+            LogCode.HISTORY_SAVE,
+            op=operation,
+            history={"len": size},
+        )
+
+    def marker_updated(self, *, operation: str, message_id: int) -> None:
+        """Report updates to the latest message marker."""
+
+        if self._channel is None:
+            return
+        self._channel.emit(
+            logging.INFO,
+            LogCode.LAST_SET,
+            op=operation,
+            message={"id": message_id},
+        )
+
+
 class HistoryTrimmer:
     """Trim history snapshots according to the configured policy."""
 
@@ -48,25 +74,22 @@ class HistoryTrimmer:
         self,
         policy: Callable[[list[Entry], int], list[Entry]],
         limit: int,
-        channel: TelemetryChannel | None,
+        reporter: HistoryTelemetryReporter,
     ) -> None:
         self._policy = policy
         self._limit = limit
-        self._channel = channel
+        self._reporter = reporter
 
     def apply(self, history: Sequence[Entry], *, operation: str) -> list[Entry]:
         """Return trimmed history while emitting telemetry when truncation occurs."""
 
         snapshot = list(history)
         trimmed = self._policy(snapshot, self._limit)
-        if len(trimmed) != len(snapshot):
-            _emit(
-                self._channel,
-                logging.DEBUG,
-                LogCode.HISTORY_TRIM,
-                op=operation,
-                history={"before": len(snapshot), "after": len(trimmed)},
-            )
+        self._reporter.trimmed(
+            operation=operation,
+            before=len(snapshot),
+            after=len(trimmed),
+        )
         return trimmed
 
 
@@ -76,23 +99,17 @@ class HistoryArchiver:
     def __init__(
         self,
         archive: HistoryRepository,
-        channel: TelemetryChannel | None,
+        reporter: HistoryTelemetryReporter,
     ) -> None:
         self._archive = archive
-        self._channel = channel
+        self._reporter = reporter
 
     async def save(self, history: Sequence[Entry], *, operation: str) -> None:
         """Archive ``history`` while reporting telemetry."""
 
         snapshot = list(history)
         await self._archive.archive(snapshot)
-        _emit(
-            self._channel,
-            logging.DEBUG,
-            LogCode.HISTORY_SAVE,
-            op=operation,
-            history={"len": len(snapshot)},
-        )
+        self._reporter.saved(operation=operation, size=len(snapshot))
 
 
 class LatestMarkerUpdater:
@@ -101,10 +118,10 @@ class LatestMarkerUpdater:
     def __init__(
         self,
         ledger: LatestRepository,
-        channel: TelemetryChannel | None,
+        reporter: HistoryTelemetryReporter,
     ) -> None:
         self._ledger = ledger
-        self._channel = channel
+        self._reporter = reporter
 
     async def update(self, history: Sequence[Entry], *, operation: str) -> None:
         """Update the last message marker and emit telemetry."""
@@ -113,13 +130,7 @@ class LatestMarkerUpdater:
         if marker is None:
             return
         await self._ledger.mark(marker)
-        _emit(
-            self._channel,
-            logging.INFO,
-            LogCode.LAST_SET,
-            op=operation,
-            message={"id": marker},
-        )
+        self._reporter.marker_updated(operation=operation, message_id=marker)
 
 
 class HistoryPersistencePipeline:
@@ -133,10 +144,10 @@ class HistoryPersistencePipeline:
         limit: int,
         telemetry: Telemetry | None = None,
     ) -> None:
-        channel = _channel_for(telemetry)
-        self._trimmer = HistoryTrimmer(prune_history, limit, channel)
-        self._archiver = HistoryArchiver(archive, channel)
-        self._marker = LatestMarkerUpdater(ledger, channel)
+        reporter = HistoryTelemetryReporter(telemetry)
+        self._trimmer = HistoryTrimmer(prune_history, limit, reporter)
+        self._archiver = HistoryArchiver(archive, reporter)
+        self._marker = LatestMarkerUpdater(ledger, reporter)
 
     async def persist(self, history: Sequence[Entry], *, operation: str) -> None:
         """Persist ``history`` while delegating to pipeline components."""

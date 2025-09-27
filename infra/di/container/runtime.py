@@ -11,6 +11,7 @@ from navigator.app.service.navigator_runtime.dependencies import (
     RuntimeTelemetryServices,
 )
 from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
+from navigator.infra.config.redaction import RuntimeRedactionConfig
 
 
 class NavigatorRuntimeContainer(containers.DeclarativeContainer):
@@ -36,9 +37,9 @@ class NavigatorRuntimeContainer(containers.DeclarativeContainer):
         missing_alert=core.alert,
     )
 
-    redaction = providers.Callable(
-        lambda settings: getattr(settings, "redaction", ""),
-        core.provided.settings,
+    redaction = providers.Factory(
+        RuntimeRedactionConfig.from_settings,
+        settings=core.provided.settings,
     )
 
     snapshot = providers.Factory(
@@ -46,7 +47,7 @@ class NavigatorRuntimeContainer(containers.DeclarativeContainer):
         domain=domain_services,
         telemetry=telemetry_services,
         safety=safety_services,
-        redaction=redaction,
+        redaction=redaction.provided.value,
     )
 
 
