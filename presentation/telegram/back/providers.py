@@ -122,6 +122,67 @@ class RetreatOutcomeProvidersFactory:
         return self.module.build
 
 
+@dataclass(frozen=True)
+class RetreatProviderModules:
+    """Group modules used to compose retreat handler providers."""
+
+    workflow: RetreatWorkflowModule
+    orchestrator: RetreatOrchestratorFactory
+    instrumentation: RetreatInstrumentationModule
+    outcome: RetreatOutcomeModule
+
+    @classmethod
+    def default(
+        cls,
+        *,
+        notes: Callable[[], RetreatFailureNotes],
+        context_factory: Callable[[], RetreatContextBuilder] = RetreatContextBuilder,
+        orchestrator_factory: RetreatOrchestratorFactory | None = None,
+        instrumentation: RetreatInstrumentationModule | None = None,
+    ) -> "RetreatProviderModules":
+        """Return default modules while allowing targeted overrides."""
+
+        return cls(
+            workflow=RetreatWorkflowModule(context_factory),
+            orchestrator=orchestrator_factory or create_retreat_orchestrator_factory(),
+            instrumentation=instrumentation or RetreatInstrumentationModule(),
+            outcome=RetreatOutcomeModule(notes),
+        )
+
+
+@dataclass(frozen=True)
+class RetreatProvidersAssembler:
+    """Compose handler providers from configured modules."""
+
+    modules: RetreatProviderModules
+
+    def assemble(
+        self,
+        *,
+        failures: Callable[[], RetreatFailureTranslator],
+    ) -> RetreatHandlerProviders:
+        """Return lazily-evaluated providers for handler assembly."""
+
+        workflow_factory = RetreatWorkflowProvidersFactory(module=self.modules.workflow)
+        context_provider, failure_provider, workflow_provider = workflow_factory.create(
+            failures=failures
+        )
+        orchestrator_factory = RetreatOrchestratorProvidersFactory(
+            factory=self.modules.orchestrator,
+            instrumentation=self.modules.instrumentation,
+        )
+        instrumentation_provider, orchestrator_provider = orchestrator_factory.create()
+        outcome_factory = RetreatOutcomeProvidersFactory(module=self.modules.outcome)
+        return RetreatHandlerProviders(
+            context=context_provider,
+            failures=failure_provider,
+            workflow=workflow_provider,
+            instrumentation=instrumentation_provider,
+            orchestrator=orchestrator_provider,
+            outcomes=outcome_factory.create(),
+        )
+
+
 def create_retreat_orchestrator_factory() -> RetreatOrchestratorFactory:
     """Construct a retreat orchestrator factory with default policies."""
 
@@ -137,31 +198,13 @@ def default_retreat_providers(
     *,
     failures: Callable[[], RetreatFailureTranslator],
     notes: Callable[[], RetreatFailureNotes],
+    modules: RetreatProviderModules | None = None,
 ) -> RetreatHandlerProviders:
     """Return providers wiring application services for retreat handling."""
 
-    workflow_factory = RetreatWorkflowProvidersFactory(
-        module=RetreatWorkflowModule(RetreatContextBuilder),
-    )
-    context_provider, failure_provider, workflow_provider = workflow_factory.create(
-        failures
-    )
-    orchestrator_factory = RetreatOrchestratorProvidersFactory(
-        factory=create_retreat_orchestrator_factory(),
-        instrumentation=RetreatInstrumentationModule(),
-    )
-    instrumentation_provider, orchestrator_provider = orchestrator_factory.create()
-    outcome_factory = RetreatOutcomeProvidersFactory(
-        module=RetreatOutcomeModule(notes),
-    )
-    return RetreatHandlerProviders(
-        context=context_provider,
-        failures=failure_provider,
-        workflow=workflow_provider,
-        instrumentation=instrumentation_provider,
-        orchestrator=orchestrator_provider,
-        outcomes=outcome_factory.create(),
-    )
+    registry = modules or RetreatProviderModules.default(notes=notes)
+    assembler = RetreatProvidersAssembler(modules=registry)
+    return assembler.assemble(failures=failures)
 
 
 __all__ = [
@@ -169,6 +212,8 @@ __all__ = [
     "RetreatOrchestratorProvidersFactory",
     "RetreatOutcomeModule",
     "RetreatOutcomeProvidersFactory",
+    "RetreatProviderModules",
+    "RetreatProvidersAssembler",
     "RetreatWorkflowModule",
     "RetreatWorkflowProvidersFactory",
     "create_retreat_orchestrator_factory",
