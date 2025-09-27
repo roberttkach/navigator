@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from navigator.app.locks.guard import Guardian
 from navigator.core.value.message import Scope
 
-from .builder import build_navigator_runtime
+from .runtime_factory import build_navigator_runtime
 from .dependencies import NavigatorDependencies
 from .runtime import NavigatorRuntime
 from .types import MissingAlert

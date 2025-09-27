@@ -1,13 +1,13 @@
 """Application-level entrypoints for assembling navigator facades."""
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable
 from typing import Type, TypeVar
 
 from navigator.bootstrap.navigator import assemble as bootstrap_assemble
 from navigator.bootstrap.navigator.container_resolution import ContainerResolution
 from navigator.bootstrap.navigator.context import ViewContainerFactory
+from navigator.bootstrap.navigator.instrumentation import as_sequence
 from navigator.core.contracts import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.core.value.message import Scope
@@ -16,23 +16,6 @@ from .api_contracts import NavigatorAssemblyOverrides, NavigatorRuntimeInstrumen
 from .facade import NavigatorFacade
 
 FacadeT = TypeVar("FacadeT", bound=NavigatorFacade)
-
-
-@dataclass(slots=True)
-class InstrumentationPlan:
-    """Normalize instrumentation payloads before bootstrapping."""
-
-    instruments: Sequence[NavigatorRuntimeInstrument]
-
-    @classmethod
-    def from_iterable(
-        cls, payload: Iterable[NavigatorRuntimeInstrument] | None
-    ) -> "InstrumentationPlan":
-        if payload is None:
-            return cls(())
-        if isinstance(payload, tuple):
-            return cls(payload)
-        return cls(tuple(payload))
 
 
 def _override_view_container(
@@ -57,13 +40,12 @@ async def assemble_navigator(
 ) -> FacadeT:
     """Assemble a navigator facade for the provided runtime inputs."""
 
-    plan = InstrumentationPlan.from_iterable(instrumentation)
     bundle = await bootstrap_assemble(
         event=event,
         state=state,
         ledger=ledger,
         scope=scope,
-        instrumentation=plan.instruments,
+        instrumentation=as_sequence(instrumentation),
         missing_alert=missing_alert,
         view_container=_override_view_container(overrides),
         resolution=resolution,
@@ -72,4 +54,4 @@ async def assemble_navigator(
     return navigator
 
 
-__all__ = ["assemble_navigator", "InstrumentationPlan"]
+__all__ = ["assemble_navigator"]

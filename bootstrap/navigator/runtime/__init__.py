@@ -1,4 +1,5 @@
 """Runtime assembly package tying together telemetry, container and facade."""
+from .activation import NavigatorRuntimeActivationBridge, RuntimeActivator
 from .bundle import NavigatorRuntimeBundle
 from .composition import NavigatorRuntimeComposer, RuntimeCalibrator
 from .factory import ContainerRuntimeFactory, NavigatorFactory
@@ -19,8 +20,10 @@ __all__ = [
     "NavigatorFactory",
     "NavigatorRuntimeBundle",
     "NavigatorRuntimeComposer",
+    "NavigatorRuntimeActivationBridge",
     "RuntimeAssemblyPipeline",
     "RuntimeCalibrator",
+    "RuntimeActivator",
     "RuntimeProvision",
     "RuntimeProvisioner",
     "RuntimeFactorySettings",
