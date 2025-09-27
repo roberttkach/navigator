@@ -10,7 +10,7 @@ from .contracts import (
     ScopeDTO,
     ViewLedgerDTO,
 )
-from ..app.service.navigator_runtime import MissingAlert
+from ..core.contracts import MissingAlert
 from ..app.service.navigator_runtime.facade import NavigatorFacade
 from ..bootstrap.navigator import assemble as _bootstrap
 

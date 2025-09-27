@@ -12,7 +12,7 @@ from navigator.api.contracts import (
     NavigatorAssemblyOverrides,
     NavigatorRuntimeInstrument,
 )
-from navigator.app.service.navigator_runtime import MissingAlert
+from navigator.core.contracts import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.presentation.navigator import Navigator
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from navigator.api.contracts import ScopeDTO, ViewLedgerDTO
-from navigator.app.service.navigator_runtime import MissingAlert
+from navigator.core.contracts import MissingAlert
 from navigator.core.value.message import Scope
 
 from .container_types import ViewContainerFactory

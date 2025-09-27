@@ -8,7 +8,7 @@ from navigator.api.contracts import (
     ScopeDTO,
     ViewLedgerDTO,
 )
-from navigator.app.service.navigator_runtime import MissingAlert
+from navigator.core.contracts import MissingAlert
 from .context import BootstrapContext, ViewContainerFactory
 from .container_resolution import resolve_view_container
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
