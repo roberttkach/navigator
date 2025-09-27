@@ -67,8 +67,43 @@ class ContainerFactory:
 
 
 @dataclass(slots=True)
+class RequestFactorySelector:
+    """Pick the container request factory according to builder inputs."""
+
+    telemetry: Telemetry
+    alert: MissingAlert | None
+    candidate: ContainerRequestFactory | None = None
+
+    def select(self) -> ContainerRequestFactory:
+        if self.candidate is not None:
+            return self.candidate
+        default_alert = self.alert or (lambda scope: "")
+        return ContainerRequestFactory(telemetry=self.telemetry, alert=default_alert)
+
+
+@dataclass(slots=True)
+class CollaboratorResolverSelector:
+    """Pick the collaborator resolver while isolating default construction."""
+
+    view_container: ViewContainerFactory | None
+    builder: ContainerBuilder | None
+    resolution: ContainerResolution | None
+    candidate: ContainerCollaboratorsResolver | None = None
+
+    def select(self) -> ContainerCollaboratorsResolver:
+        if self.candidate is not None:
+            return self.candidate
+        resolved = self.resolution or create_container_resolution()
+        return ContainerCollaboratorsResolver(
+            default_view=self.view_container,
+            default_builder=self.builder,
+            resolution=resolved,
+        )
+
+
+@dataclass(slots=True)
 class ContainerFactoryBuilder:
-    """Wire container factory collaborators behind a configuration layer."""
+    """Wire container factory collaborators behind dedicated selectors."""
 
     telemetry: Telemetry
     alert: MissingAlert | None = None
@@ -79,17 +114,19 @@ class ContainerFactoryBuilder:
     collaborators: ContainerCollaboratorsResolver | None = None
 
     def build(self) -> ContainerFactory:
-        default_alert = self.alert or (lambda scope: "")
-        request_factory = self.request_factory or ContainerRequestFactory(
+        request_selector = RequestFactorySelector(
             telemetry=self.telemetry,
-            alert=default_alert,
+            alert=self.alert,
+            candidate=self.request_factory,
         )
-        resolution = self.resolution or create_container_resolution()
-        collaborators = self.collaborators or ContainerCollaboratorsResolver(
-            default_view=self.view_container,
-            default_builder=self.builder,
-            resolution=resolution,
+        collaborator_selector = CollaboratorResolverSelector(
+            view_container=self.view_container,
+            builder=self.builder,
+            resolution=self.resolution,
+            candidate=self.collaborators,
         )
+        request_factory = request_selector.select()
+        collaborators = collaborator_selector.select()
         return ContainerFactory(
             collaborators=collaborators,
             request_factory=request_factory,
