@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from navigator.app.service.retreat_failure import RetreatFailureResolver
+from navigator.app.service.retreat_failure import (
+    RetreatFailureNoticePresenter,
+    RetreatFailureResolver,
+)
 
-from .back.protocols import RetreatFailureTranslator
+from .back.protocols import RetreatFailureNotes, RetreatFailureTranslator
 
 
 def default_retreat_failure_translator() -> RetreatFailureTranslator:
@@ -13,4 +16,13 @@ def default_retreat_failure_translator() -> RetreatFailureTranslator:
     return RetreatFailureResolver()
 
 
-__all__ = ["default_retreat_failure_translator"]
+def default_retreat_failure_notes() -> RetreatFailureNotes:
+    """Return the default mapping from domain notes to presentation keys."""
+
+    return RetreatFailureNoticePresenter()
+
+
+__all__ = [
+    "default_retreat_failure_notes",
+    "default_retreat_failure_translator",
+]

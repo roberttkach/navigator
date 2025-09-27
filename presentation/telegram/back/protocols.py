@@ -19,6 +19,13 @@ class NavigatorBack(Protocol):
 Translator = Callable[[str, str], str]
 
 
+class RetreatFailureNotes(Protocol):
+    """Map workflow failure notes to presentation translation keys."""
+
+    def present(self, note: str | None) -> str:
+        """Return translation key representing ``note``."""
+
+
 class RetreatFailureTranslator(Protocol):
     """Translate domain errors into retreat specific failure notes."""
 
@@ -29,6 +36,7 @@ class RetreatFailureTranslator(Protocol):
 __all__ = [
     "NavigatorBack",
     "RetreatFailureTranslator",
+    "RetreatFailureNotes",
     "RetreatHistory",
     "Translator",
 ]

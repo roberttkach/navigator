@@ -11,6 +11,7 @@ from navigator.core.telemetry import Telemetry
 from navigator.presentation.alerts import lexeme
 from navigator.presentation.telegram.back import (
     NavigatorBack,
+    RetreatFailureNotes,
     RetreatFailureTranslator,
     RetreatHandler,
     RetreatOutcome,
@@ -19,6 +20,7 @@ from navigator.presentation.telegram.back import (
     default_retreat_providers,
 )
 from navigator.presentation.telegram.failures import (
+    default_retreat_failure_notes,
     default_retreat_failure_translator,
 )
 
@@ -36,6 +38,9 @@ class RetreatDependencies:
     failures: Callable[[], RetreatFailureTranslator] = field(
         default=default_retreat_failure_translator
     )
+    notes: Callable[[], RetreatFailureNotes] = field(
+        default=default_retreat_failure_notes
+    )
 
 
 class RetreatCallback(Protocol):
@@ -50,7 +55,10 @@ class RetreatCallback(Protocol):
 def build_retreat_handler(dependencies: RetreatDependencies) -> RetreatHandler:
     """Create a retreat handler with explicit dependencies."""
 
-    providers = default_retreat_providers(failures=dependencies.failures)
+    providers = default_retreat_providers(
+        failures=dependencies.failures,
+        notes=dependencies.notes,
+    )
     return create_retreat_handler(
         dependencies.telemetry,
         dependencies.translator,

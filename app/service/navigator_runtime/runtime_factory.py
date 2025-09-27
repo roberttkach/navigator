@@ -38,22 +38,90 @@ class NavigatorRuntimeAssembly:
         return self.plan.collaborators.scope
 
 
-_CONTRACT_SELECTOR = RuntimeContractSelector()
-_COLLABORATOR_FACTORY = RuntimeCollaboratorFactory()
-_PLAN_REQUEST_BUILDER = RuntimePlanRequestBuilder(
-    contract_selector=_CONTRACT_SELECTOR,
-    collaborator_factory=_COLLABORATOR_FACTORY,
-)
+@dataclass(frozen=True)
+class NavigatorRuntimePlanner:
+    """Aggregate collaborators used to prepare runtime plans."""
+
+    selector: RuntimeContractSelector
+    collaborators: RuntimeCollaboratorFactory
+    builder: RuntimePlanRequestBuilder
+
+    @classmethod
+    def create_default(cls) -> "NavigatorRuntimePlanner":
+        selector = RuntimeContractSelector()
+        collaborators = RuntimeCollaboratorFactory()
+        builder = RuntimePlanRequestBuilder(
+            contract_selector=selector,
+            collaborator_factory=collaborators,
+        )
+        return cls(selector=selector, collaborators=collaborators, builder=builder)
+
+    def select_contracts(
+        self,
+        *,
+        usecases: NavigatorUseCases | None = None,
+        contracts: NavigatorRuntimeContracts | None = None,
+    ) -> RuntimeContractSelection:
+        return self.selector.select(usecases=usecases, contracts=contracts)
+
+    def collaborators_request(
+        self,
+        *,
+        scope: Scope,
+        telemetry: Telemetry | None = None,
+        bundler: PayloadBundler | None = None,
+        reporter: NavigatorReporter | None = None,
+        missing_alert: MissingAlert | None = None,
+        tail_telemetry: TailTelemetry | None = None,
+    ) -> RuntimeCollaboratorRequest:
+        return self.collaborators.create(
+            scope=scope,
+            telemetry=telemetry,
+            reporter=reporter,
+            bundler=bundler,
+            tail_telemetry=tail_telemetry,
+            missing_alert=missing_alert,
+        )
+
+    def plan_request(
+        self,
+        *,
+        scope: Scope,
+        usecases: NavigatorUseCases | None = None,
+        contracts: NavigatorRuntimeContracts | None = None,
+        telemetry: Telemetry | None = None,
+        bundler: PayloadBundler | None = None,
+        reporter: NavigatorReporter | None = None,
+        missing_alert: MissingAlert | None = None,
+        tail_telemetry: TailTelemetry | None = None,
+    ) -> RuntimePlanRequest:
+        return self.builder.build(
+            scope=scope,
+            usecases=usecases,
+            contracts=contracts,
+            telemetry=telemetry,
+            bundler=bundler,
+            reporter=reporter,
+            missing_alert=missing_alert,
+            tail_telemetry=tail_telemetry,
+        )
+
+
+def _planner(planner: NavigatorRuntimePlanner | None) -> NavigatorRuntimePlanner:
+    return planner or NavigatorRuntimePlanner.create_default()
 
 
 def build_runtime_contract_selection(
     *,
     usecases: NavigatorUseCases | None = None,
     contracts: NavigatorRuntimeContracts | None = None,
+    planner: NavigatorRuntimePlanner | None = None,
 ) -> RuntimeContractSelection:
     """Create the contract selection descriptor for a runtime plan."""
 
-    return _CONTRACT_SELECTOR.select(usecases=usecases, contracts=contracts)
+    return _planner(planner).select_contracts(
+        usecases=usecases, contracts=contracts
+    )
 
 
 def build_runtime_collaborators(
@@ -64,10 +132,11 @@ def build_runtime_collaborators(
     reporter: NavigatorReporter | None = None,
     missing_alert: MissingAlert | None = None,
     tail_telemetry: TailTelemetry | None = None,
+    planner: NavigatorRuntimePlanner | None = None,
 ) -> RuntimeCollaboratorRequest:
     """Create the collaborator request for a runtime plan."""
 
-    return _COLLABORATOR_FACTORY.create(
+    return _planner(planner).collaborators_request(
         scope=scope,
         telemetry=telemetry,
         reporter=reporter,
@@ -87,10 +156,11 @@ def create_runtime_plan_request(
     reporter: NavigatorReporter | None = None,
     missing_alert: MissingAlert | None = None,
     tail_telemetry: TailTelemetry | None = None,
+    planner: NavigatorRuntimePlanner | None = None,
 ) -> RuntimePlanRequest:
     """Build a runtime plan request aggregating domain and infrastructure inputs."""
 
-    return _PLAN_REQUEST_BUILDER.build(
+    return _planner(planner).plan_request(
         scope=scope,
         usecases=usecases,
         contracts=contracts,
@@ -114,6 +184,7 @@ def build_navigator_runtime(*, assembly: NavigatorRuntimeAssembly) -> NavigatorR
 
 __all__ = [
     "NavigatorRuntimeAssembly",
+    "NavigatorRuntimePlanner",
     "RuntimeAssemblyPlan",
     "build_navigator_runtime",
     "build_runtime_collaborators",

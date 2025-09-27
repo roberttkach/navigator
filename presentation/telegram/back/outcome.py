@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from aiogram.types import CallbackQuery
 
-from .protocols import Translator
+from .protocols import RetreatFailureNotes, Translator
 from .result import RetreatResult
 
 
@@ -21,15 +21,16 @@ class RetreatOutcome:
 class RetreatOutcomeFactory:
     """Convert retreat results into Telegram-friendly outcomes."""
 
-    def __init__(self, translator: Translator) -> None:
+    def __init__(self, translator: Translator, notes: RetreatFailureNotes) -> None:
         self._translate = translator
+        self._notes = notes
 
     def success(self) -> RetreatOutcome:
         return RetreatOutcome()
 
     def failure(self, note: str, cb: CallbackQuery) -> RetreatOutcome:
         tongue = self._tongue(cb)
-        key = "barred" if note == "barred" else "missing"
+        key = self._notes.present(note)
         return RetreatOutcome(text=self._translate(key, tongue), show_alert=True)
 
     def render(self, result: RetreatResult, cb: CallbackQuery) -> RetreatOutcome:

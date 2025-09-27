@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from navigator.core.entity.history import Entry, Message
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping
 
 from .keys import FSM_HISTORY_FIELD, FSM_NAMESPACE_KEY
 from ..codec import GroupCodec, MediaCodec, PreviewCodec, ReplyCodec, TimeCodec
@@ -11,15 +11,22 @@ from .context import StateContext
 
 
 class Chronicle:
-    def __init__(self, state: StateContext, telemetry: Telemetry | None = None):
-        self._state = state
-        self._telemetry = _TelemetryEmitter(telemetry)
-        self._serializer = _HistorySerializer(telemetry)
+    def __init__(
+        self,
+        state: StateContext,
+        telemetry: Telemetry | None = None,
+        *,
+        storage: "ChronicleStorage" | None = None,
+        serializer: "HistorySerializer" | None = None,
+        emitter: "ChronicleTelemetry" | None = None,
+    ) -> None:
+        self._storage = storage or ChronicleStorage(state)
+        self._telemetry = emitter or ChronicleTelemetry(telemetry)
+        self._serializer = serializer or HistorySerializer(telemetry)
 
     async def recall(self) -> List[Entry]:
-        data = await self._state.get_data()
-        namespace = self._namespace(data)
-        raw = namespace.get(FSM_HISTORY_FIELD, [])
+        namespace = await self._storage.read()
+        raw = namespace.history()
         self._telemetry.loaded(len(raw))
         return [
             self._serializer.load(record, self._telemetry)
@@ -29,19 +36,46 @@ class Chronicle:
 
     async def archive(self, history: List[Entry]) -> None:
         payload = [self._serializer.dump(entry) for entry in history]
-        data = await self._state.get_data()
-        namespace = dict(self._namespace(data))
-        namespace[FSM_HISTORY_FIELD] = payload
-        await self._state.update_data({FSM_NAMESPACE_KEY: namespace})
+        namespace = await self._storage.read()
+        namespace.update_history(payload)
+        await self._storage.write(namespace)
         self._telemetry.saved(len(payload))
 
-    @staticmethod
-    def _namespace(data: Dict[str, Any]) -> Dict[str, Any]:
+
+class ChronicleStorage:
+    """Persist FSM chronicle namespaces in the underlying state context."""
+
+    def __init__(self, state: StateContext) -> None:
+        self._state = state
+
+    async def read(self) -> "ChronicleNamespace":
+        data = await self._state.get_data()
         namespace = data.get(FSM_NAMESPACE_KEY)
-        return namespace if isinstance(namespace, dict) else {}
+        payload = namespace if isinstance(namespace, dict) else {}
+        return ChronicleNamespace(payload)
+
+    async def write(self, namespace: "ChronicleNamespace") -> None:
+        await self._state.update_data({FSM_NAMESPACE_KEY: namespace.dump()})
 
 
-class _TelemetryEmitter:
+class ChronicleNamespace:
+    """Access helpers around FSM namespace payloads."""
+
+    def __init__(self, payload: Mapping[str, Any]) -> None:
+        self._payload: MutableMapping[str, Any] = dict(payload)
+
+    def history(self) -> List[Mapping[str, Any]]:
+        raw = self._payload.get(FSM_HISTORY_FIELD, [])
+        return raw if isinstance(raw, list) else []
+
+    def update_history(self, history: Iterable[Mapping[str, Any]]) -> None:
+        self._payload[FSM_HISTORY_FIELD] = list(history)
+
+    def dump(self) -> Dict[str, Any]:
+        return dict(self._payload)
+
+
+class ChronicleTelemetry:
     def __init__(self, telemetry: Telemetry | None) -> None:
         self._channel: TelemetryChannel | None = (
             telemetry.channel(__name__) if telemetry else None
@@ -61,7 +95,7 @@ class _TelemetryEmitter:
         self.emit(logging.ERROR, LogCode.HISTORY_LOAD, note=note, **fields)
 
 
-class _HistorySerializer:
+class HistorySerializer:
     def __init__(self, telemetry: Telemetry | None) -> None:
         self._time = TimeCodec(telemetry)
 
@@ -73,7 +107,7 @@ class _HistorySerializer:
             "messages": [self._dump_message(message) for message in entry.messages],
         }
 
-    def load(self, data: Dict[str, Any], telemetry: _TelemetryEmitter) -> Entry:
+    def load(self, data: Dict[str, Any], telemetry: ChronicleTelemetry) -> Entry:
         items = data.get("messages")
         rootmark = bool(data.get("root", False))
         if isinstance(items, list):
@@ -110,7 +144,7 @@ class _HistorySerializer:
             "ts": TimeCodec.pack(message.ts),
         }
 
-    def _load_message(self, record: Dict[str, Any], telemetry: _TelemetryEmitter) -> Message:
+    def _load_message(self, record: Dict[str, Any], telemetry: ChronicleTelemetry) -> Message:
         automated = self._require(
             record,
             "automated",
@@ -139,7 +173,7 @@ class _HistorySerializer:
             self,
             record: Dict[str, Any],
             key: str,
-            telemetry: _TelemetryEmitter,
+            telemetry: ChronicleTelemetry,
             note: str,
             *,
             message: str | None = None,
@@ -150,14 +184,14 @@ class _HistorySerializer:
             raise ValueError(detail)
         return record.get(key)
 
-    def _parse_identifier(self, raw: Any, telemetry: _TelemetryEmitter) -> int:
+    def _parse_identifier(self, raw: Any, telemetry: ChronicleTelemetry) -> int:
         try:
             return int(raw)
         except (TypeError, ValueError):
             telemetry.error("history_message_invalid_id", raw=raw)
             raise ValueError(f"History message payload has invalid 'id': {raw!r}")
 
-    def _parse_extras(self, values: Any, telemetry: _TelemetryEmitter) -> List[int]:
+    def _parse_extras(self, values: Any, telemetry: ChronicleTelemetry) -> List[int]:
         extras: List[int] = []
         for value in values or []:
             if not isinstance(value, int):
