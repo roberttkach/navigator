@@ -7,6 +7,9 @@ from dependency_injector import containers, providers
 
 from navigator.adapters.storage.fsm.context import StateContext
 from navigator.core.port.factory import ViewLedger
+from navigator.app.service.navigator_runtime.snapshot import (
+    NavigatorRuntimeSnapshot,
+)
 from navigator.core.telemetry import Telemetry
 
 from .core import CoreContainer
@@ -104,6 +107,12 @@ class AppContainer:
         """Expose runtime bindings produced by the application composition root."""
 
         return self.runtime_bindings.runtime()
+
+    def snapshot(self) -> NavigatorRuntimeSnapshot:
+        """Return the runtime snapshot without exposing container internals."""
+
+        runtime = self.runtime()
+        return runtime.snapshot()
 
 
 __all__ = [
