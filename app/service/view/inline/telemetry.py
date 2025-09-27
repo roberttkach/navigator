@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 
+from navigator.core.service.rendering import decision as D
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 
 
@@ -12,9 +13,7 @@ class InlineTelemetryAdapter:
     def __init__(self, telemetry: Telemetry) -> None:
         self._channel: TelemetryChannel = telemetry.channel(__name__)
 
-    def remap_delete_send(self, target: "D.Decision") -> None:
-        from navigator.core.service.rendering import decision as D
-
+    def remap_delete_send(self, target: D.Decision) -> None:
         self._channel.emit(
             logging.INFO,
             LogCode.INLINE_REMAP_DELETE_SEND,

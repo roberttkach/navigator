@@ -12,6 +12,7 @@ from .mediator import InlineEditMediator
 from .telemetry import InlineTelemetryAdapter
 from .guard import InlineGuard
 from .remap import InlineRemapper
+from .outcome import InlineOutcome
 from ..executor import EditExecutor
 
 
@@ -37,9 +38,7 @@ class InlineMediaFlow:
         base: Message | None,
         executor: EditExecutor,
         config: RenderingConfig,
-    ) -> "InlineOutcome" | None:
-        from .editor import InlineOutcome
-
+    ) -> InlineOutcome | None:
         if not self._guard.admissible(entry):
             return await self._fallback(scope, entry, base, executor)
         verdict = D.decide(base, entry, config)
@@ -51,9 +50,7 @@ class InlineMediaFlow:
         entry: Payload,
         base: Message | None,
         executor: EditExecutor,
-    ) -> "InlineOutcome" | None:
-        from .editor import InlineOutcome
-
+    ) -> InlineOutcome | None:
         if base and not match(getattr(base, "markup", None), getattr(entry, "reply", None)):
             adjusted = entry.morph(media=base.media if base else None, group=None)
             outcome = await self._mediator.apply(
@@ -75,9 +72,7 @@ class InlineMediaFlow:
         entry: Payload,
         base: Message | None,
         executor: EditExecutor,
-    ) -> "InlineOutcome" | None:
-        from .editor import InlineOutcome
-
+    ) -> InlineOutcome | None:
         if verdict is D.Decision.DELETE_SEND:
             return await self._handle_delete_send(scope, entry, base, executor=executor)
         if verdict in (D.Decision.EDIT_MEDIA_CAPTION, D.Decision.EDIT_MARKUP):
@@ -103,9 +98,7 @@ class InlineMediaFlow:
         base: Message | None,
         *,
         executor: EditExecutor,
-    ) -> "InlineOutcome" | None:
-        from .editor import InlineOutcome
-
+    ) -> InlineOutcome | None:
         remapped = self._remapper.remap(base, entry)
         self._telemetry.remap_delete_send(remapped)
         if remapped is D.Decision.EDIT_MARKUP:
@@ -148,9 +141,7 @@ class InlineTextFlow:
         entry: Payload,
         base: Message | None,
         executor: EditExecutor,
-    ) -> "InlineOutcome" | None:
-        from .editor import InlineOutcome
-
+    ) -> InlineOutcome | None:
         if base and getattr(base, "media", None):
             adjusted = entry.morph(media=base.media, group=None)
             if self._requires_caption_refresh(adjusted):

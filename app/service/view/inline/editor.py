@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from navigator.core.entity.history import Message
 from navigator.core.service.rendering import decision as D
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
 from ..executor import EditExecutor, Execution
-
-
-@dataclass(slots=True)
-class InlineOutcome:
-    execution: Execution
-    decision: D.Decision
-    payload: Payload
+from .outcome import InlineOutcome
 
 
 class InlineEditor:
