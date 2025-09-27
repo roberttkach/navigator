@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, MutableMapping, Optional, Protocol
 
 from ...telemetry import LogCode, Telemetry, TelemetryChannel
-from ...util.entities import sanitize
+from ...util.entities import EntitySanitizer
 
 MutableExtra = MutableMapping[str, Any]
 
@@ -32,6 +32,7 @@ class ExtraContext:
     length: int
     telemetry: Telemetry | None
     channel: TelemetryChannel | None
+    entities: EntitySanitizer
 
 
 def cleanse(
@@ -39,6 +40,7 @@ def cleanse(
         *,
         length: int,
         telemetry: Telemetry | None = None,
+        entities: EntitySanitizer,
 ) -> Optional[Dict[str, Any]]:
     """Return sanitized metadata extracted from a history extra mapping."""
 
@@ -47,7 +49,12 @@ def cleanse(
 
     filtered: Dict[str, Any] = {}
     channel = _derive_channel(telemetry)
-    context = ExtraContext(length=length, telemetry=telemetry, channel=channel)
+    context = ExtraContext(
+        length=length,
+        telemetry=telemetry,
+        channel=channel,
+        entities=entities,
+    )
 
     for key, value in extra.items():
         handler = _EXTRA_HANDLERS.get(key, _keep_unknown)
@@ -82,7 +89,7 @@ def _handle_entities(
 ) -> None:
     """Sanitize text entities, emitting telemetry when they are discarded."""
 
-    sanitized = sanitize(value, context.length, telemetry=context.telemetry)
+    sanitized = context.entities.sanitize(value, context.length)
     if sanitized:
         filtered[key] = sanitized
     elif context.channel:

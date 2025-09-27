@@ -21,6 +21,7 @@ class IntegrationBindings(containers.DeclarativeContainer):
         StorageContainer,
         core=core.provided.core,
         telemetry=telemetry,
+        entities=view_container.provided.entities,
     )
     view = providers.Container(
         view_container,

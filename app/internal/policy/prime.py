@@ -6,6 +6,7 @@ from navigator.core.entity.history import Entry, Message
 from navigator.core.entity.media import MediaItem
 from navigator.core.port.clock import Clock
 from navigator.core.service.history.extra import cleanse
+from navigator.core.util.entities import EntitySanitizer
 from navigator.core.value.content import Payload, caption
 
 
@@ -14,6 +15,7 @@ class PrimeEntryFactory:
     """Build lightweight history entries for tail editing workflows."""
 
     clock: Clock
+    entities: EntitySanitizer
 
     def create(self, identifier: int, payload: Payload) -> Entry:
         media = None
@@ -25,7 +27,7 @@ class PrimeEntryFactory:
             )
 
         length = _content_length(payload)
-        extra = cleanse(payload.extra, length=length)
+        extra = cleanse(payload.extra, length=length, entities=self.entities)
         message = Message(
             id=identifier,
             text=None if (payload.media or payload.group) else payload.text,
@@ -57,10 +59,16 @@ def _content_length(payload: Payload) -> int:
     return 0
 
 
-def prime(identifier: int, payload: Payload, *, clock: Clock) -> Entry:
+def prime(
+        identifier: int,
+        payload: Payload,
+        *,
+        clock: Clock,
+        entities: EntitySanitizer,
+) -> Entry:
     """Compatibility wrapper around :class:`PrimeEntryFactory`."""
 
-    return PrimeEntryFactory(clock).create(identifier, payload)
+    return PrimeEntryFactory(clock, entities).create(identifier, payload)
 
 
 __all__ = ["PrimeEntryFactory", "prime"]
