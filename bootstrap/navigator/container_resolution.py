@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from importlib import import_module
+from dataclasses import dataclass
 from typing import Protocol, TypeVar, cast
 
 from .container_types import ContainerBuilder, ViewContainerFactory
@@ -25,49 +26,52 @@ class ContainerResolutionError(LookupError):
     """Raised when default container collaborators cannot be resolved."""
 
 
-class _ResolutionState:
-    """Track overrides and cached resolution results."""
+@dataclass
+class _ViewFactoryRegistry:
+    """Maintain override and cache state for view container factories."""
 
-    def __init__(self) -> None:
-        self._view_loader: _Loader[ViewContainerFactory] | None = None
-        self._builder_loader: _Loader[ContainerBuilder] | None = None
-        self._view_cache: ViewContainerFactory | None = None
-        self._builder_cache: ContainerBuilder | None = None
+    loader: _Loader[ViewContainerFactory] | None = None
+    cache: ViewContainerFactory | None = None
 
-    def configure_view_container(
-        self, loader: _Loader[ViewContainerFactory] | ViewContainerFactory
+    def configure(
+        self, candidate: _Loader[ViewContainerFactory] | ViewContainerFactory
     ) -> None:
-        self._view_loader = _ensure_view_loader(loader)
-        self._view_cache = None
+        self.loader = _ensure_view_loader(candidate)
+        self.cache = None
 
-    def configure_container_builder(
-        self, loader: _Loader[ContainerBuilder] | ContainerBuilder
+    def resolve(self) -> ViewContainerFactory:
+        if self.cache is None:
+            factory = (self.loader or _default_view_loader)()
+            self.cache = factory
+        return self.cache
+
+
+@dataclass
+class _BuilderRegistry:
+    """Maintain override and cache state for container builders."""
+
+    loader: _Loader[ContainerBuilder] | None = None
+    cache: ContainerBuilder | None = None
+
+    def configure(
+        self, candidate: _Loader[ContainerBuilder] | ContainerBuilder
     ) -> None:
-        self._builder_loader = _ensure_builder_loader(loader)
-        self._builder_cache = None
+        self.loader = _ensure_builder_loader(candidate)
+        self.cache = None
 
-    def resolve_view_container(self) -> ViewContainerFactory:
-        if self._view_cache is not None:
-            return self._view_cache
-        loader = self._view_loader or _default_view_loader
-        container = loader()
-        self._view_cache = container
-        return container
-
-    def resolve_container_builder(self) -> ContainerBuilder:
-        if self._builder_cache is not None:
-            return self._builder_cache
-        loader = self._builder_loader or _default_builder_loader
-        builder = loader()
-        if not hasattr(builder, "build"):
-            raise ContainerResolutionError(
-                "Resolved container builder does not expose a 'build' method"
-            )
-        self._builder_cache = builder
-        return builder
+    def resolve(self) -> ContainerBuilder:
+        if self.cache is None:
+            builder = (self.loader or _default_builder_loader)()
+            if not hasattr(builder, "build"):
+                raise ContainerResolutionError(
+                    "Resolved container builder does not expose a 'build' method"
+                )
+            self.cache = builder
+        return self.cache
 
 
-_state = _ResolutionState()
+_view_registry = _ViewFactoryRegistry()
+_builder_registry = _BuilderRegistry()
 
 
 def configure_view_container(
@@ -75,7 +79,7 @@ def configure_view_container(
 ) -> None:
     """Override the default view container factory resolution."""
 
-    _state.configure_view_container(factory)
+    _view_registry.configure(factory)
 
 
 def configure_container_builder(
@@ -83,14 +87,14 @@ def configure_container_builder(
 ) -> None:
     """Override the default container builder resolution."""
 
-    _state.configure_container_builder(builder)
+    _builder_registry.configure(builder)
 
 
 def resolve_view_container() -> ViewContainerFactory:
     """Return the default view container factory."""
 
     try:
-        return _state.resolve_view_container()
+        return _view_registry.resolve()
     except (ImportError, AttributeError) as exc:
         raise ContainerResolutionError("Unable to resolve default view container") from exc
 
@@ -99,7 +103,7 @@ def resolve_container_builder() -> ContainerBuilder:
     """Return the default runtime container builder."""
 
     try:
-        return _state.resolve_container_builder()
+        return _builder_registry.resolve()
     except (ImportError, AttributeError, TypeError) as exc:
         raise ContainerResolutionError("Unable to resolve container builder") from exc
 

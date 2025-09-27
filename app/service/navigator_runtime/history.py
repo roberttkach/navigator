@@ -1,12 +1,12 @@
 """History-oriented operations orchestrated by the navigator runtime."""
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any, Awaitable, Callable, SupportsInt
 
 from navigator.app.locks.guard import Guardian
 
 from .bundler import PayloadBundleSource, PayloadBundler
+from .back_context import NavigatorBackContext
 from .ports import (
     AppendHistoryUseCase,
     RebaseHistoryUseCase,
@@ -141,8 +141,8 @@ class HistoryBackOperation(_HistoryOperation):
         super().__init__(guard=guard, scope=scope, reporter=reporter)
         self._rewinder = rewinder
 
-    async def __call__(self, context: dict[str, Any]) -> None:
-        handlers = sorted(context.keys()) if isinstance(context, Mapping) else None
+    async def __call__(self, context: NavigatorBackContext) -> None:
+        handlers = list(context.handler_names())
 
         async def action() -> None:
             await self._rewinder.execute(self._scope, context)
@@ -205,7 +205,7 @@ class NavigatorHistoryService:
     async def rebase(self, message: int | SupportsInt) -> None:
         await self._rebase(message)
 
-    async def back(self, context: dict[str, Any]) -> None:
+    async def back(self, context: NavigatorBackContext) -> None:
         await self._back(context)
 
     async def pop(self, count: int = 1) -> None:

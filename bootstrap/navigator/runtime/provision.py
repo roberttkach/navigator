@@ -64,29 +64,25 @@ class ContainerInspector:
         return inspect_container(container)
 
 
-@dataclass(slots=True)
-class RuntimeProvisionWorkflow:
-    """Execute the telemetry/container/inspection sequence as a single unit."""
-
-    initializer: TelemetryInitializer
-    assembler: ContainerAssembler
-    inspector: ContainerInspector
-
-    def run(self, context: BootstrapContext) -> RuntimeProvision:
-        telemetry = self.initializer.initialize()
-        container = self.assembler.assemble(telemetry, context)
-        snapshot = self.inspector.inspect(container)
-        return RuntimeProvision(telemetry=telemetry, container=container, snapshot=snapshot)
-
-
 class RuntimeProvisioner:
     """Produce the container, telemetry and inspection snapshot."""
 
-    def __init__(self, workflow: RuntimeProvisionWorkflow) -> None:
-        self._workflow = workflow
+    def __init__(
+        self,
+        *,
+        initializer: TelemetryInitializer,
+        assembler: ContainerAssembler,
+        inspector: ContainerInspector,
+    ) -> None:
+        self._initializer = initializer
+        self._assembler = assembler
+        self._inspector = inspector
 
     def provision(self, context: BootstrapContext) -> RuntimeProvision:
-        return self._workflow.run(context)
+        telemetry = self._initializer.initialize()
+        container = self._assembler.assemble(telemetry, context)
+        snapshot = self._inspector.inspect(container)
+        return RuntimeProvision(telemetry=telemetry, container=container, snapshot=snapshot)
 
 
 def build_runtime_provisioner(
@@ -108,8 +104,7 @@ def build_runtime_provisioner(
         builder=builder,
     )
     review = inspector or ContainerInspector()
-    workflow = RuntimeProvisionWorkflow(init, assemble, review)
-    return RuntimeProvisioner(workflow)
+    return RuntimeProvisioner(initializer=init, assembler=assemble, inspector=review)
 
 
 __all__ = [
@@ -118,6 +113,5 @@ __all__ = [
     "RuntimeProvision",
     "build_runtime_provisioner",
     "RuntimeProvisioner",
-    "RuntimeProvisionWorkflow",
     "TelemetryInitializer",
 ]

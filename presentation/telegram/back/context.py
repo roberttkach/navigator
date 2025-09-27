@@ -2,43 +2,29 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Mapping, MutableMapping
+from typing import Mapping, MutableMapping
 
 from aiogram.types import CallbackQuery, Message, User
 
-
-@dataclass(frozen=True, slots=True)
-class RetreatEvent:
-    """Lightweight representation of callback events required by rewind."""
-
-    id: str
-    data: str | None
-    inline_message_id: str | None
-    chat_instance: str | None
-    message_id: int | None
-    message_chat_id: int | None
-    message_thread_id: int | None
-    message_chat_type: str | None
-    user_id: int | None
-    user_language: str | None
-    user_username: str | None
-    user_first_name: str | None
-    user_last_name: str | None
+from navigator.app.service.navigator_runtime.back_context import (
+    NavigatorBackContext,
+    NavigatorBackEvent,
+)
 
 
 class RetreatContextBuilder:
     """Create navigator context payloads for retreat execution."""
 
-    def build(self, cb: CallbackQuery, payload: Mapping[str, Any]) -> dict[str, Any]:
-        """Return a copy of ``payload`` augmented with sanitized event data."""
+    def build(
+        self, cb: CallbackQuery, payload: Mapping[str, object]
+    ) -> NavigatorBackContext:
+        """Return navigator back context augmented with sanitized event data."""
 
-        context: MutableMapping[str, Any] = dict(payload)
-        context["event"] = self._event(cb)
-        return dict(context)
+        context: MutableMapping[str, object] = dict(payload)
+        return NavigatorBackContext(context, self._event(cb))
 
-    def _event(self, cb: CallbackQuery) -> RetreatEvent:
-        return RetreatEvent(
+    def _event(self, cb: CallbackQuery) -> NavigatorBackEvent:
+        return NavigatorBackEvent(
             id=cb.id,
             data=cb.data,
             inline_message_id=cb.inline_message_id,
