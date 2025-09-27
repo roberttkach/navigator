@@ -4,12 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Iterable, Sequence
 
-from navigator.api.contracts import (
+from navigator.app.service.navigator_runtime.api_contracts import (
     NavigatorRuntimeInstrument,
-    ScopeDTO,
-    ViewLedgerDTO,
 )
 from navigator.core.contracts import MissingAlert
+from navigator.core.port.factory import ViewLedger
+from navigator.core.value.message import Scope
+
 from .context import BootstrapContext, ViewContainerFactory
 from .container_resolution import ContainerResolution, create_container_resolution
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
@@ -28,21 +29,73 @@ class ViewContainerResolver:
 
 
 @dataclass(slots=True)
-class RuntimeFactoryBuilder:
-    """Build navigator factories while isolating container resolution."""
+class RuntimeFactoryResolver:
+    """Resolve runtime factories from bootstrap collaborators."""
 
-    resolver: ViewContainerResolver
+    view_resolver: ViewContainerResolver
+    default_view: ViewContainerFactory | None = None
 
-    def build(
+    def resolve(
         self,
         *,
         runtime_factory: NavigatorFactory | None,
-        view_container: ViewContainerFactory | None,
+        context_view: ViewContainerFactory | None,
     ) -> NavigatorFactory:
         if runtime_factory is not None:
             return runtime_factory
-        container = self.resolver.resolve(view_container)
+        candidate = context_view or self.default_view
+        container = self.view_resolver.resolve(candidate)
         return ContainerRuntimeFactory(view_container=container)
+
+
+@dataclass(slots=True)
+class InstrumentationDecorator:
+    """Decorate factories with runtime instrumentation hooks."""
+
+    instruments: Sequence[NavigatorRuntimeInstrument]
+
+    def apply(self, factory: NavigatorFactory) -> NavigatorFactory:
+        if not self.instruments:
+            return factory
+        return InstrumentedNavigatorFactory(factory, self.instruments)
+
+
+@dataclass(slots=True)
+class InstrumentationPlanner:
+    """Normalize instrumentation iterables into stable sequences."""
+
+    def plan(
+        self, payload: Iterable[NavigatorRuntimeInstrument] | None
+    ) -> Sequence[NavigatorRuntimeInstrument]:
+        if payload is None:
+            return ()
+        if isinstance(payload, tuple):
+            return payload
+        return tuple(payload)
+
+
+@dataclass(slots=True)
+class BootstrapContextFactory:
+    """Construct bootstrap context objects from raw payloads."""
+
+    def create(
+        self,
+        *,
+        event: object,
+        state: object,
+        ledger: ViewLedger,
+        scope: Scope,
+        missing_alert: MissingAlert | None,
+        view_container: ViewContainerFactory | None,
+    ) -> BootstrapContext:
+        return BootstrapContext(
+            event=event,
+            state=state,
+            ledger=ledger,
+            scope=scope,
+            missing_alert=missing_alert,
+            view_container=view_container,
+        )
 
 
 class InstrumentedNavigatorFactory(NavigatorFactory):
@@ -69,31 +122,38 @@ class NavigatorAssembler:
     def __init__(
         self,
         runtime_factory: NavigatorFactory | None = None,
+        *,
         instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
         view_container: ViewContainerFactory | None = None,
         resolution: ContainerResolution | None = None,
+        factory_resolver: RuntimeFactoryResolver | None = None,
+        decorator: InstrumentationDecorator | None = None,
     ) -> None:
         resolved = resolution or create_container_resolution()
-        resolver = ViewContainerResolver(resolved)
-        builder = RuntimeFactoryBuilder(resolver)
-        factory = builder.build(
-            runtime_factory=runtime_factory,
-            view_container=view_container,
+        resolver = factory_resolver or RuntimeFactoryResolver(
+            ViewContainerResolver(resolved),
+            default_view=view_container,
         )
-        if instrumentation:
-            factory = InstrumentedNavigatorFactory(factory, tuple(instrumentation))
-        self._runtime_factory = factory
+        self._resolver = resolver
+        instruments = instrumentation or ()
+        self._decorator = decorator or InstrumentationDecorator(tuple(instruments))
+        self._runtime_factory = runtime_factory
 
     async def build(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
-        return await self._runtime_factory.create(context)
+        base = self._resolver.resolve(
+            runtime_factory=self._runtime_factory,
+            context_view=context.view_container,
+        )
+        factory = self._decorator.apply(base)
+        return await factory.create(context)
 
 
 async def assemble(
     *,
     event: object,
     state: object,
-    ledger: ViewLedgerDTO,
-    scope: ScopeDTO,
+    ledger: ViewLedger,
+    scope: Scope,
     instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
     missing_alert: MissingAlert | None = None,
     view_container: ViewContainerFactory | None = None,
@@ -101,7 +161,7 @@ async def assemble(
 ) -> NavigatorRuntimeBundle:
     """Construct a navigator runtime bundle from entrypoint payloads."""
 
-    context = BootstrapContext(
+    context = BootstrapContextFactory().create(
         event=event,
         state=state,
         ledger=ledger,
@@ -109,11 +169,7 @@ async def assemble(
         missing_alert=missing_alert,
         view_container=view_container,
     )
-    instruments: Sequence[NavigatorRuntimeInstrument]
-    if instrumentation:
-        instruments = tuple(instrumentation)
-    else:
-        instruments = ()
+    instruments = InstrumentationPlanner().plan(instrumentation)
     assembler = NavigatorAssembler(
         instrumentation=instruments,
         view_container=view_container,
@@ -123,9 +179,12 @@ async def assemble(
 
 
 __all__ = [
+    "BootstrapContextFactory",
+    "InstrumentationDecorator",
+    "InstrumentationPlanner",
     "InstrumentedNavigatorFactory",
     "NavigatorAssembler",
-    "RuntimeFactoryBuilder",
+    "RuntimeFactoryResolver",
     "ViewContainerResolver",
     "assemble",
 ]

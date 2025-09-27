@@ -1,9 +1,8 @@
-"""Bootstrap adapters for Telegram presentation components."""
 from __future__ import annotations
 
 from typing import Callable, Protocol
 
-from navigator.api.contracts import NavigatorRuntimeBundleLike
+from navigator.app.service.navigator_runtime import NavigatorRuntimeBundleLike
 
 from .router import RetreatDependencies, RetreatRouterConfigurator, retreat_configurator
 

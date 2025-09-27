@@ -3,15 +3,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, cast
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
-from navigator.api import assemble as assemble_navigator
-from navigator.api.contracts import (
+from navigator.app.service.navigator_runtime import (
     NavigatorAssemblyOverrides,
     NavigatorRuntimeInstrument,
+    assemble_navigator,
 )
 from navigator.core.contracts import MissingAlert
 from navigator.core.port.factory import ViewLedger
@@ -50,8 +50,9 @@ class TelegramRuntimeConfiguration:
         return cls(instrumentation=instruments, missing_alert=missing_alert or missing)
 
 
+@dataclass(frozen=True)
 class TelegramNavigatorAssembler:
-    """Concrete assembler translating Telegram primitives for navigator API."""
+    """Concrete assembler translating Telegram primitives for navigator runtime."""
 
     def __init__(
         self,
@@ -73,8 +74,9 @@ class TelegramNavigatorAssembler:
             instrumentation=self._configuration.instrumentation,
             missing_alert=self._configuration.missing_alert,
             overrides=self._overrides,
+            facade_type=Navigator,
         )
-        return navigator
+        return cast(Navigator, navigator)
 
 
 NavigatorInstrument = NavigatorRuntimeInstrument

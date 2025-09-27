@@ -1,13 +1,10 @@
-"""Aiogram middleware that injects a Navigator instance into handler context."""
-from __future__ import annotations
-
 from collections.abc import Iterable
 from typing import Any, Awaitable, Callable, Dict, Optional, Protocol, runtime_checkable
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 
-from navigator.api.contracts import NavigatorRuntimeInstrument
+from navigator.app.service.navigator_runtime import NavigatorRuntimeInstrument
 from navigator.core.port.factory import ViewLedger
 from .assembly import (
     NavigatorAssembler,
