@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Optional, Protocol, Sequence, runtime_checkable
 
+from navigator.core.entity.history import Entry
+from navigator.core.value.content import Payload
+from navigator.core.value.message import Scope
 from navigator.core.typing.result import Meta
 
 
@@ -17,5 +20,20 @@ class RenderOutcome(Protocol):
     changed: bool
 
 
-__all__ = ["RenderOutcome"]
+@runtime_checkable
+class RenderPlanner(Protocol):
+    """Structural contract for components able to plan renders."""
+
+    async def render(
+        self,
+        scope: Scope,
+        payloads: Sequence[Payload],
+        trail: Entry | None,
+        *,
+        inline: bool,
+    ) -> Optional[RenderOutcome]:
+        ...
+
+
+__all__ = ["RenderOutcome", "RenderPlanner"]
 

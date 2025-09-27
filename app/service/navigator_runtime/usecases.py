@@ -3,15 +3,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from navigator.app.usecase.alarm import Alarm
-from navigator.app.usecase.last import Tailer
-from navigator.app.usecase.set import Setter
-
 from .ports import (
+    AlarmUseCase,
     AppendHistoryUseCase,
     RebaseHistoryUseCase,
     ReplaceHistoryUseCase,
     RewindHistoryUseCase,
+    SetStateUseCase,
+    TailUseCase,
     TrimHistoryUseCase,
 )
 
@@ -23,11 +22,11 @@ class NavigatorUseCases:
     appender: AppendHistoryUseCase
     swapper: ReplaceHistoryUseCase
     rewinder: RewindHistoryUseCase
-    setter: Setter
+    setter: SetStateUseCase
     trimmer: TrimHistoryUseCase
     shifter: RebaseHistoryUseCase
-    tailer: Tailer
-    alarm: Alarm
+    tailer: TailUseCase
+    alarm: AlarmUseCase
 
 
 __all__ = ["NavigatorUseCases"]

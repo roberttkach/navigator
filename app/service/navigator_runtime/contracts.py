@@ -3,15 +3,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from navigator.app.usecase.alarm import Alarm
-from navigator.app.usecase.last import Tailer
-from navigator.app.usecase.set import Setter
-
 from .ports import (
+    AlarmUseCase,
     AppendHistoryUseCase,
     RebaseHistoryUseCase,
     ReplaceHistoryUseCase,
     RewindHistoryUseCase,
+    SetStateUseCase,
+    TailUseCase,
     TrimHistoryUseCase,
 )
 from .usecases import NavigatorUseCases
@@ -32,15 +31,15 @@ class HistoryContracts:
 class StateContracts:
     """Expose state-oriented use cases required by the runtime."""
 
-    setter: Setter
-    alarm: Alarm
+    setter: SetStateUseCase
+    alarm: AlarmUseCase
 
 
 @dataclass(frozen=True)
 class TailContracts:
     """Expose tail-specific collaborators required by the runtime."""
 
-    tailer: Tailer
+    tailer: TailUseCase
 
 
 @dataclass(frozen=True)

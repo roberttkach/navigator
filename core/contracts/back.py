@@ -1,4 +1,4 @@
-"""Domain oriented context objects for navigator back operations."""
+"""Shared rewind context contracts decoupled from service details."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ class NavigatorBackEvent:
 
 @dataclass(frozen=True, slots=True)
 class NavigatorBackContext:
-    """Stable contract passed from the presentation layer into rewind use cases."""
+    """Stable contract passed from presentation into rewind use cases."""
 
     payload: Mapping[str, Any]
     event: NavigatorBackEvent | None = None
@@ -69,3 +69,4 @@ class NavigatorBackContext:
 
 
 __all__ = ["NavigatorBackContext", "NavigatorBackEvent"]
+

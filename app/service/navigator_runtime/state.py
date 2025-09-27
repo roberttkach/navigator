@@ -4,12 +4,11 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from navigator.app.locks.guard import Guardian
-from navigator.app.usecase.alarm import Alarm
-from navigator.app.usecase.set import Setter
 from navigator.core.error import StateNotFound
 from navigator.core.value.message import Scope
 
 from .reporter import NavigatorReporter
+from .ports import AlarmUseCase, SetStateUseCase
 from .types import MissingAlert
 
 
@@ -25,7 +24,7 @@ class MissingStateAlarm:
     def __init__(
         self,
         *,
-        alarm: Alarm,
+        alarm: AlarmUseCase,
         scope: Scope,
         factory: MissingAlert | None = None,
     ) -> None:
@@ -44,7 +43,7 @@ class StateAlertManager:
     def __init__(
         self,
         *,
-        alarm: Alarm,
+        alarm: AlarmUseCase,
         scope: Scope,
         missing_alarm: MissingStateAlarm | None = None,
     ) -> None:
@@ -68,7 +67,7 @@ class StateOperationExecutor:
     def __init__(
         self,
         *,
-        setter: Setter,
+        setter: SetStateUseCase,
         guard: Guardian,
         scope: Scope,
         alerts: StateAlertManager,

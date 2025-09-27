@@ -6,11 +6,11 @@ from typing import Any, Dict, Optional
 
 from ..log import events
 from ..log.aspect import TraceAspect
-from ..service.view.planner import RenderNode, ViewPlanner
 from ...core.entity.history import Entry
 from ...core.value.content import Payload
 from ...core.telemetry import Telemetry
 from ...core.value.message import Scope
+from .render_contract import RenderOutcome, RenderPlanner
 from .set_components import (
     HistoryReconciler,
     HistoryRestorationPlanner,
@@ -28,7 +28,7 @@ class Setter:
             planner: HistoryRestorationPlanner,
             state: StateSynchronizer,
             reviver: PayloadReviver,
-            renderer: ViewPlanner,
+            renderer: RenderPlanner,
             reconciler: HistoryReconciler,
             telemetry: Telemetry,
     ):
@@ -73,7 +73,7 @@ class Setter:
             resolved: list[Payload],
             tail: Entry,
             inline: bool,
-    ) -> Optional[RenderNode]:
+    ) -> Optional[RenderOutcome]:
         """Render ``resolved`` payloads against ``tail`` context."""
 
         return await self._renderer.render(

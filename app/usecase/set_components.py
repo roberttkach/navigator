@@ -5,7 +5,6 @@ import logging
 from dataclasses import dataclass, replace
 from typing import Any, Dict, Iterable, List
 
-from navigator.app.service.view.planner import RenderNode
 from navigator.app.service.view.restorer import ViewRestorer
 from navigator.core.entity.history import Entry
 from navigator.core.error import StateNotFound
@@ -15,6 +14,8 @@ from navigator.core.port.state import StateRepository
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload, normalize
 from navigator.core.value.message import Scope
+
+from .render_contract import RenderOutcome
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +111,7 @@ class HistoryTailWriter:
         trimmed = plan.history[: plan.cursor + 1]
         await self._ledger.archive(trimmed)
 
-    async def apply(self, render: RenderNode) -> None:
+    async def apply(self, render: RenderOutcome) -> None:
         current = await self._ledger.recall()
         if not current:
             return
@@ -119,7 +120,7 @@ class HistoryTailWriter:
         await self._ledger.archive([*current[:-1], patched])
 
     @staticmethod
-    def _patch(entry: Entry, render: RenderNode) -> Entry:
+    def _patch(entry: Entry, render: RenderOutcome) -> Entry:
         limit = min(len(entry.messages), len(render.ids))
         messages = list(entry.messages)
         for index in range(limit):
@@ -188,7 +189,7 @@ class HistoryReconciler:
     async def truncate(self, plan: RestorationPlan) -> None:
         await self._writer.truncate(plan)
 
-    async def apply(self, _scope: Scope, render: RenderNode) -> None:
+    async def apply(self, _scope: Scope, render: RenderOutcome) -> None:
         await self._writer.apply(render)
         await self._marker.mark(render.ids[0])
         self._journal.record_mark(render.ids[0])

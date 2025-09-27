@@ -9,7 +9,7 @@ from ...core.value.content import normalize
 from ...core.value.message import Scope
 from ..log import events
 from ..log.aspect import TraceAspect
-from ..service.navigator_runtime.back_context import NavigatorBackContext
+from ...core.contracts.back import NavigatorBackContext
 from .back_access import (
     RewindFinalizer,
     RewindHistoryReader,
