@@ -2,13 +2,10 @@
 from __future__ import annotations
 
 from .assembly import build_runtime_from_dependencies
-from .entrypoints import (
-    NavigatorAssemblyService,
-    NavigatorFacadeFactory,
-    RuntimeAssemblyRequestFactory,
-    resolve_assembly_service,
-    assemble_navigator,
-)
+from .assembly_service import NavigatorAssemblyService, resolve_assembly_service
+from .entrypoints import assemble_navigator
+from .facade_factory import NavigatorFacadeFactory
+from .request_factory import RuntimeAssemblyRequestFactory
 from .presentation import (
     NavigatorRuntimeProvider,
     RuntimeAssemblyConfiguration,

@@ -46,9 +46,10 @@ class NavigatorMiddleware(BaseMiddleware):
         configuration = TelegramRuntimeConfiguration.create(
             instrumentation=instrumentation
         )
-        return cls(
-            TelegramNavigatorAssembler(ledger, configuration=configuration)
+        assembler = TelegramNavigatorAssembler.create(
+            ledger, configuration=configuration
         )
+        return cls(assembler)
 
     async def __call__(
             self,

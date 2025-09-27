@@ -102,16 +102,29 @@ class CollaboratorResolverSelector:
 
 
 @dataclass(slots=True)
-class ContainerFactoryBuilder:
-    """Wire container factory collaborators behind dedicated selectors."""
+class ContainerFactoryContext:
+    """Store immutable factory configuration for cohesive selection logic."""
 
     telemetry: Telemetry
     alert: MissingAlert | None = None
     view_container: ViewContainerFactory | None = None
     builder: ContainerBuilder | None = None
     resolution: ContainerResolution | None = None
-    request_factory: ContainerRequestFactory | None = None
-    collaborators: ContainerCollaboratorsResolver | None = None
+
+
+class ContainerFactoryBuilder:
+    """Wire container factory collaborators behind dedicated selectors."""
+
+    def __init__(
+        self,
+        context: ContainerFactoryContext,
+        *,
+        request_factory: ContainerRequestFactory | None = None,
+        collaborators: ContainerCollaboratorsResolver | None = None,
+    ) -> None:
+        self._context = context
+        self._request_factory = request_factory
+        self._collaborators = collaborators
 
     def build(self) -> ContainerFactory:
         blueprint = self._create_blueprint()
@@ -125,18 +138,18 @@ class ContainerFactoryBuilder:
 
     def _select_request_factory(self) -> ContainerRequestFactory:
         selector = RequestFactorySelector(
-            telemetry=self.telemetry,
-            alert=self.alert,
-            candidate=self.request_factory,
+            telemetry=self._context.telemetry,
+            alert=self._context.alert,
+            candidate=self._request_factory,
         )
         return selector.select()
 
     def _select_collaborators(self) -> ContainerCollaboratorsResolver:
         selector = CollaboratorResolverSelector(
-            view_container=self.view_container,
-            builder=self.builder,
-            resolution=self.resolution,
-            candidate=self.collaborators,
+            view_container=self._context.view_container,
+            builder=self._context.builder,
+            resolution=self._context.resolution,
+            candidate=self._collaborators,
         )
         return selector.select()
 
@@ -157,6 +170,7 @@ class ContainerFactoryBlueprint:
 
 __all__ = [
     "ContainerFactory",
+    "ContainerFactoryContext",
     "ContainerFactoryBuilder",
     "ContainerRequestFactory",
 ]
