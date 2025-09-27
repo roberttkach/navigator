@@ -5,7 +5,11 @@ from __future__ import annotations
 from dependency_injector import containers, providers
 
 from navigator.core.telemetry import Telemetry
-from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
+from navigator.app.service.navigator_runtime.dependencies import (
+    RuntimeDomainServices,
+    RuntimeSafetyServices,
+    RuntimeTelemetryServices,
+)
 from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
 
 
@@ -16,11 +20,19 @@ class NavigatorRuntimeContainer(containers.DeclarativeContainer):
     usecases = providers.DependenciesContainer()
     telemetry = providers.Dependency(instance_of=Telemetry)
 
-    navigator_bundle = providers.Factory(
-        NavigatorDependencies,
+    domain_services = providers.Factory(
+        RuntimeDomainServices,
         usecases=usecases.provided.navigator,
-        guard=core.provided.guard,
+    )
+
+    telemetry_services = providers.Factory(
+        RuntimeTelemetryServices,
         telemetry=telemetry,
+    )
+
+    safety_services = providers.Factory(
+        RuntimeSafetyServices,
+        guard=core.provided.guard,
         missing_alert=core.alert,
     )
 
@@ -31,10 +43,11 @@ class NavigatorRuntimeContainer(containers.DeclarativeContainer):
 
     snapshot = providers.Factory(
         NavigatorRuntimeSnapshot,
-        _dependencies=navigator_bundle,
+        domain=domain_services,
+        telemetry=telemetry_services,
+        safety=safety_services,
         redaction=redaction,
     )
 
 
 __all__ = ["NavigatorRuntimeContainer"]
-

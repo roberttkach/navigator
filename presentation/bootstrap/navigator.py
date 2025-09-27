@@ -1,6 +1,3 @@
-"""Bootstrap helpers assembling presentation navigators."""
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
@@ -16,10 +13,10 @@ from .runtime_gateway import (
 )
 
 if TYPE_CHECKING:
-    from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
+    from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
     from navigator.app.service.navigator_runtime.runtime import NavigatorRuntime
 else:  # pragma: no cover - runtime typing fallback
-    NavigatorDependencies = Any
+    NavigatorRuntimeSnapshot = Any
     NavigatorRuntime = Any
 
 
@@ -31,7 +28,7 @@ class NavigatorComposer:
 
     def build_runtime(
         self,
-        dependencies: NavigatorDependencies,
+        dependencies: NavigatorRuntimeSnapshot,
         scope: Scope,
         *,
         guard: Guardian | None = None,
@@ -42,7 +39,7 @@ class NavigatorComposer:
 
     def compose(
         self,
-        dependencies: NavigatorDependencies,
+        dependencies: NavigatorRuntimeSnapshot,
         scope: Scope,
         *,
         guard: Guardian | None = None,
@@ -58,7 +55,7 @@ class NavigatorComposer:
 
 
 def build_runtime(
-    dependencies: NavigatorDependencies,
+    dependencies: NavigatorRuntimeSnapshot,
     scope: Scope,
     *,
     guard: Guardian | None = None,
@@ -84,7 +81,7 @@ def wrap_runtime(runtime: NavigatorRuntime) -> Navigator:
 
 
 def compose(
-    dependencies: NavigatorDependencies,
+    dependencies: NavigatorRuntimeSnapshot,
     scope: Scope,
     *,
     guard: Guardian | None = None,

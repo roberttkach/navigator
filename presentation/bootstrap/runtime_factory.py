@@ -6,8 +6,8 @@ from typing import Protocol
 
 from navigator.app.locks.guard import Guardian
 from navigator.app.service.navigator_runtime import build_runtime_from_dependencies
-from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
 from navigator.app.service.navigator_runtime.runtime import NavigatorRuntime
+from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
 from navigator.core.contracts import MissingAlert
 from navigator.core.value.message import Scope
 
@@ -17,7 +17,7 @@ class NavigatorRuntimeFactory(Protocol):
 
     def __call__(
         self,
-        dependencies: NavigatorDependencies,
+        dependencies: NavigatorRuntimeSnapshot,
         scope: Scope,
         *,
         guard: Guardian | None = None,
@@ -30,7 +30,7 @@ def default_runtime_factory() -> NavigatorRuntimeFactory:
     """Return the default runtime factory backed by the application service."""
 
     def _factory(
-        dependencies: NavigatorDependencies,
+        dependencies: NavigatorRuntimeSnapshot,
         scope: Scope,
         *,
         guard: Guardian | None = None,

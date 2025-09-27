@@ -33,6 +33,36 @@ class NavigatorRuntimeAssembly:
         return self.plan.collaborators.scope
 
 
+def build_runtime_contract_selection(
+    *, usecases: NavigatorUseCases | None = None,
+    contracts: NavigatorRuntimeContracts | None = None,
+) -> RuntimeContractSelection:
+    """Create the contract selection descriptor for a runtime plan."""
+
+    return RuntimeContractSelection(usecases=usecases, contracts=contracts)
+
+
+def build_runtime_collaborators(
+    *,
+    scope: Scope,
+    telemetry: Telemetry | None = None,
+    bundler: PayloadBundler | None = None,
+    reporter: NavigatorReporter | None = None,
+    missing_alert: MissingAlert | None = None,
+    tail_telemetry: TailTelemetry | None = None,
+) -> RuntimeCollaboratorRequest:
+    """Create the collaborator request for a runtime plan."""
+
+    return RuntimeCollaboratorRequest(
+        scope=scope,
+        telemetry=telemetry,
+        reporter=reporter,
+        bundler=bundler,
+        tail_telemetry=tail_telemetry,
+        missing_alert=missing_alert,
+    )
+
+
 def create_runtime_plan_request(
     *,
     scope: Scope,
@@ -46,10 +76,10 @@ def create_runtime_plan_request(
 ) -> RuntimePlanRequest:
     """Build a runtime plan request aggregating domain and infrastructure inputs."""
 
-    contract_source = RuntimeContractSelection(
+    contract_source = build_runtime_contract_selection(
         usecases=usecases, contracts=contracts
     )
-    collaborator_request = RuntimeCollaboratorRequest(
+    collaborator_request = build_runtime_collaborators(
         scope=scope,
         telemetry=telemetry,
         reporter=reporter,
@@ -77,6 +107,8 @@ __all__ = [
     "NavigatorRuntimeAssembly",
     "RuntimeAssemblyPlan",
     "build_navigator_runtime",
+    "build_runtime_collaborators",
+    "build_runtime_contract_selection",
     "create_runtime_plan",
     "create_runtime_plan_request",
 ]

@@ -5,19 +5,49 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from navigator.app.locks.guard import Guardian
+from navigator.core.telemetry import Telemetry
+
 from .types import MissingAlert
 from .usecases import NavigatorUseCases
-from navigator.core.telemetry import Telemetry
 
 
 @dataclass(frozen=True)
-class NavigatorDependencies:
-    """Minimal set of services required to assemble a navigator runtime."""
+class RuntimeDomainServices:
+    """Expose domain level collaborators required by the runtime."""
 
     usecases: NavigatorUseCases
-    guard: Guardian
+
+
+@dataclass(frozen=True)
+class RuntimeTelemetryServices:
+    """Capture telemetry dependencies for the runtime."""
+
     telemetry: Telemetry
-    missing_alert: MissingAlert
 
 
-__all__ = ["NavigatorDependencies"]
+@dataclass(frozen=True)
+class RuntimeSafetyServices:
+    """Keep runtime safety and alerting facilities grouped together."""
+
+    guard: Guardian
+    missing_alert: MissingAlert | None
+
+    def apply_overrides(
+        self,
+        *,
+        guard: Guardian | None = None,
+        missing_alert: MissingAlert | None = None,
+    ) -> "RuntimeSafetyServices":
+        """Return a new bundle that prefers the provided overrides."""
+
+        return RuntimeSafetyServices(
+            guard=guard or self.guard,
+            missing_alert=missing_alert or self.missing_alert,
+        )
+
+
+__all__ = [
+    "RuntimeDomainServices",
+    "RuntimeSafetyServices",
+    "RuntimeTelemetryServices",
+]

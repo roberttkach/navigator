@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Awaitable, Protocol, SupportsInt, runtime_checkable
 
-from navigator.app.service.navigator_runtime.api_contracts import (
+from navigator.contracts.runtime import (
     NavigatorAssemblyOverrides,
     NavigatorRuntimeBundleLike,
     NavigatorRuntimeInstrument,

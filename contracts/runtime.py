@@ -1,4 +1,4 @@
-"""Shared contracts for navigator assembly entry points."""
+"""Shared contracts describing runtime assembly collaboration points."""
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,15 +1,23 @@
 """Navigator runtime package exposing orchestration helpers."""
 from __future__ import annotations
 
-from .api_contracts import (
+from navigator.contracts.runtime import (
     NavigatorAssemblyOverrides,
     NavigatorRuntimeBundleLike,
     NavigatorRuntimeInstrument,
 )
+
 from .assembly import build_runtime_from_dependencies
+from .dependencies import (
+    RuntimeDomainServices,
+    RuntimeSafetyServices,
+    RuntimeTelemetryServices,
+)
 from .runtime_factory import (
     NavigatorRuntimeAssembly,
     build_navigator_runtime,
+    build_runtime_collaborators,
+    build_runtime_contract_selection,
     create_runtime_plan_request,
 )
 from .contracts import HistoryContracts, NavigatorRuntimeContracts, StateContracts, TailContracts
@@ -45,6 +53,11 @@ __all__ = [
     "NavigatorRuntimeInstrument",
     "NavigatorRuntimeBundleLike",
     "NavigatorRuntimeAssembly",
+    "RuntimeDomainServices",
+    "RuntimeSafetyServices",
+    "RuntimeTelemetryServices",
+    "build_runtime_collaborators",
+    "build_runtime_contract_selection",
     "build_navigator_runtime",
     "create_runtime_plan_request",
     "build_runtime_from_dependencies",

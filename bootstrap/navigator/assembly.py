@@ -4,9 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Iterable, Sequence
 
-from navigator.app.service.navigator_runtime.api_contracts import (
-    NavigatorRuntimeInstrument,
-)
+from navigator.contracts.runtime import NavigatorRuntimeInstrument
 from navigator.core.contracts import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.core.value.message import Scope
@@ -166,14 +164,21 @@ async def assemble(
     state: object,
     ledger: ViewLedger,
     scope: Scope,
+    runtime_factory: NavigatorFactory | None = None,
     instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
     missing_alert: MissingAlert | None = None,
     view_container: ViewContainerFactory | None = None,
     resolution: ContainerResolution | None = None,
 ) -> NavigatorRuntimeBundle:
-    """Construct a navigator runtime bundle from entrypoint payloads."""
+    """High level entrypoint assembling navigator runtime bundles."""
 
-    context = BootstrapContextFactory().create(
+    builder = NavigatorAssemblerBuilder.configure(
+        instrumentation=instrumentation,
+        view_container=view_container,
+        resolution=resolution,
+    )
+    assembler = builder.create(runtime_factory)
+    context = BootstrapContext(
         event=event,
         state=state,
         ledger=ledger,
@@ -181,23 +186,15 @@ async def assemble(
         missing_alert=missing_alert,
         view_container=view_container,
     )
-    instruments = as_sequence(instrumentation)
-    builder = NavigatorAssemblerBuilder.configure(
-        instrumentation=instruments,
-        view_container=view_container,
-        resolution=resolution,
-    )
-    assembler = builder.create()
     return await assembler.build(context)
 
 
 __all__ = [
+    "assemble",
     "BootstrapContextFactory",
     "InstrumentationDecorator",
-    "InstrumentedNavigatorFactory",
     "NavigatorAssembler",
     "NavigatorAssemblerBuilder",
     "RuntimeFactoryResolver",
     "ViewContainerResolver",
-    "assemble",
 ]

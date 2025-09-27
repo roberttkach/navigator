@@ -1,6 +1,3 @@
-"""Application-level entrypoints for assembling navigator facades."""
-from __future__ import annotations
-
 from collections.abc import Iterable
 from typing import Type, TypeVar
 
@@ -8,11 +5,14 @@ from navigator.bootstrap.navigator import assemble as bootstrap_assemble
 from navigator.bootstrap.navigator.container_resolution import ContainerResolution
 from navigator.bootstrap.navigator.context import ViewContainerFactory
 from navigator.bootstrap.navigator.instrumentation import as_sequence
+from navigator.contracts.runtime import (
+    NavigatorAssemblyOverrides,
+    NavigatorRuntimeInstrument,
+)
 from navigator.core.contracts import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.core.value.message import Scope
 
-from .api_contracts import NavigatorAssemblyOverrides, NavigatorRuntimeInstrument
 from .facade import NavigatorFacade
 
 FacadeT = TypeVar("FacadeT", bound=NavigatorFacade)
