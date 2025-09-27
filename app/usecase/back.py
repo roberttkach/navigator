@@ -9,6 +9,7 @@ from ...core.value.content import normalize
 from ...core.value.message import Scope
 from ..log import events
 from ..log.aspect import TraceAspect
+from ..service.navigator_runtime.back_context import NavigatorBackContext
 from .back_access import (
     RewindFinalizer,
     RewindHistoryReader,
@@ -43,12 +44,14 @@ class RewindPerformer:
         self._renderer = renderer
         self._finalizer = finalizer
 
-    async def perform(self, scope: Scope, context: dict[str, Any]) -> None:
+    async def perform(self, scope: Scope, context: NavigatorBackContext) -> None:
         history = await self._history.snapshot(scope)
         origin, target = self._history.select(history)
         inline = bool(scope.inline)
         memory = await self._history.payload()
-        restored = await self._renderer.revive(target, context, memory, inline=inline)
+        restored = await self._renderer.revive(
+            target, context.as_mapping(), memory, inline=inline
+        )
         resolved = [normalize(payload) for payload in restored]
         render = await self._renderer.render(scope, resolved, origin, inline=inline)
 
@@ -70,7 +73,7 @@ class Rewinder:
         self._performer = performer
         self._instrumentation = instrumentation
 
-    async def execute(self, scope: Scope, context: dict[str, Any]) -> None:
+    async def execute(self, scope: Scope, context: NavigatorBackContext) -> None:
         """Rewind the history for ``scope`` using extra ``context`` hints."""
 
         await self._instrumentation.traced(self._performer.perform, scope, context)

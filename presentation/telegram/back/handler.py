@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
 
 from aiogram.types import CallbackQuery
 
@@ -26,7 +26,7 @@ class RetreatHandler:
         self,
         cb: CallbackQuery,
         navigator: NavigatorBack,
-        payload: dict[str, Any],
+        payload: Mapping[str, object],
     ) -> RetreatOutcome:
         result = await self._orchestrator.execute(cb, navigator, payload)
         return self._outcomes.render(result, cb)

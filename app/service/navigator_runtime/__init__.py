@@ -4,8 +4,14 @@ from __future__ import annotations
 from .assembly import build_runtime_from_dependencies
 from .builder import build_navigator_runtime
 from .contracts import HistoryContracts, NavigatorRuntimeContracts, StateContracts, TailContracts
+from .back_context import NavigatorBackContext, NavigatorBackEvent
 from .bundler import PayloadBundler
-from .facade import NavigatorFacade
+from .facade import (
+    NavigatorFacade,
+    NavigatorHistoryFacade,
+    NavigatorStateFacade,
+    NavigatorTailFacade,
+)
 from .history import (
     HistoryAddOperation,
     HistoryBackOperation,
@@ -24,6 +30,8 @@ from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
 __all__ = [
+    "NavigatorBackContext",
+    "NavigatorBackEvent",
     "build_navigator_runtime",
     "build_runtime_from_dependencies",
     "HistoryAddOperation",
@@ -34,10 +42,13 @@ __all__ = [
     "HistoryContracts",
     "MissingAlert",
     "NavigatorFacade",
+    "NavigatorHistoryFacade",
     "MissingStateAlarm",
     "NavigatorHistoryService",
+    "NavigatorStateFacade",
     "NavigatorReporter",
     "NavigatorRuntime",
+    "NavigatorTailFacade",
     "NavigatorRuntimeSnapshot",
     "NavigatorRuntimeContracts",
     "NavigatorStateService",

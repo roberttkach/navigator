@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Protocol
+
+from navigator.app.service.navigator_runtime.back_context import NavigatorBackContext
+
+
+class RetreatHistory(Protocol):
+    async def back(self, context: NavigatorBackContext) -> None: ...
 
 
 class NavigatorBack(Protocol):
-    async def back(self, context: dict[str, Any]) -> None: ...
+    history: RetreatHistory
 
 
 Translator = Callable[[str, str], str]
 
 
-__all__ = ["NavigatorBack", "Translator"]
+__all__ = ["NavigatorBack", "RetreatHistory", "Translator"]

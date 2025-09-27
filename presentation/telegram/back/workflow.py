@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
 
 from aiogram.types import CallbackQuery
 
+from navigator.app.service.navigator_runtime.back_context import NavigatorBackContext
 from navigator.app.service.retreat_failure import RetreatFailureResolver
 
 from .context import RetreatContextBuilder
@@ -29,11 +30,11 @@ class RetreatWorkflow:
         self,
         cb: CallbackQuery,
         navigator: NavigatorBack,
-        payload: dict[str, Any],
+        payload: Mapping[str, object],
     ) -> RetreatResult:
         try:
-            context = self._context.build(cb, payload)
-            await navigator.back(context=context)
+            context: NavigatorBackContext = self._context.build(cb, payload)
+            await navigator.history.back(context=context)
         except Exception as error:  # pragma: no cover - mapper branch
             note = self._failures.translate(error)
             if note is None:

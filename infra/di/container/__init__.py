@@ -4,7 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from dependency_injector import containers, providers
-from aiogram.fsm.context import FSMContext
+
+from navigator.adapters.storage.fsm.context import StateContext
 from navigator.core.port.factory import ViewLedger
 from navigator.core.telemetry import Telemetry
 
@@ -19,7 +20,7 @@ class CoreBindings(containers.DeclarativeContainer):
     """Expose base dependencies shared across modules."""
 
     event = providers.Dependency()
-    state = providers.Dependency(instance_of=FSMContext)
+    state = providers.Dependency(instance_of=StateContext)
     ledger = providers.Dependency(instance_of=ViewLedger)
     alert = providers.Dependency()
     telemetry = providers.Dependency(instance_of=Telemetry)

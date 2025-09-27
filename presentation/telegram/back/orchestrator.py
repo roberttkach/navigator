@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from aiogram.types import CallbackQuery
 
 from .protocols import NavigatorBack
@@ -26,7 +28,7 @@ class RetreatOrchestrator:
         self,
         cb: CallbackQuery,
         navigator: NavigatorBack,
-        payload: dict[str, object],
+        payload: Mapping[str, object],
     ) -> RetreatResult:
         scope = self._telemetry.scope(cb)
         self._telemetry.entered(scope)

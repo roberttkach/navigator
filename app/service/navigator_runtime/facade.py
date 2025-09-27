@@ -1,23 +1,26 @@
 """Generic navigator facade for application runtime consumers."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, SupportsInt
 
 from navigator.app.dto.content import Content, Node
 
+from .back_context import NavigatorBackContext
 from .bundler import bundle_from_dto
+from .history import NavigatorHistoryService
 from .runtime import NavigatorRuntime
+from .state import NavigatorStateService
+from .tail import NavigatorTail
 from .tail_components import dto_edit_request
 from .types import StateLike
 
 
-class NavigatorFacade:
-    """High-level facade delegating to navigator runtime services."""
+@dataclass(frozen=True)
+class NavigatorHistoryFacade:
+    """Expose history oriented runtime capabilities."""
 
-    def __init__(self, runtime: NavigatorRuntime) -> None:
-        self._history = runtime.history
-        self._state = runtime.state
-        self._tail = runtime.tail
+    service: NavigatorHistoryService
 
     async def add(
         self,
@@ -26,34 +29,60 @@ class NavigatorFacade:
         key: str | None = None,
         root: bool = False,
     ) -> None:
-        await self._history.add(bundle_from_dto(content), key=key, root=root)
+        await self.service.add(bundle_from_dto(content), key=key, root=root)
 
     async def replace(self, content: Content | Node) -> None:
-        await self._history.replace(bundle_from_dto(content))
+        await self.service.replace(bundle_from_dto(content))
 
     async def rebase(self, message: int | SupportsInt) -> None:
-        await self._history.rebase(message)
+        await self.service.rebase(message)
 
-    async def back(self, context: dict[str, Any]) -> None:
-        await self._history.back(context)
+    async def back(self, context: NavigatorBackContext) -> None:
+        await self.service.back(context)
+
+    async def pop(self, count: int = 1) -> None:
+        await self.service.pop(count)
+
+
+@dataclass(frozen=True)
+class NavigatorStateFacade:
+    """Isolate state related runtime capabilities."""
+
+    service: NavigatorStateService
 
     async def set(
         self,
         state: str | StateLike,
         context: dict[str, Any] | None = None,
     ) -> None:
-        await self._state.set(state, context)
-
-    async def pop(self, count: int = 1) -> None:
-        await self._history.pop(count)
+        await self.service.set(state, context)
 
     async def alert(self) -> None:
-        await self._state.alert()
+        await self.service.alert()
+
+
+@dataclass(frozen=True)
+class NavigatorTailFacade:
+    """Adapt tail-specific runtime behaviour."""
+
+    service: NavigatorTail
 
     async def edit_last(self, content: Content) -> int | None:
-        """Edit the last navigator message using DTO ``content``."""
-
-        return await self._tail.edit(dto_edit_request(content))
+        return await self.service.edit(dto_edit_request(content))
 
 
-__all__ = ["NavigatorFacade"]
+class NavigatorFacade:
+    """Aggregate specialised facades for runtime consumers."""
+
+    def __init__(self, runtime: NavigatorRuntime) -> None:
+        self.history = NavigatorHistoryFacade(runtime.history)
+        self.state = NavigatorStateFacade(runtime.state)
+        self.tail = NavigatorTailFacade(runtime.tail)
+
+
+__all__ = [
+    "NavigatorFacade",
+    "NavigatorHistoryFacade",
+    "NavigatorStateFacade",
+    "NavigatorTailFacade",
+]

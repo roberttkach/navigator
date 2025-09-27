@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
+
+from .back_context import NavigatorBackContext
 
 
 class AppendHistoryUseCase(Protocol):
@@ -40,7 +42,7 @@ class RebaseHistoryUseCase(Protocol):
 class RewindHistoryUseCase(Protocol):
     """Navigate backwards in history using optional handler context."""
 
-    async def execute(self, scope: Scope, context: Mapping[str, Any]) -> None:
+    async def execute(self, scope: Scope, context: NavigatorBackContext) -> None:
         ...
 
 
