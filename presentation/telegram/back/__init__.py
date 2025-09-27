@@ -12,7 +12,12 @@ from .orchestrator import RetreatOrchestrator
 from .reporting import RetreatOutcomeReporter
 from .outcome import RetreatOutcome
 from .providers import default_retreat_providers
-from .protocols import NavigatorBack, RetreatFailureTranslator, Translator
+from .protocols import (
+    NavigatorBack,
+    RetreatFailureNotes,
+    RetreatFailureTranslator,
+    Translator,
+)
 from .runner import RetreatWorkflowRunner
 from .result import RetreatResult
 from .session import TelemetryScopeFactory, TelemetryScopeSession
@@ -31,6 +36,7 @@ __all__ = [
     "RetreatResult",
     "RetreatTelemetry",
     "RetreatFailurePolicy",
+    "RetreatFailureNotes",
     "RetreatWorkflowRunner",
     "RetreatBackExecutor",
     "RetreatFailureHandler",

@@ -1,7 +1,7 @@
 """Concrete send strategies for Telegram payload types."""
 from __future__ import annotations
 
-from typing import Dict
+from typing import Iterable, Mapping
 
 from aiogram import Bot
 from aiogram.types import Message
@@ -20,15 +20,72 @@ from .guardian import LimitsGuardian
 from .clusters import GroupClusterBuilder
 
 
-class AlbumSender:
-    """Send album payloads via Telegram bot API."""
+class AlbumExtrasBuilder:
+    """Prepare caption metadata and auxiliary extras for albums."""
 
     def __init__(self, dependencies: SendDependencies) -> None:
         self._schema = dependencies.schema
         self._screen = dependencies.screen
+
+    def build(
+        self,
+        bot: Bot,
+        *,
+        scope: Scope,
+        payload: Payload,
+    ) -> tuple[Mapping[str, Mapping[str, object]], Mapping[str, object]]:
+        caption = captionkit.caption(payload)
+        extras = self._schema.send(
+            scope,
+            payload.extra,
+            span=len(caption or ""),
+            media=True,
+        )
+        effect = extras.get("effect")
+        addition: Mapping[str, object]
+        if effect is None:
+            addition = {}
+        else:
+            addition = self._screen.filter(
+                bot.send_media_group,
+                {"message_effect_id": effect},
+            )
+        return extras, addition
+
+
+class AlbumBundleBuilder:
+    """Assemble Telegram media bundles using configured dependencies."""
+
+    def __init__(self, dependencies: SendDependencies) -> None:
         self._policy = dependencies.policy
+        self._screen = dependencies.screen
         self._limits = dependencies.limits
         self._telemetry = dependencies.telemetry
+
+    def build(
+        self,
+        group: Iterable[object],
+        *,
+        extras: Mapping[str, Mapping[str, object]],
+    ) -> Iterable[object]:
+        return assemble(
+            group,
+            captionmeta=extras.get("caption", {}),
+            mediameta=extras.get("media", {}),
+            policy=self._policy,
+            screen=self._screen,
+            limits=self._limits,
+            native=True,
+            telemetry=self._telemetry,
+        )
+
+
+class AlbumSender:
+    """Send album payloads via Telegram bot API."""
+
+    def __init__(self, dependencies: SendDependencies) -> None:
+        self._extras = AlbumExtrasBuilder(dependencies)
+        self._bundles = AlbumBundleBuilder(dependencies)
         self._clusters = GroupClusterBuilder()
 
     async def send(
@@ -39,25 +96,8 @@ class AlbumSender:
         scope: Scope,
         context: SendContext,
     ) -> tuple[Message, list[int], GroupMeta]:
-        caption = captionkit.caption(payload)
-        extras = self._schema.send(scope, payload.extra, span=len(caption or ""), media=True)
-        bundle = assemble(
-            payload.group,
-            captionmeta=extras.get("caption", {}),
-            mediameta=extras.get("media", {}),
-            policy=self._policy,
-            screen=self._screen,
-            limits=self._limits,
-            native=True,
-            telemetry=self._telemetry,
-        )
-        effect = extras.get("effect")
-        addition: Dict[str, object] = {}
-        if effect is not None:
-            addition = self._screen.filter(
-                bot.send_media_group,
-                {"message_effect_id": effect},
-            )
+        extras, addition = self._extras.build(bot, scope=scope, payload=payload)
+        bundle = self._bundles.build(payload.group, extras=extras)
 
         messages = await bot.send_media_group(
             media=bundle,
