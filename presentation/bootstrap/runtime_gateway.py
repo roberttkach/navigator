@@ -1,6 +1,3 @@
-"""Presentation-facing gateway for building navigator runtimes."""
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any, Protocol, TYPE_CHECKING
 
@@ -11,10 +8,10 @@ from navigator.core.value.message import Scope
 from .runtime_factory import NavigatorRuntimeFactory, default_runtime_factory
 
 if TYPE_CHECKING:
-    from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
+    from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
     from navigator.app.service.navigator_runtime.runtime import NavigatorRuntime
 else:  # pragma: no cover - runtime typing fallback
-    NavigatorDependencies = Any
+    NavigatorRuntimeSnapshot = Any
     NavigatorRuntime = Any
 
 
@@ -32,7 +29,7 @@ class NavigatorRuntimePort(Protocol):
 
     def create_runtime(
         self,
-        dependencies: NavigatorDependencies,
+        dependencies: NavigatorRuntimeSnapshot,
         request: RuntimeRequest,
     ) -> NavigatorRuntime:
         """Provision a runtime using resolved dependencies and request metadata."""
@@ -46,7 +43,7 @@ class _FactoryRuntimePort:
 
     def create_runtime(
         self,
-        dependencies: NavigatorDependencies,
+        dependencies: NavigatorRuntimeSnapshot,
         request: RuntimeRequest,
     ) -> NavigatorRuntime:
         return self._factory(

@@ -4,14 +4,13 @@ from __future__ import annotations
 from navigator.app.locks.guard import Guardian
 from navigator.core.value.message import Scope
 
-from .activation import RuntimeActivationPlan
-from .dependencies import NavigatorDependencies
 from .runtime import NavigatorRuntime
+from .snapshot import NavigatorRuntimeSnapshot
 from .types import MissingAlert
 
 
 def build_runtime_from_dependencies(
-    dependencies: NavigatorDependencies,
+    snapshot: NavigatorRuntimeSnapshot,
     scope: Scope,
     *,
     guard: Guardian | None = None,
@@ -19,11 +18,10 @@ def build_runtime_from_dependencies(
 ) -> NavigatorRuntime:
     """Compose a :class:`NavigatorRuntime` from resolved dependencies."""
 
-    plan = RuntimeActivationPlan(
-        dependencies=dependencies,
-        scope=scope,
-        guard=guard or dependencies.guard,
-        missing_alert=missing_alert or dependencies.missing_alert,
+    plan = snapshot.create_activation_plan(
+        scope,
+        guard=guard,
+        missing_alert=missing_alert,
     )
     return plan.activate()
 

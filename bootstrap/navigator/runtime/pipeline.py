@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from navigator.app.service.navigator_runtime import NavigatorRuntime
 from navigator.core.contracts import MissingAlert
 
 from ..context import BootstrapContext, ViewContainerFactory
@@ -29,17 +30,39 @@ class RuntimeAssemblyPipeline:
         self._settings = settings
 
     def execute(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
-        provision = self._settings.provisioner.provision(context)
-        self._calibrate(provision)
-        runtime = self._settings.composer.compose(provision.snapshot, context)
+        provision = self._provision(context)
+        calibrated = self._calibrate(provision)
+        runtime = self._compose_runtime(calibrated, context)
+        return self._package_bundle(calibrated, runtime)
+
+    def _provision(self, context: BootstrapContext) -> RuntimeProvision:
+        """Provision container, telemetry and snapshot for the given context."""
+
+        return self._settings.provisioner.provision(context)
+
+    def _calibrate(self, provision: RuntimeProvision) -> RuntimeProvision:
+        """Calibrate telemetry using the provisioned snapshot."""
+
+        self._settings.calibrator.run(provision.telemetry, provision.snapshot)
+        return provision
+
+    def _compose_runtime(
+        self, provision: RuntimeProvision, context: BootstrapContext
+    ) -> NavigatorRuntime:
+        """Compose a runtime instance using the provisioned snapshot."""
+
+        return self._settings.composer.compose(provision.snapshot, context)
+
+    def _package_bundle(
+        self, provision: RuntimeProvision, runtime: NavigatorRuntime
+    ) -> NavigatorRuntimeBundle:
+        """Bundle runtime, telemetry and container into a single artefact."""
+
         return NavigatorRuntimeBundle(
             telemetry=provision.telemetry,
             container=provision.container,
             runtime=runtime,
         )
-
-    def _calibrate(self, provision: RuntimeProvision) -> None:
-        self._settings.calibrator.run(provision.telemetry, provision.snapshot)
 
 
 def build_runtime_pipeline(

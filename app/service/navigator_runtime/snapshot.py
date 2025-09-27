@@ -4,7 +4,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
+from .dependencies import (
+    RuntimeDomainServices,
+    RuntimeSafetyServices,
+    RuntimeTelemetryServices,
+)
 
 if TYPE_CHECKING:
     from navigator.app.locks.guard import Guardian
@@ -18,7 +22,9 @@ if TYPE_CHECKING:
 class NavigatorRuntimeSnapshot:
     """Immutable view of runtime dependencies exposed by the container."""
 
-    _dependencies: NavigatorDependencies
+    domain: RuntimeDomainServices
+    telemetry: RuntimeTelemetryServices
+    safety: RuntimeSafetyServices
     redaction: str
 
     def create_activation_plan(
@@ -32,12 +38,15 @@ class NavigatorRuntimeSnapshot:
 
         from .activation import RuntimeActivationPlan
 
-        dependencies = self._dependencies
+        safety = self.safety.apply_overrides(
+            guard=guard,
+            missing_alert=missing_alert,
+        )
         return RuntimeActivationPlan(
-            dependencies=dependencies,
+            domain=self.domain,
+            telemetry=self.telemetry,
             scope=scope,
-            guard=guard or dependencies.guard,
-            missing_alert=missing_alert or dependencies.missing_alert,
+            safety=safety,
         )
 
 

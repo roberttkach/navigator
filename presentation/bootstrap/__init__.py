@@ -2,7 +2,7 @@
 
 from .navigator import (
     NavigatorComposer,
-    NavigatorDependencies,
+    NavigatorRuntimeSnapshot,
     build_runtime,
     compose,
     wrap_runtime,
@@ -10,7 +10,7 @@ from .navigator import (
 
 __all__ = [
     "NavigatorComposer",
-    "NavigatorDependencies",
+    "NavigatorRuntimeSnapshot",
     "build_runtime",
     "compose",
     "wrap_runtime",

@@ -1,12 +1,9 @@
-"""Shared helpers for normalising instrumentation payloads."""
 from __future__ import annotations
 
 from collections.abc import Iterable
 from typing import Sequence, Tuple, TypeVar
 
-from navigator.app.service.navigator_runtime.api_contracts import (
-    NavigatorRuntimeInstrument,
-)
+from navigator.contracts.runtime import NavigatorRuntimeInstrument
 
 InstrumentT = TypeVar("InstrumentT", bound=NavigatorRuntimeInstrument)
 
