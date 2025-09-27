@@ -3,8 +3,10 @@
 from .history_access import (
     TailHistoryAccess,
     TailHistoryJournal,
+    TailHistoryReader,
     TailHistoryScopeFormatter,
-    TailHistoryTracker,
+    TailHistoryWriter,
+    TailInlineHistory,
 )
 from .history_mutation import TailHistoryMutator
 from .navigator_runtime import (
@@ -20,8 +22,10 @@ __all__ = [
     "TailHistoryAccess",
     "TailHistoryJournal",
     "TailHistoryScopeFormatter",
+    "TailHistoryReader",
+    "TailHistoryWriter",
+    "TailInlineHistory",
     "TailHistoryMutator",
-    "TailHistoryTracker",
     "NavigatorRuntime",
     "NavigatorHistoryService",
     "NavigatorStateService",

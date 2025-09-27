@@ -7,8 +7,11 @@ from navigator.app.service import (
     TailHistoryAccess,
     TailHistoryJournal,
     TailHistoryMutator,
-    TailHistoryTracker,
+    TailHistoryReader,
+    TailHistoryWriter,
+    TailInlineHistory,
 )
+from navigator.app.service.history_access import TailInlineTrimmer
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
 from navigator.app.internal.policy import PrimeEntryFactory
@@ -36,9 +39,23 @@ class TailUseCaseContainer(containers.DeclarativeContainer):
         ledger=storage.chronicle,
         latest=storage.latest,
     )
-    tail_history = providers.Factory(
-        TailHistoryTracker,
+    tail_history_reader = providers.Factory(
+        TailHistoryReader,
         access=tail_history_access,
+        journal=tail_history_journal,
+    )
+    tail_history_writer = providers.Factory(
+        TailHistoryWriter,
+        access=tail_history_access,
+        journal=tail_history_journal,
+    )
+    tail_inline_trimmer = providers.Factory(
+        TailInlineTrimmer,
+        store=tail_history_access.provided.store,
+    )
+    tail_inline_history = providers.Factory(
+        TailInlineHistory,
+        trimmer=tail_inline_trimmer,
         journal=tail_history_journal,
     )
     tail_mutator = providers.Factory(TailHistoryMutator)
@@ -57,19 +74,20 @@ class TailUseCaseContainer(containers.DeclarativeContainer):
     tail_mutation = providers.Factory(
         MessageEditCoordinator,
         executor=view_support.executor,
-        history=tail_history,
+        history=tail_history_writer,
         mutator=tail_mutator,
     )
     tail_telemetry = providers.Factory(TailTelemetry, telemetry=telemetry)
     tail_delete = providers.Factory(
         TailDeleteWorkflow,
-        history=tail_history,
+        reader=tail_history_reader,
+        inline_history=tail_inline_history,
         mutation=tail_mutation,
         telemetry=tail_telemetry,
     )
     tail_edit = providers.Factory(
         TailEditWorkflow,
-        history=tail_history,
+        reader=tail_history_reader,
         decision=tail_decision,
         inline=tail_inline,
         mutation=tail_mutation,
@@ -77,7 +95,7 @@ class TailUseCaseContainer(containers.DeclarativeContainer):
     )
     tailer = providers.Factory(
         Tailer,
-        history=tail_history,
+        history=tail_history_reader,
         delete=tail_delete,
         edit=tail_edit,
     )

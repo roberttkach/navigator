@@ -7,7 +7,7 @@ from typing import Optional
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from ...service.history_access import TailHistoryTracker
+from ...service.history_access import TailHistoryReader
 from .context import TailDecisionService, TailSnapshot, TailTelemetry
 from .inline import InlineEditCoordinator
 from .mutation import MessageEditCoordinator
@@ -19,14 +19,14 @@ class TailEditWorkflow:
     def __init__(
         self,
         *,
-        history: TailHistoryTracker,
+        reader: TailHistoryReader,
         decision: TailDecisionService,
         inline: InlineEditCoordinator,
         mutation: MessageEditCoordinator,
         telemetry: TailTelemetry,
         op: str = "last.edit",
     ) -> None:
-        self._history = history
+        self._reader = reader
         self._decision = decision
         self._inline = inline
         self._mutation = mutation
@@ -34,12 +34,12 @@ class TailEditWorkflow:
         self._op = op
 
     async def execute(self, scope: Scope, payload: Payload) -> Optional[int]:
-        marker = await self._history.peek()
+        marker = await self._reader.peek()
         if not marker:
             self._telemetry.skip(op=self._op, note="no_last_id")
             return None
 
-        history = await self._history.load(scope)
+        history = await self._reader.load(scope)
         snapshot = TailSnapshot.build(marker, history)
 
         resolution = self._decision.resolve(scope, payload, snapshot)

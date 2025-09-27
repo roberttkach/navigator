@@ -7,7 +7,7 @@ from typing import Optional
 from ....core.value.content import Payload
 from ....core.value.message import Scope
 
-from ...service.history_access import TailHistoryTracker
+from ...service.history_access import TailHistoryReader
 from .delete import TailDeleteWorkflow
 from .edit import TailEditWorkflow
 
@@ -17,7 +17,7 @@ class Tailer:
 
     def __init__(
         self,
-        history: TailHistoryTracker,
+        history: TailHistoryReader,
         *,
         delete: TailDeleteWorkflow,
         edit: TailEditWorkflow,
