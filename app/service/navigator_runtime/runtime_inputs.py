@@ -1,4 +1,4 @@
-"""Helpers resolving runtime inputs before assembly."""
+"""Helpers resolving runtime collaborators before runtime assembly."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,11 +7,9 @@ from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
 
 from .bundler import PayloadBundler
-from .contracts import NavigatorRuntimeContracts
 from .reporter import NavigatorReporter
 from .tail_components import TailTelemetry
 from .types import MissingAlert
-from .usecases import NavigatorUseCases
 
 
 @dataclass(frozen=True)
@@ -25,18 +23,16 @@ class RuntimeCollaborators:
     missing_alert: MissingAlert | None
 
 
-def resolve_runtime_contracts(
-    *,
-    usecases: NavigatorUseCases | None,
-    contracts: NavigatorRuntimeContracts | None,
-) -> NavigatorRuntimeContracts:
-    """Derive runtime contracts from use cases when not provided explicitly."""
+@dataclass(frozen=True)
+class RuntimeCollaboratorRequest:
+    """Describe how runtime collaborators should be resolved."""
 
-    if contracts is not None:
-        return contracts
-    if usecases is None:
-        raise ValueError("either usecases or contracts must be provided")
-    return NavigatorRuntimeContracts.from_usecases(usecases)
+    scope: Scope
+    telemetry: Telemetry | None = None
+    reporter: NavigatorReporter | None = None
+    bundler: PayloadBundler | None = None
+    tail_telemetry: TailTelemetry | None = None
+    missing_alert: MissingAlert | None = None
 
 
 def provide_payload_bundler(bundler: PayloadBundler | None) -> PayloadBundler:
@@ -69,33 +65,29 @@ def ensure_runtime_telemetry(
 
 
 def prepare_runtime_collaborators(
-    *,
-    scope: Scope,
-    telemetry: Telemetry | None,
-    reporter: NavigatorReporter | None,
-    bundler: PayloadBundler | None,
-    tail_telemetry: TailTelemetry | None,
-    missing_alert: MissingAlert | None,
+    request: RuntimeCollaboratorRequest,
 ) -> RuntimeCollaborators:
     """Resolve runtime collaborators and ensure telemetry prerequisites."""
 
-    resolved_bundler = provide_payload_bundler(bundler)
-    resolved_reporter = provide_runtime_reporter(scope, telemetry, reporter)
-    ensure_runtime_telemetry(telemetry, tail_telemetry)
+    resolved_bundler = provide_payload_bundler(request.bundler)
+    resolved_reporter = provide_runtime_reporter(
+        request.scope, request.telemetry, request.reporter
+    )
+    ensure_runtime_telemetry(request.telemetry, request.tail_telemetry)
     return RuntimeCollaborators(
         bundler=resolved_bundler,
         reporter=resolved_reporter,
-        telemetry=telemetry,
-        tail_telemetry=tail_telemetry,
-        missing_alert=missing_alert,
+        telemetry=request.telemetry,
+        tail_telemetry=request.tail_telemetry,
+        missing_alert=request.missing_alert,
     )
 
 
 __all__ = [
     "RuntimeCollaborators",
+    "RuntimeCollaboratorRequest",
     "ensure_runtime_telemetry",
     "prepare_runtime_collaborators",
     "provide_payload_bundler",
     "provide_runtime_reporter",
-    "resolve_runtime_contracts",
 ]

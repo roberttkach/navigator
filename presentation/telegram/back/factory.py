@@ -58,20 +58,67 @@ class RetreatHandlerFactory:
         options = overrides or RetreatHandlerOverrides()
         providers = self.providers
 
-        context = options.context or providers.context()
-        failures = options.failures or providers.failures()
-        workflow = options.workflow or providers.workflow(context, failures)
-
-        if options.orchestrator is None:
-            instrumentation = (
-                options.instrumentation or providers.instrumentation(self.telemetry)
-            )
-            orchestrator = providers.orchestrator(instrumentation, workflow)
-        else:
-            orchestrator = options.orchestrator
-
-        outcomes = options.outcomes or providers.outcomes(self.translator)
+        bundle = RetreatWorkflowBundle.from_overrides(options, providers)
+        resolution = RetreatHandlerResolution(
+            telemetry=self.telemetry,
+            translator=self.translator,
+            providers=providers,
+            overrides=options,
+        )
+        orchestrator = resolution.resolve_orchestrator(bundle)
+        outcomes = resolution.resolve_outcomes()
         return RetreatHandler(orchestrator=orchestrator, outcomes=outcomes)
+
+
+@dataclass(frozen=True, slots=True)
+class RetreatWorkflowBundle:
+    """Capture the workflow-related collaborators for handler assembly."""
+
+    context: RetreatContextBuilder
+    failures: RetreatFailureTranslator
+    workflow: "RetreatWorkflow"
+
+    @classmethod
+    def from_overrides(
+        cls,
+        overrides: RetreatHandlerOverrides,
+        providers: RetreatHandlerProviders,
+    ) -> "RetreatWorkflowBundle":
+        """Resolve workflow collaborators using overrides when present."""
+
+        context = overrides.context or providers.context()
+        failures = overrides.failures or providers.failures()
+        workflow = overrides.workflow or providers.workflow(context, failures)
+        return cls(context=context, failures=failures, workflow=workflow)
+
+
+@dataclass(slots=True)
+class RetreatHandlerResolution:
+    """Resolve orchestration and outcome collaborators for the handler."""
+
+    telemetry: Telemetry
+    translator: Translator
+    providers: RetreatHandlerProviders
+    overrides: RetreatHandlerOverrides
+
+    def resolve_orchestrator(
+        self, bundle: RetreatWorkflowBundle
+    ) -> RetreatOrchestrator:
+        """Build the orchestrator honoring optional overrides."""
+
+        if self.overrides.orchestrator is not None:
+            return self.overrides.orchestrator
+        instrumentation = self.overrides.instrumentation or self.providers.instrumentation(
+            self.telemetry
+        )
+        return self.providers.orchestrator(instrumentation, bundle.workflow)
+
+    def resolve_outcomes(self) -> RetreatOutcomeFactory:
+        """Build the outcome factory honoring optional overrides."""
+
+        if self.overrides.outcomes is not None:
+            return self.overrides.outcomes
+        return self.providers.outcomes(self.translator)
 
 
 def create_retreat_handler(

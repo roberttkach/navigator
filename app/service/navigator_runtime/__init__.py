@@ -7,7 +7,11 @@ from .api_contracts import (
     NavigatorRuntimeInstrument,
 )
 from .assembly import build_runtime_from_dependencies
-from .runtime_factory import build_navigator_runtime
+from .runtime_factory import (
+    NavigatorRuntimeAssembly,
+    build_navigator_runtime,
+    create_runtime_plan_request,
+)
 from .contracts import HistoryContracts, NavigatorRuntimeContracts, StateContracts, TailContracts
 from navigator.core.contracts.back import NavigatorBackContext, NavigatorBackEvent
 from .bundler import PayloadBundler
@@ -40,7 +44,9 @@ __all__ = [
     "NavigatorBackEvent",
     "NavigatorRuntimeInstrument",
     "NavigatorRuntimeBundleLike",
+    "NavigatorRuntimeAssembly",
     "build_navigator_runtime",
+    "create_runtime_plan_request",
     "build_runtime_from_dependencies",
     "HistoryAddOperation",
     "HistoryBackOperation",

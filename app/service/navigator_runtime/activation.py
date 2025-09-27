@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING
 from navigator.app.locks.guard import Guardian
 from navigator.core.value.message import Scope
 
-from .runtime_factory import build_navigator_runtime
+from .runtime_factory import (
+    NavigatorRuntimeAssembly,
+    build_navigator_runtime,
+    create_runtime_plan_request,
+)
 from .dependencies import NavigatorDependencies
 from .runtime import NavigatorRuntime
 from .types import MissingAlert
@@ -28,13 +32,14 @@ class RuntimeActivationPlan:
     def activate(self) -> NavigatorRuntime:
         """Build a runtime instance according to the stored plan."""
 
-        return build_navigator_runtime(
-            usecases=self.dependencies.usecases,
+        plan_request = create_runtime_plan_request(
             scope=self.scope,
-            guard=self.guard,
+            usecases=self.dependencies.usecases,
             telemetry=self.dependencies.telemetry,
             missing_alert=self.missing_alert,
         )
+        assembly = NavigatorRuntimeAssembly(guard=self.guard, plan=plan_request)
+        return build_navigator_runtime(assembly=assembly)
 
 
 def create_activation_plan(
