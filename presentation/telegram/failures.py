@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
-from navigator.app.service.retreat_failure import (
-    RetreatFailureNoticePresenter,
-    RetreatFailureResolver,
-)
+from typing import Mapping
+
+from navigator.app.service.retreat_failure import RetreatFailureResolver
 
 from .back.protocols import RetreatFailureNotes, RetreatFailureTranslator
+
+
+class RetreatFailureNoticePresenter:
+    """Map domain-specific failure notes to presentation translation keys."""
+
+    def __init__(
+        self,
+        *,
+        mapping: Mapping[str, str] | None = None,
+        fallback: str = "missing",
+    ) -> None:
+        self._mapping = dict(mapping or {"barred": "barred"})
+        self._fallback = fallback
+
+    def present(self, note: str | None) -> str:
+        if not note:
+            return self._fallback
+        return self._mapping.get(note, self._fallback)
 
 
 def default_retreat_failure_translator() -> RetreatFailureTranslator:
@@ -25,4 +42,5 @@ def default_retreat_failure_notes() -> RetreatFailureNotes:
 __all__ = [
     "default_retreat_failure_notes",
     "default_retreat_failure_translator",
+    "RetreatFailureNoticePresenter",
 ]

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Callable, Protocol
 
-from navigator.app.service.navigator_runtime import NavigatorRuntimeBundleLike
+from aiogram import Router
+
+from navigator.contracts.runtime import NavigatorRuntimeBundleLike
 
 from .router import RetreatDependencies, RetreatRouterConfigurator, retreat_configurator
 
@@ -29,13 +31,29 @@ def build_retreat_instrument(
     return _instrument
 
 
-def _default_factory(_: NavigatorRuntimeBundleLike) -> RetreatRouterConfigurator:
-    """Return configurator bound to the module router by default."""
+def instrument_for_configurator(
+    configurator: RetreatRouterConfigurator,
+) -> Callable[[NavigatorRuntimeBundleLike], None]:
+    """Return an instrumentation hook bound to ``configurator``."""
 
-    return retreat_configurator()
+    def _factory(_: NavigatorRuntimeBundleLike) -> RetreatRouterConfigurator:
+        return configurator
+
+    return build_retreat_instrument(_factory)
 
 
-instrument = build_retreat_instrument(_default_factory)
+def instrument_for_router(router: Router) -> Callable[[NavigatorRuntimeBundleLike], None]:
+    """Return an instrumentation hook registering callbacks on ``router``."""
+
+    def _factory(_: NavigatorRuntimeBundleLike) -> RetreatRouterConfigurator:
+        return retreat_configurator(router)
+
+    return build_retreat_instrument(_factory)
 
 
-__all__ = ["instrument", "build_retreat_instrument", "RetreatConfiguratorFactory"]
+__all__ = [
+    "build_retreat_instrument",
+    "instrument_for_configurator",
+    "instrument_for_router",
+    "RetreatConfiguratorFactory",
+]

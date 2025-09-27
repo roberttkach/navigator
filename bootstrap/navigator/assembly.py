@@ -169,6 +169,7 @@ async def assemble(
     missing_alert: MissingAlert | None = None,
     view_container: ViewContainerFactory | None = None,
     resolution: ContainerResolution | None = None,
+    context_factory: BootstrapContextFactory | None = None,
 ) -> NavigatorRuntimeBundle:
     """High level entrypoint assembling navigator runtime bundles."""
 
@@ -178,7 +179,8 @@ async def assemble(
         resolution=resolution,
     )
     assembler = builder.create(runtime_factory)
-    context = BootstrapContext(
+    factory = context_factory or BootstrapContextFactory()
+    context = factory.create(
         event=event,
         state=state,
         ledger=ledger,

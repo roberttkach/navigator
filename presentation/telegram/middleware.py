@@ -4,7 +4,7 @@ from typing import Any, Awaitable, Callable, Dict, Optional, Protocol, runtime_c
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 
-from navigator.app.service.navigator_runtime import NavigatorRuntimeInstrument
+from navigator.contracts.runtime import NavigatorRuntimeInstrument
 from navigator.core.port.factory import ViewLedger
 from .assembly import (
     NavigatorAssembler,

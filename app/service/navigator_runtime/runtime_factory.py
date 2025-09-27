@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import overload
 
 from navigator.app.locks.guard import Guardian
 from navigator.core.value.message import Scope
@@ -35,24 +36,16 @@ class NavigatorRuntimeAssembly:
 
 
 @dataclass(frozen=True)
-class NavigatorRuntimePlanner:
-    """Aggregate collaborators used to prepare runtime plans."""
+class RuntimeContractPlanner:
+    """Prepare contract selections for runtime plans."""
 
     selector: RuntimeContractSelector
-    collaborators: RuntimeCollaboratorFactory
-    builder: RuntimePlanRequestBuilder
 
     @classmethod
-    def create_default(cls) -> "NavigatorRuntimePlanner":
-        selector = RuntimeContractSelector()
-        collaborators = RuntimeCollaboratorFactory()
-        builder = RuntimePlanRequestBuilder(
-            contract_selector=selector,
-            collaborator_factory=collaborators,
-        )
-        return cls(selector=selector, collaborators=collaborators, builder=builder)
+    def create_default(cls) -> "RuntimeContractPlanner":
+        return cls(RuntimeContractSelector())
 
-    def select_contracts(
+    def select(
         self,
         *,
         usecases: NavigatorUseCases | None = None,
@@ -60,16 +53,50 @@ class NavigatorRuntimePlanner:
     ) -> RuntimeContractSelection:
         return self.selector.select(usecases=usecases, contracts=contracts)
 
-    def collaborators_request(
+
+@dataclass(frozen=True)
+class RuntimeCollaboratorPlanner:
+    """Create collaborator requests for runtime plans."""
+
+    factory: RuntimeCollaboratorFactory
+
+    @classmethod
+    def create_default(cls) -> "RuntimeCollaboratorPlanner":
+        return cls(RuntimeCollaboratorFactory())
+
+    def request(
         self,
         *,
         scope: Scope,
         dependencies: RuntimePlannerDependencies | None = None,
     ) -> RuntimeCollaboratorRequest:
         payload = dependencies or RuntimePlannerDependencies()
-        return self.collaborators.create(scope=scope, dependencies=payload)
+        return self.factory.create(scope=scope, dependencies=payload)
 
-    def plan_request(
+
+@dataclass(frozen=True)
+class RuntimePlanRequestPlanner:
+    """Assemble runtime plan requests from individual planning steps."""
+
+    builder: RuntimePlanRequestBuilder
+    contracts: RuntimeContractPlanner
+    collaborators: RuntimeCollaboratorPlanner
+
+    @classmethod
+    def create_default(cls) -> "RuntimePlanRequestPlanner":
+        contract_planner = RuntimeContractPlanner.create_default()
+        collaborator_planner = RuntimeCollaboratorPlanner.create_default()
+        builder = RuntimePlanRequestBuilder(
+            contract_selector=contract_planner.selector,
+            collaborator_factory=collaborator_planner.factory,
+        )
+        return cls(
+            builder=builder,
+            contracts=contract_planner,
+            collaborators=collaborator_planner,
+        )
+
+    def build(
         self,
         *,
         scope: Scope,
@@ -86,19 +113,63 @@ class NavigatorRuntimePlanner:
         )
 
 
-def _planner(planner: NavigatorRuntimePlanner | None) -> NavigatorRuntimePlanner:
-    return planner or NavigatorRuntimePlanner.create_default()
+@overload
+def _contract_planner(
+    planner: RuntimePlanRequestPlanner | None,
+) -> RuntimeContractPlanner:
+    ...
+
+
+@overload
+def _contract_planner(
+    planner: RuntimeContractPlanner | None,
+) -> RuntimeContractPlanner:
+    ...
+
+
+def _contract_planner(
+    planner: RuntimeContractPlanner | RuntimePlanRequestPlanner | None,
+) -> RuntimeContractPlanner:
+    if planner is None:
+        return RuntimeContractPlanner.create_default()
+    if isinstance(planner, RuntimePlanRequestPlanner):
+        return planner.contracts
+    return planner
+
+
+@overload
+def _collaborator_planner(
+    planner: RuntimePlanRequestPlanner | None,
+) -> RuntimeCollaboratorPlanner:
+    ...
+
+
+@overload
+def _collaborator_planner(
+    planner: RuntimeCollaboratorPlanner | None,
+) -> RuntimeCollaboratorPlanner:
+    ...
+
+
+def _collaborator_planner(
+    planner: RuntimeCollaboratorPlanner | RuntimePlanRequestPlanner | None,
+) -> RuntimeCollaboratorPlanner:
+    if planner is None:
+        return RuntimeCollaboratorPlanner.create_default()
+    if isinstance(planner, RuntimePlanRequestPlanner):
+        return planner.collaborators
+    return planner
 
 
 def build_runtime_contract_selection(
     *,
     usecases: NavigatorUseCases | None = None,
     contracts: NavigatorRuntimeContracts | None = None,
-    planner: NavigatorRuntimePlanner | None = None,
+    planner: RuntimeContractPlanner | RuntimePlanRequestPlanner | None = None,
 ) -> RuntimeContractSelection:
     """Create the contract selection descriptor for a runtime plan."""
 
-    return _planner(planner).select_contracts(
+    return _contract_planner(planner).select(
         usecases=usecases, contracts=contracts
     )
 
@@ -107,11 +178,11 @@ def build_runtime_collaborators(
     *,
     scope: Scope,
     dependencies: RuntimePlannerDependencies | None = None,
-    planner: NavigatorRuntimePlanner | None = None,
+    planner: RuntimeCollaboratorPlanner | RuntimePlanRequestPlanner | None = None,
 ) -> RuntimeCollaboratorRequest:
     """Create the collaborator request for a runtime plan."""
 
-    return _planner(planner).collaborators_request(
+    return _collaborator_planner(planner).request(
         scope=scope,
         dependencies=dependencies,
     )
@@ -123,11 +194,12 @@ def create_runtime_plan_request(
     usecases: NavigatorUseCases | None = None,
     contracts: NavigatorRuntimeContracts | None = None,
     dependencies: RuntimePlannerDependencies | None = None,
-    planner: NavigatorRuntimePlanner | None = None,
+    planner: RuntimePlanRequestPlanner | None = None,
 ) -> RuntimePlanRequest:
     """Build a runtime plan request aggregating domain and infrastructure inputs."""
 
-    return _planner(planner).plan_request(
+    resolved_planner = planner or RuntimePlanRequestPlanner.create_default()
+    return resolved_planner.build(
         scope=scope,
         usecases=usecases,
         contracts=contracts,
@@ -147,7 +219,9 @@ def build_navigator_runtime(*, assembly: NavigatorRuntimeAssembly) -> NavigatorR
 
 __all__ = [
     "NavigatorRuntimeAssembly",
-    "NavigatorRuntimePlanner",
+    "RuntimeCollaboratorPlanner",
+    "RuntimeContractPlanner",
+    "RuntimePlanRequestPlanner",
     "RuntimeAssemblyPlan",
     "RuntimePlannerDependencies",
     "build_navigator_runtime",
