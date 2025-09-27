@@ -3,7 +3,13 @@ from __future__ import annotations
 
 from dependency_injector import containers, providers
 
-from navigator.app.usecase.add import AppendDependencies, Appender
+from navigator.app.usecase.add import (
+    AppendDependencies,
+    AppendInstrumentation,
+    AppendPipelineFactory,
+    AppendWorkflow,
+    Appender,
+)
 from navigator.app.usecase.add_components import (
     AppendEntryAssembler,
     AppendHistoryAccess,
@@ -48,10 +54,23 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
         assembler=assembler,
         writer=writer,
     )
+    pipeline_factory = providers.Factory(
+        AppendPipelineFactory,
+        dependencies=bundle,
+    )
+    instrumentation = providers.Factory(
+        AppendInstrumentation.from_telemetry,
+        telemetry=telemetry,
+    )
+    workflow = providers.Factory(
+        AppendWorkflow.from_factory,
+        factory=pipeline_factory,
+        channel=instrumentation.provided.channel,
+    )
     usecase = providers.Factory(
         Appender,
-        telemetry=telemetry,
-        dependencies=bundle,
+        instrumentation=instrumentation,
+        workflow=workflow,
     )
 
 

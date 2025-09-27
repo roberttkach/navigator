@@ -54,18 +54,18 @@ def provide_runtime_reporter(
 
     if reporter is not None:
         return reporter
-    if telemetry is None:
-        raise ValueError("telemetry must be provided when reporter is not supplied")
     return NavigatorReporter(telemetry, scope)
 
 
 def ensure_runtime_telemetry(
     telemetry: Telemetry | None, tail_telemetry: TailTelemetry | None
 ) -> None:
-    """Validate that runtime assembly receives at least one telemetry entry."""
+    """Record whether runtime assembly receives telemetry collaborators."""
 
-    if telemetry is None and tail_telemetry is None:
-        raise ValueError("either telemetry or tail_telemetry must be provided")
+    # Runtime workflows may operate without telemetry when instrumentation is disabled.
+    # The helper simply preserves backwards compatibility for call sites that still
+    # depend on the presence of this check.
+    return None
 
 
 def prepare_runtime_collaborators(

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from navigator.app.locks.guard import Guardian
 from navigator.core.value.message import Scope
@@ -9,8 +10,10 @@ from navigator.core.value.message import Scope
 from .builder import build_navigator_runtime
 from .dependencies import NavigatorDependencies
 from .runtime import NavigatorRuntime
-from .snapshot import NavigatorRuntimeSnapshot
 from .types import MissingAlert
+
+if TYPE_CHECKING:
+    from .snapshot import NavigatorRuntimeSnapshot
 
 
 @dataclass(frozen=True)
@@ -43,12 +46,10 @@ def create_activation_plan(
 ) -> RuntimeActivationPlan:
     """Derive a runtime activation plan from container snapshot data."""
 
-    dependencies = snapshot.dependencies
-    return RuntimeActivationPlan(
-        dependencies=dependencies,
-        scope=scope,
-        guard=guard or dependencies.guard,
-        missing_alert=missing_alert or dependencies.missing_alert,
+    return snapshot.create_activation_plan(
+        scope,
+        guard=guard,
+        missing_alert=missing_alert,
     )
 
 
