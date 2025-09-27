@@ -11,11 +11,7 @@ from .history import NavigatorHistoryService
 from .history_builder import build_history_service
 from .reporter import NavigatorReporter
 from .runtime_context import RuntimeBuildContext
-from .runtime_plan import (
-    HistoryAssemblyRequest,
-    StateAssemblyRequest,
-    TailAssemblyRequest,
-)
+from .runtime_plan import RuntimeAssemblyPlan
 from .state import NavigatorStateService
 from .state_builder import build_state_service
 from .tail import NavigatorTail
@@ -45,13 +41,13 @@ class HistoryServiceBuilder:
             bundler=bundler,
         )
 
-    def build_component(
-        self, request: HistoryAssemblyRequest
+    def build_from_plan(
+        self, plan: RuntimeAssemblyPlan
     ) -> NavigatorHistoryService:
         return self.build(
-            request.contract,
-            reporter=request.reporter,
-            bundler=request.bundler,
+            plan.contracts.history,
+            reporter=plan.collaborators.reporter,
+            bundler=plan.collaborators.bundler,
         )
 
 
@@ -76,13 +72,13 @@ class StateServiceBuilder:
             missing_alert=missing_alert,
         )
 
-    def build_component(
-        self, request: StateAssemblyRequest
+    def build_from_plan(
+        self, plan: RuntimeAssemblyPlan
     ) -> NavigatorStateService:
         return self.build(
-            request.contract,
-            reporter=request.reporter,
-            missing_alert=request.missing_alert,
+            plan.contracts.state,
+            reporter=plan.collaborators.reporter,
+            missing_alert=plan.collaborators.missing_alert,
         )
 
 
@@ -107,13 +103,13 @@ class TailServiceBuilder:
             tail_telemetry=tail_telemetry,
         )
 
-    def build_component(
-        self, request: TailAssemblyRequest
+    def build_from_plan(
+        self, plan: RuntimeAssemblyPlan
     ) -> NavigatorTail:
         return self.build(
-            request.contract,
-            telemetry=request.telemetry,
-            tail_telemetry=request.tail_telemetry,
+            plan.contracts.tail,
+            telemetry=plan.collaborators.telemetry,
+            tail_telemetry=plan.collaborators.tail_telemetry,
         )
 
 

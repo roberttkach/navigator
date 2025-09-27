@@ -13,7 +13,8 @@ from .dependencies import (
 from .runtime import NavigatorRuntime
 from .runtime_factory import (
     NavigatorRuntimeAssembly,
-    RuntimePlannerDependencies,
+    RuntimeInstrumentationDependencies,
+    RuntimeNotificationDependencies,
     RuntimePlanRequest,
     build_navigator_runtime,
     build_runtime_collaborators,
@@ -43,8 +44,10 @@ class RuntimeActivationPlan:
         contracts = build_runtime_contract_selection(usecases=self.domain.usecases)
         collaborators = build_runtime_collaborators(
             scope=self.scope,
-            dependencies=RuntimePlannerDependencies.from_components(
+            instrumentation=RuntimeInstrumentationDependencies(
                 telemetry=self.telemetry.telemetry,
+            ),
+            notifications=RuntimeNotificationDependencies(
                 missing_alert=self.safety.missing_alert,
             ),
         )

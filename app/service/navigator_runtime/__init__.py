@@ -11,7 +11,8 @@ from .presentation import (
 )
 from .runtime_factory import (
     NavigatorRuntimeAssembly,
-    RuntimePlannerDependencies,
+    RuntimeInstrumentationDependencies,
+    RuntimeNotificationDependencies,
     build_navigator_runtime,
     build_runtime_collaborators,
     build_runtime_contract_selection,
@@ -19,6 +20,11 @@ from .runtime_factory import (
 )
 from .runtime import NavigatorRuntime
 from .runtime_assembly_port import RuntimeAssemblyPort, RuntimeAssemblyRequest
+from .runtime_assembly_resolver import (
+    BootstrapRuntimeAssemblyProvider,
+    RuntimeAssemblyProvider,
+    resolve_runtime_assembler,
+)
 from .usecases import NavigatorUseCases
 
 __all__ = [
@@ -26,9 +32,12 @@ __all__ = [
     "NavigatorRuntimeAssembly",
     "NavigatorRuntimeProvider",
     "NavigatorUseCases",
-    "RuntimePlannerDependencies",
+    "BootstrapRuntimeAssemblyProvider",
+    "RuntimeInstrumentationDependencies",
+    "RuntimeNotificationDependencies",
     "RuntimeAssemblyPort",
     "RuntimeAssemblyRequest",
+    "RuntimeAssemblyProvider",
     "RuntimeAssemblyConfiguration",
     "RuntimeAssemblyEntrypoint",
     "assemble_navigator",
@@ -36,6 +45,7 @@ __all__ = [
     "build_runtime_collaborators",
     "build_runtime_contract_selection",
     "build_runtime_from_dependencies",
+    "resolve_runtime_assembler",
     "default_configuration",
     "create_runtime_plan_request",
 ]
