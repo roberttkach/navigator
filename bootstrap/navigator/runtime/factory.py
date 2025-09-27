@@ -9,7 +9,7 @@ from ..context import BootstrapContext, ViewContainerFactory
 from ..telemetry import TelemetryFactory
 from .bundle import NavigatorRuntimeBundle
 from .composition import NavigatorRuntimeComposer, RuntimeCalibrator
-from .provision import RuntimeProvisioner
+from .provision import RuntimeProvisioner, build_runtime_provisioner
 
 
 class NavigatorFactory(Protocol):
@@ -31,7 +31,7 @@ class ContainerRuntimeFactory(NavigatorFactory):
         composer: NavigatorRuntimeComposer | None = None,
     ) -> None:
         factory = telemetry_factory or TelemetryFactory()
-        self._provisioner = provisioner or RuntimeProvisioner(
+        self._provisioner = provisioner or build_runtime_provisioner(
             factory,
             missing_alert=missing_alert,
             view_container=view_container,

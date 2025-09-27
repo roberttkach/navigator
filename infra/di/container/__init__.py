@@ -1,6 +1,8 @@
 """Application dependency injection container."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from dependency_injector import containers, providers
 from aiogram.fsm.context import FSMContext
 from navigator.core.port.factory import ViewLedger
@@ -88,44 +90,19 @@ class RuntimeBindings(containers.DeclarativeContainer):
     )
 
 
-class AppContainer(containers.DeclarativeContainer):
-    """High-level composition root that delegates to dedicated bindings."""
+@dataclass(slots=True)
+class AppContainer:
+    """Aggregate binding containers without exposing infrastructure details."""
 
-    event = providers.Dependency()
-    state = providers.Dependency(instance_of=FSMContext)
-    ledger = providers.Dependency(instance_of=ViewLedger)
-    alert = providers.Dependency()
-    telemetry = providers.Dependency(instance_of=Telemetry)
-    view_container = providers.Dependency()
+    core: CoreBindings
+    integration: IntegrationBindings
+    usecases: UseCaseBindings
+    runtime_bindings: RuntimeBindings
 
-    _core = providers.Container(
-        CoreBindings,
-        event=event,
-        state=state,
-        ledger=ledger,
-        alert=alert,
-        telemetry=telemetry,
-    )
-    _integration = providers.Container(
-        IntegrationBindings,
-        core=_core,
-        telemetry=telemetry,
-        view_container=view_container,
-    )
-    _usecase = providers.Container(
-        UseCaseBindings,
-        core=_core,
-        integration=_integration,
-        telemetry=telemetry,
-    )
-    _runtime = providers.Container(
-        RuntimeBindings,
-        core=_core,
-        usecases=_usecase,
-        telemetry=telemetry,
-    )
+    def runtime(self) -> NavigatorRuntimeContainer:
+        """Expose runtime bindings produced by the application composition root."""
 
-    runtime = providers.Delegate(_runtime.provided.runtime)
+        return self.runtime_bindings.runtime()
 
 
 __all__ = [
