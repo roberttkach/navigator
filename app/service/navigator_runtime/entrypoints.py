@@ -1,7 +1,8 @@
 """High level entrypoints orchestrating navigator runtime assembly."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Type, TypeVar
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Generic, Iterable, Type, TypeVar
 
 from navigator.contracts.runtime import (
     NavigatorAssemblyOverrides,
@@ -24,6 +25,80 @@ from .runtime_assembly_resolver import (
 FacadeT = TypeVar("FacadeT", bound=NavigatorFacade)
 
 
+@dataclass(frozen=True)
+class NavigatorAssemblyInputs(Generic[FacadeT]):
+    """Capture arguments required to assemble a navigator facade."""
+
+    event: object
+    state: object
+    ledger: ViewLedger
+    scope: Scope
+    instrumentation: Iterable[NavigatorRuntimeInstrument] | None
+    missing_alert: MissingAlert | None
+    overrides: NavigatorAssemblyOverrides | None
+    resolution: "ContainerResolution" | None
+    facade_type: Type[FacadeT]
+    assembler: RuntimeAssemblyPort[RuntimeAssemblyRequest] | None
+
+    async def execute(
+        self, service: NavigatorAssemblyService[FacadeT]
+    ) -> FacadeT:
+        return await service.assemble(
+            event=self.event,
+            state=self.state,
+            ledger=self.ledger,
+            scope=self.scope,
+            instrumentation=self.instrumentation,
+            missing_alert=self.missing_alert,
+            overrides=self.overrides,
+            resolution=self.resolution,
+            facade_type=self.facade_type,
+            assembler=self.assembler,
+        )
+
+
+def _resolve_runtime_service(
+    *,
+    provider: RuntimeAssemblyProvider | None,
+    request_factory: RuntimeAssemblyRequestFactory | None,
+    assembler_resolver: RuntimeAssemblerResolver | None,
+    facade_factory: NavigatorFacadeFactory[FacadeT] | None,
+) -> NavigatorAssemblyService[FacadeT]:
+    return resolve_assembly_service(
+        provider=provider,
+        request_factory=request_factory,
+        assembler_resolver=assembler_resolver,
+        facade_factory=facade_factory,
+    )
+
+
+def _create_assembly_inputs(
+    *,
+    event: object,
+    state: object,
+    ledger: ViewLedger,
+    scope: Scope,
+    instrumentation: Iterable[NavigatorRuntimeInstrument] | None,
+    missing_alert: MissingAlert | None,
+    overrides: NavigatorAssemblyOverrides | None,
+    resolution: "ContainerResolution" | None,
+    facade_type: Type[FacadeT],
+    assembler: RuntimeAssemblyPort[RuntimeAssemblyRequest] | None,
+) -> NavigatorAssemblyInputs[FacadeT]:
+    return NavigatorAssemblyInputs(
+        event=event,
+        state=state,
+        ledger=ledger,
+        scope=scope,
+        instrumentation=instrumentation,
+        missing_alert=missing_alert,
+        overrides=overrides,
+        resolution=resolution,
+        facade_type=facade_type,
+        assembler=assembler,
+    )
+
+
 async def assemble_navigator(
     *,
     event: object,
@@ -43,13 +118,13 @@ async def assemble_navigator(
 ) -> FacadeT:
     """Assemble a navigator facade for the provided runtime inputs."""
 
-    service = resolve_assembly_service(
+    service = _resolve_runtime_service(
         provider=provider,
         request_factory=request_factory,
         assembler_resolver=assembler_resolver,
         facade_factory=facade_factory,
     )
-    return await service.assemble(
+    inputs = _create_assembly_inputs(
         event=event,
         state=state,
         ledger=ledger,
@@ -61,6 +136,7 @@ async def assemble_navigator(
         facade_type=facade_type,
         assembler=assembler,
     )
+    return await inputs.execute(service)
 
 
 __all__ = [
