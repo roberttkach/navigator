@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
 
 from .bundler import PayloadBundler
-from .contracts import NavigatorRuntimeContracts
+from .contracts import HistoryContracts, NavigatorRuntimeContracts, StateContracts, TailContracts
 from .reporter import NavigatorReporter
 from .runtime_inputs import (
     RuntimeCollaborators,
@@ -19,22 +19,68 @@ from .tail_components import TailTelemetry
 from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
+if TYPE_CHECKING:
+    from .history import NavigatorHistoryService
+    from .state import NavigatorStateService
+    from .tail import NavigatorTail
 
-class ComponentBuilder(Protocol):
-    """Protocol describing how runtime components are constructed."""
 
-    def build_component(self, request: "ComponentAssemblyRequest") -> object: ...
+class HistoryComponentBuilder(Protocol):
+    """Protocol describing builders for history services."""
+
+    def build_component(self, request: "HistoryAssemblyRequest") -> "NavigatorHistoryService": ...
+
+
+class StateComponentBuilder(Protocol):
+    """Protocol describing builders for state services."""
+
+    def build_component(self, request: "StateAssemblyRequest") -> "NavigatorStateService": ...
+
+
+class TailComponentBuilder(Protocol):
+    """Protocol describing builders for tail services."""
+
+    def build_component(self, request: "TailAssemblyRequest") -> "NavigatorTail": ...
 
 
 @dataclass(frozen=True)
-class ComponentAssemblyRequest:
-    """Describe how a specific runtime component should be built."""
+class HistoryAssemblyRequest:
+    """Capture inputs required to assemble history services."""
 
-    contract: object
-    parameters: Mapping[str, Any]
+    contract: HistoryContracts
+    reporter: NavigatorReporter
+    bundler: PayloadBundler
 
-    def build_with(self, builder: ComponentBuilder) -> object:
-        """Execute the build action against the provided component builder."""
+    def build_with(self, builder: HistoryComponentBuilder) -> "NavigatorHistoryService":
+        """Delegate construction to the provided history builder."""
+
+        return builder.build_component(self)
+
+
+@dataclass(frozen=True)
+class StateAssemblyRequest:
+    """Capture inputs required to assemble state services."""
+
+    contract: StateContracts
+    reporter: NavigatorReporter
+    missing_alert: MissingAlert | None
+
+    def build_with(self, builder: StateComponentBuilder) -> "NavigatorStateService":
+        """Delegate construction to the provided state builder."""
+
+        return builder.build_component(self)
+
+
+@dataclass(frozen=True)
+class TailAssemblyRequest:
+    """Capture inputs required to assemble tail services."""
+
+    contract: TailContracts
+    telemetry: Telemetry | None
+    tail_telemetry: TailTelemetry | None
+
+    def build_with(self, builder: TailComponentBuilder) -> "NavigatorTail":
+        """Delegate construction to the provided tail builder."""
 
         return builder.build_component(self)
 
@@ -43,9 +89,65 @@ class ComponentAssemblyRequest:
 class RuntimeAssemblyPlan:
     """Describe the collaborators required to assemble the runtime."""
 
-    history: ComponentAssemblyRequest
-    state: ComponentAssemblyRequest
-    tail: ComponentAssemblyRequest
+    history: HistoryAssemblyRequest
+    state: StateAssemblyRequest
+    tail: TailAssemblyRequest
+
+
+@dataclass(frozen=True)
+class RuntimePlanInputs:
+    """Pair resolved contracts with supporting runtime collaborators."""
+
+    contracts: NavigatorRuntimeContracts
+    collaborators: RuntimeCollaborators
+
+
+def resolve_runtime_plan_inputs(
+    *,
+    usecases: NavigatorUseCases | None,
+    contracts: NavigatorRuntimeContracts | None,
+    scope: Scope,
+    telemetry: Telemetry | None,
+    bundler: PayloadBundler | None,
+    reporter: NavigatorReporter | None,
+    missing_alert: MissingAlert | None,
+    tail_telemetry: TailTelemetry | None,
+) -> RuntimePlanInputs:
+    """Resolve runtime contracts and collaborators in two independent steps."""
+
+    resolved_contracts = resolve_runtime_contracts(
+        usecases=usecases, contracts=contracts
+    )
+    collaborators = prepare_runtime_collaborators(
+        scope=scope,
+        telemetry=telemetry,
+        reporter=reporter,
+        bundler=bundler,
+        tail_telemetry=tail_telemetry,
+        missing_alert=missing_alert,
+    )
+    return RuntimePlanInputs(contracts=resolved_contracts, collaborators=collaborators)
+
+
+def build_runtime_plan(inputs: RuntimePlanInputs) -> RuntimeAssemblyPlan:
+    """Create a runtime assembly plan from resolved inputs."""
+
+    history = HistoryAssemblyRequest(
+        contract=inputs.contracts.history,
+        reporter=inputs.collaborators.reporter,
+        bundler=inputs.collaborators.bundler,
+    )
+    state = StateAssemblyRequest(
+        contract=inputs.contracts.state,
+        reporter=inputs.collaborators.reporter,
+        missing_alert=inputs.collaborators.missing_alert,
+    )
+    tail = TailAssemblyRequest(
+        contract=inputs.contracts.tail,
+        telemetry=inputs.collaborators.telemetry,
+        tail_telemetry=inputs.collaborators.tail_telemetry,
+    )
+    return RuntimeAssemblyPlan(history=history, state=state, tail=tail)
 
 
 def create_runtime_plan(
@@ -61,43 +163,26 @@ def create_runtime_plan(
 ) -> RuntimeAssemblyPlan:
     """Resolve runtime collaborators and contracts into a buildable plan."""
 
-    resolved_contracts = resolve_runtime_contracts(
-        usecases=usecases, contracts=contracts
-    )
-    collaborators = prepare_runtime_collaborators(
+    inputs = resolve_runtime_plan_inputs(
+        usecases=usecases,
+        contracts=contracts,
         scope=scope,
         telemetry=telemetry,
-        reporter=reporter,
         bundler=bundler,
-        tail_telemetry=tail_telemetry,
+        reporter=reporter,
         missing_alert=missing_alert,
+        tail_telemetry=tail_telemetry,
     )
-    history = ComponentAssemblyRequest(
-        contract=resolved_contracts.history,
-        parameters={
-            "reporter": collaborators.reporter,
-            "bundler": collaborators.bundler,
-        },
-    )
-    state = ComponentAssemblyRequest(
-        contract=resolved_contracts.state,
-        parameters={
-            "reporter": collaborators.reporter,
-            "missing_alert": collaborators.missing_alert,
-        },
-    )
-    tail = ComponentAssemblyRequest(
-        contract=resolved_contracts.tail,
-        parameters={
-            "telemetry": collaborators.telemetry,
-            "tail_telemetry": collaborators.tail_telemetry,
-        },
-    )
-    return RuntimeAssemblyPlan(history=history, state=state, tail=tail)
+    return build_runtime_plan(inputs)
 
 
 __all__ = [
-    "ComponentAssemblyRequest",
+    "HistoryAssemblyRequest",
     "RuntimeAssemblyPlan",
+    "RuntimePlanInputs",
+    "StateAssemblyRequest",
+    "TailAssemblyRequest",
+    "build_runtime_plan",
     "create_runtime_plan",
+    "resolve_runtime_plan_inputs",
 ]

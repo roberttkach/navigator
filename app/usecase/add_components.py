@@ -8,12 +8,13 @@ from typing import List, Optional, Sequence, Protocol
 from navigator.app.map.entry import EntryMapper, Outcome
 from navigator.app.service.view.planner import ViewPlanner
 from navigator.app.service.view.policy import adapt
-from navigator.app.service.store import HistoryPersistencePipeline
+from navigator.app.service.store import (
+    HistoryPersistencePipeline,
+    HistoryPersistencePipelineFactory,
+)
 from navigator.core.entity.history import Entry
 from navigator.core.port.history import HistoryRepository
-from navigator.core.port.last import LatestRepository
 from navigator.core.port.state import StateRepository
-from navigator.core.service.history.policy import prune as prune_history
 from navigator.core.service.scope import profile
 from navigator.core.telemetry import LogCode, Telemetry, TelemetryChannel
 from navigator.core.value.content import Payload, normalize
@@ -102,23 +103,21 @@ class AppendHistoryWriter:
 
     def __init__(
             self,
-            archive: HistoryRepository,
-            tail: LatestRepository,
-            limit: int,
-            telemetry: Telemetry,
+            pipeline_factory: HistoryPersistencePipelineFactory,
             *,
             pipeline: HistoryPersistencePipeline | None = None,
     ) -> None:
-        self._pipeline = pipeline or HistoryPersistencePipeline(
-            archive=archive,
-            ledger=tail,
-            prune_history=prune_history,
-            limit=limit,
-            telemetry=telemetry,
-        )
+        self._pipeline_factory = pipeline_factory
+        self._pipeline = pipeline
+
+    def _resolve_pipeline(self) -> HistoryPersistencePipeline:
+        if self._pipeline is None:
+            self._pipeline = self._pipeline_factory.create()
+        return self._pipeline
 
     async def persist(self, timeline: Sequence[Entry]) -> None:
-        await self._pipeline.persist(list(timeline), operation="add")
+        pipeline = self._resolve_pipeline()
+        await pipeline.persist(list(timeline), operation="add")
 
 
 class AppendPayloadAdapter:
