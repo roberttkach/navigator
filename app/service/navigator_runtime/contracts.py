@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from typing import Protocol
+
 from .ports import (
     AlarmUseCase,
     AppendHistoryUseCase,
@@ -14,6 +16,30 @@ from .ports import (
     TrimHistoryUseCase,
 )
 from .usecases import NavigatorUseCases
+
+
+class RuntimeContractSource(Protocol):
+    """Protocol describing objects capable of resolving runtime contracts."""
+
+    def resolve(self) -> "NavigatorRuntimeContracts":
+        """Return contracts that should be used by the runtime."""
+
+
+@dataclass(frozen=True)
+class RuntimeContractSelection(RuntimeContractSource):
+    """Capture how runtime contracts should be resolved for assembly."""
+
+    usecases: NavigatorUseCases | None = None
+    contracts: "NavigatorRuntimeContracts" | None = None
+
+    def resolve(self) -> "NavigatorRuntimeContracts":
+        """Derive runtime contracts from the configured sources."""
+
+        if self.contracts is not None:
+            return self.contracts
+        if self.usecases is None:
+            raise ValueError("either usecases or contracts must be provided")
+        return NavigatorRuntimeContracts.from_usecases(self.usecases)
 
 
 @dataclass(frozen=True)
@@ -73,6 +99,8 @@ class NavigatorRuntimeContracts:
 __all__ = [
     "HistoryContracts",
     "NavigatorRuntimeContracts",
+    "RuntimeContractSelection",
+    "RuntimeContractSource",
     "StateContracts",
     "TailContracts",
 ]

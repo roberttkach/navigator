@@ -5,19 +5,18 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from navigator.core.telemetry import Telemetry
-from navigator.core.value.message import Scope
-
 from .bundler import PayloadBundler
-from .contracts import HistoryContracts, NavigatorRuntimeContracts, StateContracts, TailContracts
-from .reporter import NavigatorReporter
-from .runtime_inputs import (
-    RuntimeCollaborators,
-    prepare_runtime_collaborators,
-    resolve_runtime_contracts,
+from .contracts import (
+    HistoryContracts,
+    NavigatorRuntimeContracts,
+    RuntimeContractSource,
+    StateContracts,
+    TailContracts,
 )
+from .reporter import NavigatorReporter
+from .runtime_inputs import RuntimeCollaboratorRequest, RuntimeCollaborators, prepare_runtime_collaborators
 from .tail_components import TailTelemetry
 from .types import MissingAlert
-from .usecases import NavigatorUseCases
 
 if TYPE_CHECKING:
     from .history import NavigatorHistoryService
@@ -102,30 +101,19 @@ class RuntimePlanInputs:
     collaborators: RuntimeCollaborators
 
 
-def resolve_runtime_plan_inputs(
-    *,
-    usecases: NavigatorUseCases | None,
-    contracts: NavigatorRuntimeContracts | None,
-    scope: Scope,
-    telemetry: Telemetry | None,
-    bundler: PayloadBundler | None,
-    reporter: NavigatorReporter | None,
-    missing_alert: MissingAlert | None,
-    tail_telemetry: TailTelemetry | None,
-) -> RuntimePlanInputs:
+@dataclass(frozen=True)
+class RuntimePlanRequest:
+    """Capture configuration describing how to build a runtime plan."""
+
+    contracts: RuntimeContractSource
+    collaborators: RuntimeCollaboratorRequest
+
+
+def resolve_runtime_plan_inputs(request: RuntimePlanRequest) -> RuntimePlanInputs:
     """Resolve runtime contracts and collaborators in two independent steps."""
 
-    resolved_contracts = resolve_runtime_contracts(
-        usecases=usecases, contracts=contracts
-    )
-    collaborators = prepare_runtime_collaborators(
-        scope=scope,
-        telemetry=telemetry,
-        reporter=reporter,
-        bundler=bundler,
-        tail_telemetry=tail_telemetry,
-        missing_alert=missing_alert,
-    )
+    resolved_contracts = request.contracts.resolve()
+    collaborators = prepare_runtime_collaborators(request.collaborators)
     return RuntimePlanInputs(contracts=resolved_contracts, collaborators=collaborators)
 
 
@@ -150,29 +138,10 @@ def build_runtime_plan(inputs: RuntimePlanInputs) -> RuntimeAssemblyPlan:
     return RuntimeAssemblyPlan(history=history, state=state, tail=tail)
 
 
-def create_runtime_plan(
-    *,
-    usecases: NavigatorUseCases | None,
-    contracts: NavigatorRuntimeContracts | None,
-    scope: Scope,
-    telemetry: Telemetry | None,
-    bundler: PayloadBundler | None,
-    reporter: NavigatorReporter | None,
-    missing_alert: MissingAlert | None,
-    tail_telemetry: TailTelemetry | None,
-) -> RuntimeAssemblyPlan:
+def create_runtime_plan(request: RuntimePlanRequest) -> RuntimeAssemblyPlan:
     """Resolve runtime collaborators and contracts into a buildable plan."""
 
-    inputs = resolve_runtime_plan_inputs(
-        usecases=usecases,
-        contracts=contracts,
-        scope=scope,
-        telemetry=telemetry,
-        bundler=bundler,
-        reporter=reporter,
-        missing_alert=missing_alert,
-        tail_telemetry=tail_telemetry,
-    )
+    inputs = resolve_runtime_plan_inputs(request)
     return build_runtime_plan(inputs)
 
 
@@ -180,6 +149,7 @@ __all__ = [
     "HistoryAssemblyRequest",
     "RuntimeAssemblyPlan",
     "RuntimePlanInputs",
+    "RuntimePlanRequest",
     "StateAssemblyRequest",
     "TailAssemblyRequest",
     "build_runtime_plan",
