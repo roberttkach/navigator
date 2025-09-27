@@ -10,6 +10,7 @@ from navigator.api.contracts import (
 )
 from navigator.app.service.navigator_runtime import MissingAlert
 from .context import BootstrapContext, ViewContainerFactory
+from .container_resolution import resolve_view_container
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
 
 
@@ -74,9 +75,7 @@ def _resolve_view_container(candidate: ViewContainerFactory | None) -> ViewConta
 
     if candidate is not None:
         return candidate
-    from navigator.infra.di.container.telegram import TelegramContainer  # local import
-
-    return TelegramContainer
+    return resolve_view_container()
 
 
 __all__ = ["NavigatorAssembler", "assemble"]

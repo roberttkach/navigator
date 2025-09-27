@@ -8,6 +8,7 @@ from .provision import (
     RuntimeProvision,
     RuntimeProvisioner,
     RuntimeProvisionWorkflow,
+    build_runtime_provisioner,
     TelemetryInitializer,
 )
 
@@ -22,5 +23,6 @@ __all__ = [
     "RuntimeProvision",
     "RuntimeProvisioner",
     "RuntimeProvisionWorkflow",
+    "build_runtime_provisioner",
     "TelemetryInitializer",
 ]

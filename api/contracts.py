@@ -6,6 +6,13 @@ from typing import Any, Awaitable, Protocol, runtime_checkable
 
 
 @dataclass(slots=True)
+class NavigatorAssemblyOverrides:
+    """Configuration overrides accepted by the public API."""
+
+    view_container: Any | None = None
+
+
+@dataclass(slots=True)
 class ScopeDTO:
     """Thin DTO describing chat scope information required by the API."""
 
@@ -50,6 +57,7 @@ class NavigatorRuntimeInstrument(Protocol):
 
 
 __all__ = [
+    "NavigatorAssemblyOverrides",
     "NavigatorLike",
     "NavigatorRuntimeBundleLike",
     "NavigatorRuntimeInstrument",

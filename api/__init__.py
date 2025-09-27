@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Iterable, cast
 
 from .contracts import (
+    NavigatorAssemblyOverrides,
     NavigatorLike,
     NavigatorRuntimeInstrument,
     ScopeDTO,
@@ -12,7 +13,6 @@ from .contracts import (
 from ..app.service.navigator_runtime import MissingAlert
 from ..app.service.navigator_runtime.facade import NavigatorFacade
 from ..bootstrap.navigator import assemble as _bootstrap
-from ..bootstrap.navigator.context import ViewContainerFactory
 
 
 async def assemble(
@@ -23,15 +23,15 @@ async def assemble(
         instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
         *,
         missing_alert: MissingAlert | None = None,
-        view_container: ViewContainerFactory | None = None,
+        overrides: NavigatorAssemblyOverrides | None = None,
 ) -> NavigatorLike:
     """Assemble and return a Navigator facade instance."""
 
     bootstrap_kwargs = {
         "missing_alert": missing_alert,
     }
-    if view_container is not None:
-        bootstrap_kwargs["view_container"] = view_container
+    if overrides is not None and overrides.view_container is not None:
+        bootstrap_kwargs["view_container"] = overrides.view_container
     bundle = await _bootstrap(
         event=event,
         state=state,

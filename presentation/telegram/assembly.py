@@ -8,11 +8,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
 
 from navigator.api import assemble as assemble_navigator
-from navigator.api.contracts import NavigatorRuntimeInstrument
+from navigator.api.contracts import (
+    NavigatorAssemblyOverrides,
+    NavigatorRuntimeInstrument,
+)
 from navigator.app.service.navigator_runtime import MissingAlert
 from navigator.core.port.factory import ViewLedger
 from navigator.presentation.navigator import Navigator
-from navigator.bootstrap.navigator.context import ViewContainerFactory
 
 from .alerts import missing
 from .instrumentation import instrument as default_instrument
@@ -34,14 +36,14 @@ class TelegramNavigatorAssembler:
         *,
         instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
         missing_alert: MissingAlert | None = None,
-        view_container: ViewContainerFactory | None = None,
+        overrides: NavigatorAssemblyOverrides | None = None,
     ) -> None:
         self._ledger = ledger
         self._instrumentation: Sequence[NavigatorRuntimeInstrument] | None = (
             tuple(instrumentation) if instrumentation is not None else None
         )
         self._missing_alert = missing_alert or missing
-        self._view_container = view_container
+        self._overrides = overrides
 
     async def assemble(self, event: TelegramObject, state: FSMContext) -> Navigator:
         instrumentation = self._instrumentation or (default_instrument,)
@@ -52,7 +54,7 @@ class TelegramNavigatorAssembler:
             scope=outline(event),
             instrumentation=instrumentation,
             missing_alert=self._missing_alert,
-            view_container=self._view_container,
+            overrides=self._overrides,
         )
         return navigator
 
