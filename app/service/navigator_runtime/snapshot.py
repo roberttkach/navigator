@@ -9,12 +9,12 @@ from .dependencies import (
     RuntimeSafetyServices,
     RuntimeTelemetryServices,
 )
+from .plan import RuntimeActivationPlan
 
 if TYPE_CHECKING:
     from navigator.app.locks.guard import Guardian
     from navigator.core.value.message import Scope
 
-    from .activation import RuntimeActivationPlan
     from .types import MissingAlert
 
 
@@ -35,8 +35,6 @@ class NavigatorRuntimeSnapshot:
         missing_alert: MissingAlert | None = None,
     ) -> RuntimeActivationPlan:
         """Return an activation plan without exposing internal dependencies."""
-
-        from .activation import RuntimeActivationPlan
 
         safety = self.safety.apply_overrides(
             guard=guard,

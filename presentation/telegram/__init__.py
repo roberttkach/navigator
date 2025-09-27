@@ -11,8 +11,8 @@ from .router import (
     NavigatorBack,
     RetreatCallback,
     RetreatDependencies,
-    build_retreat_handler,
     configure_retreat,
+    create_retreat_callback,
     router,
 )
 from .scope import outline
@@ -25,8 +25,8 @@ __all__ = [
     "BACK_CALLBACK_DATA",
     "RetreatCallback",
     "RetreatDependencies",
-    "build_retreat_handler",
     "configure_retreat",
+    "create_retreat_callback",
     "build_retreat_instrument",
     "instrument",
     "instrument_for_configurator",

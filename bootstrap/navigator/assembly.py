@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from navigator.contracts.runtime import NavigatorRuntimeInstrument
 from navigator.core.contracts import MissingAlert
@@ -15,6 +16,10 @@ from .instrumentation import as_sequence
 from .runtime import NavigatorFactory, NavigatorRuntimeBundle
 from .runtime_instrumentation import InstrumentationDecorator
 from .runtime_resolution import RuntimeFactoryResolver, create_runtime_factory_resolver
+
+if TYPE_CHECKING:
+    from .container_resolution import ContainerResolution
+    from .context import ViewContainerFactory
 
 
 @dataclass(slots=True)
@@ -88,9 +93,6 @@ async def assemble(
     )
     return await assembler.build(context)
 
-
-from .container_resolution import ContainerResolution  # noqa: E402  circular
-from .context import ViewContainerFactory  # noqa: E402
 
 __all__ = [
     "AssemblerServices",
