@@ -1,19 +1,28 @@
 """Bootstrap adapters for Telegram presentation components."""
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Protocol
 
 from navigator.api.contracts import NavigatorRuntimeBundleLike
 
 from .router import RetreatDependencies, RetreatRouterConfigurator, retreat_configurator
 
 
+class RetreatConfiguratorFactory(Protocol):
+    """Protocol describing factories providing router configurators."""
+
+    def __call__(
+        self, bundle: NavigatorRuntimeBundleLike
+    ) -> RetreatRouterConfigurator: ...
+
+
 def build_retreat_instrument(
-    configurator: RetreatRouterConfigurator,
+    factory: RetreatConfiguratorFactory,
 ) -> Callable[[NavigatorRuntimeBundleLike], None]:
-    """Return an instrumentation hook bound to ``configurator`` router."""
+    """Return an instrumentation hook using ``factory`` per runtime bundle."""
 
     def _instrument(bundle: NavigatorRuntimeBundleLike) -> None:
+        configurator = factory(bundle)
         dependencies = RetreatDependencies(telemetry=bundle.telemetry)
         callback = configurator.build(dependencies)
         configurator.register(callback)
@@ -21,7 +30,13 @@ def build_retreat_instrument(
     return _instrument
 
 
-instrument = build_retreat_instrument(retreat_configurator())
+def _default_factory(_: NavigatorRuntimeBundleLike) -> RetreatRouterConfigurator:
+    """Return configurator bound to the module router by default."""
+
+    return retreat_configurator()
 
 
-__all__ = ["instrument", "build_retreat_instrument"]
+instrument = build_retreat_instrument(_default_factory)
+
+
+__all__ = ["instrument", "build_retreat_instrument", "RetreatConfiguratorFactory"]

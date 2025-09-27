@@ -67,41 +67,45 @@ _defaults = _ResolutionDefaults(
     view=default_view_loader,
     builder=default_builder_loader,
 )
-_registry = ContainerResolutionRegistry(_defaults)
 
 
-def configure_view_container(
-    factory: _Loader[ViewContainerFactory] | ViewContainerFactory,
-) -> None:
-    """Override the default view container factory resolution."""
+class ContainerResolution:
+    """Resolve collaborators without relying on module-level globals."""
 
-    _registry.configure_view(factory)
+    def __init__(
+        self, registry: ContainerResolutionRegistry | None = None
+    ) -> None:
+        self._registry = registry or ContainerResolutionRegistry(_defaults)
+
+    def configure_view_container(
+        self, factory: _Loader[ViewContainerFactory] | ViewContainerFactory
+    ) -> None:
+        self._registry.configure_view(factory)
+
+    def configure_container_builder(
+        self, builder: _Loader[ContainerBuilder] | ContainerBuilder
+    ) -> None:
+        self._registry.configure_builder(builder)
+
+    def resolve_view_container(self) -> ViewContainerFactory:
+        try:
+            return self._registry.view_factory()
+        except (ImportError, AttributeError) as exc:
+            raise ContainerResolutionError(
+                "Unable to resolve default view container"
+            ) from exc
+
+    def resolve_container_builder(self) -> ContainerBuilder:
+        try:
+            return self._registry.container_builder()
+        except (ImportError, AttributeError, TypeError) as exc:
+            raise ContainerResolutionError("Unable to resolve container builder") from exc
 
 
-def configure_container_builder(
-    builder: _Loader[ContainerBuilder] | ContainerBuilder,
-) -> None:
-    """Override the default container builder resolution."""
+def create_container_resolution() -> ContainerResolution:
+    """Return a new resolution service with default collaborators."""
 
-    _registry.configure_builder(builder)
-
-
-def resolve_view_container() -> ViewContainerFactory:
-    """Return the default view container factory."""
-
-    try:
-        return _registry.view_factory()
-    except (ImportError, AttributeError) as exc:
-        raise ContainerResolutionError("Unable to resolve default view container") from exc
-
-
-def resolve_container_builder() -> ContainerBuilder:
-    """Return the default runtime container builder."""
-
-    try:
-        return _registry.container_builder()
-    except (ImportError, AttributeError, TypeError) as exc:
-        raise ContainerResolutionError("Unable to resolve container builder") from exc
+    return ContainerResolution()
 
 
 def _ensure_view_loader(
@@ -141,9 +145,7 @@ def _ensure_builder_loader(
 
 
 __all__ = [
+    "ContainerResolution",
     "ContainerResolutionRegistry",
-    "configure_container_builder",
-    "configure_view_container",
-    "resolve_container_builder",
-    "resolve_view_container",
+    "create_container_resolution",
 ]

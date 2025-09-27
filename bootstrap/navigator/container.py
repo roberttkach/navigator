@@ -6,6 +6,7 @@ from navigator.core.telemetry import Telemetry
 
 from .adapter import LedgerAdapter
 from .container_collaborators import ContainerCollaboratorsResolver
+from .container_resolution import ContainerResolution, create_container_resolution
 from .container_types import ContainerBuilder, ContainerRequest, RuntimeContainer
 from .context import BootstrapContext, ViewContainerFactory
 
@@ -20,12 +21,14 @@ class ContainerFactory:
         alert: MissingAlert | None = None,
         view_container: ViewContainerFactory | None = None,
         builder: ContainerBuilder | None = None,
+        resolution: ContainerResolution | None = None,
     ) -> None:
         self._telemetry = telemetry
         self._alert = alert or (lambda scope: "")
         self._collaborators = ContainerCollaboratorsResolver(
             default_view=view_container,
             default_builder=builder,
+            resolution=resolution or create_container_resolution(),
         )
 
     def create(self, context: BootstrapContext) -> RuntimeContainer:

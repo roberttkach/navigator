@@ -8,9 +8,12 @@ from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 
 from navigator.api.contracts import NavigatorRuntimeInstrument
-from navigator.bootstrap.navigator import NavigatorAssembler as BootstrapNavigatorAssembler
 from navigator.core.port.factory import ViewLedger
-from .assembly import NavigatorAssembler, TelegramNavigatorAssembler
+from .assembly import (
+    NavigatorAssembler,
+    TelegramNavigatorAssembler,
+    TelegramRuntimeConfiguration,
+)
 
 Handler = Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]]
 
@@ -43,8 +46,11 @@ class NavigatorMiddleware(BaseMiddleware):
     ) -> "NavigatorMiddleware":
         """Provide a convenient constructor for the default assembler."""
 
+        configuration = TelegramRuntimeConfiguration.create(
+            instrumentation=instrumentation
+        )
         return cls(
-            TelegramNavigatorAssembler(ledger, instrumentation=instrumentation)
+            TelegramNavigatorAssembler(ledger, configuration=configuration)
         )
 
     async def __call__(
