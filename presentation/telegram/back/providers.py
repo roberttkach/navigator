@@ -18,7 +18,7 @@ def default_retreat_providers() -> RetreatHandlerProviders:
     def build_workflow(
         context: RetreatContextBuilder, failures: RetreatFailureResolver
     ) -> RetreatWorkflow:
-        return RetreatWorkflow(context=context, failures=failures)
+        return RetreatWorkflow.from_builders(context=context, failures=failures)
 
     def build_orchestrator(
         instrumentation: RetreatTelemetry, workflow: RetreatWorkflow

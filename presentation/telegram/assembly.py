@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from typing import Protocol
 
 from aiogram.fsm.context import FSMContext
@@ -27,6 +28,28 @@ class NavigatorAssembler(Protocol):
     async def assemble(self, event: TelegramObject, state: FSMContext) -> Navigator: ...
 
 
+@dataclass(frozen=True)
+class TelegramRuntimeConfiguration:
+    """Configuration bundle describing runtime assembly policies."""
+
+    instrumentation: Sequence[NavigatorRuntimeInstrument]
+    missing_alert: MissingAlert
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
+        missing_alert: MissingAlert | None = None,
+    ) -> "TelegramRuntimeConfiguration":
+        instruments: Sequence[NavigatorRuntimeInstrument]
+        if instrumentation is None:
+            instruments = (default_instrument,)
+        else:
+            instruments = tuple(instrumentation)
+        return cls(instrumentation=instruments, missing_alert=missing_alert or missing)
+
+
 class TelegramNavigatorAssembler:
     """Concrete assembler translating Telegram primitives for navigator API."""
 
@@ -34,26 +57,21 @@ class TelegramNavigatorAssembler:
         self,
         ledger: ViewLedger,
         *,
-        instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
-        missing_alert: MissingAlert | None = None,
+        configuration: TelegramRuntimeConfiguration | None = None,
         overrides: NavigatorAssemblyOverrides | None = None,
     ) -> None:
         self._ledger = ledger
-        self._instrumentation: Sequence[NavigatorRuntimeInstrument] | None = (
-            tuple(instrumentation) if instrumentation is not None else None
-        )
-        self._missing_alert = missing_alert or missing
+        self._configuration = configuration or TelegramRuntimeConfiguration.create()
         self._overrides = overrides
 
     async def assemble(self, event: TelegramObject, state: FSMContext) -> Navigator:
-        instrumentation = self._instrumentation or (default_instrument,)
         navigator = await assemble_navigator(
             event=event,
             state=state,
             ledger=self._ledger,
             scope=outline(event),
-            instrumentation=instrumentation,
-            missing_alert=self._missing_alert,
+            instrumentation=self._configuration.instrumentation,
+            missing_alert=self._configuration.missing_alert,
             overrides=self._overrides,
         )
         return navigator
@@ -62,4 +80,9 @@ class TelegramNavigatorAssembler:
 NavigatorInstrument = NavigatorRuntimeInstrument
 
 
-__all__ = ["NavigatorAssembler", "NavigatorInstrument", "TelegramNavigatorAssembler"]
+__all__ = [
+    "NavigatorAssembler",
+    "NavigatorInstrument",
+    "TelegramNavigatorAssembler",
+    "TelegramRuntimeConfiguration",
+]

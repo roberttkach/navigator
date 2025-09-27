@@ -10,7 +10,7 @@ from navigator.api.contracts import (
 )
 from navigator.core.contracts import MissingAlert
 from .context import BootstrapContext, ViewContainerFactory
-from .container_resolution import resolve_view_container
+from .container_resolution import ContainerResolution, create_container_resolution
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
 
 
@@ -22,8 +22,10 @@ class NavigatorAssembler:
         runtime_factory: NavigatorFactory | None = None,
         instrumentation: Sequence[NavigatorRuntimeInstrument] | None = None,
         view_container: ViewContainerFactory | None = None,
+        resolution: ContainerResolution | None = None,
     ) -> None:
-        container = _resolve_view_container(view_container)
+        self._resolution = resolution or create_container_resolution()
+        container = _resolve_view_container(view_container, self._resolution)
         factory = runtime_factory or ContainerRuntimeFactory(view_container=container)
         self._runtime_factory = factory
         if instrumentation:
@@ -47,6 +49,7 @@ async def assemble(
     instrumentation: Iterable[NavigatorRuntimeInstrument] | None = None,
     missing_alert: MissingAlert | None = None,
     view_container: ViewContainerFactory | None = None,
+    resolution: ContainerResolution | None = None,
 ) -> NavigatorRuntimeBundle:
     """Construct a navigator runtime bundle from entrypoint payloads."""
 
@@ -66,16 +69,20 @@ async def assemble(
     assembler = NavigatorAssembler(
         instrumentation=instruments,
         view_container=view_container,
+        resolution=resolution,
     )
     return await assembler.build(context)
 
 
-def _resolve_view_container(candidate: ViewContainerFactory | None) -> ViewContainerFactory:
+def _resolve_view_container(
+    candidate: ViewContainerFactory | None,
+    resolution: ContainerResolution,
+) -> ViewContainerFactory:
     """Resolve the concrete view container lazily to avoid heavy imports."""
 
     if candidate is not None:
         return candidate
-    return resolve_view_container()
+    return resolution.resolve_view_container()
 
 
 __all__ = ["NavigatorAssembler", "assemble"]
