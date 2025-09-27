@@ -17,8 +17,9 @@ from .runtime_provider import (
     AssemblyProvider,
     RuntimeEntrypoint,
     RuntimeResolver,
-    TelegramRuntimeBuilder,
     TelegramRuntimeConfiguration,
+    TelegramRuntimeBuilder,
+    create_runtime_builder,
 )
 from .scope import outline
 
@@ -49,7 +50,7 @@ class TelegramNavigatorAssembler:
         assembly_provider: AssemblyProvider | None = None,
         entrypoint: RuntimeEntrypoint | None = None,
     ) -> "TelegramNavigatorAssembler":
-        builder = TelegramRuntimeBuilder.create(
+        builder = create_runtime_builder(
             instrumentation_factory=instrumentation_factory,
             runtime_resolver=runtime_resolver,
             assembly_provider=assembly_provider,

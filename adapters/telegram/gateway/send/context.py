@@ -14,7 +14,7 @@ from navigator.core.telemetry import LogCode, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from .. import util
+from ..targeting import resolve_targets
 from ..serializer import text as textkit
 
 
@@ -51,7 +51,7 @@ class SendContext:
         _ensure_inline_supported(scope)
         markup = textkit.decode(codec, payload.reply)
         preview_options = _preview_options(preview, payload)
-        targets = util.targets(scope)
+        targets = resolve_targets(scope)
         reporter = SendTelemetry(channel, scope, payload)
         return cls(
             markup=markup,

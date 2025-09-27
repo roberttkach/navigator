@@ -13,7 +13,7 @@ from navigator.core.telemetry import LogCode, TelemetryChannel
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from . import util
+from .targeting import resolve_targets
 from ..serializer.screen import SignatureScreen
 from .planner import (
     emit_telemetry,
@@ -68,7 +68,7 @@ async def rewrite(
     )
     emit_telemetry(channel, plan.telemetry)
     message = await bot.edit_message_text(
-        **util.targets(scope, identifier),
+        **resolve_targets(scope, identifier),
         text=plan.text,
         reply_markup=plan.markup,
         link_preview_options=plan.preview_options,
@@ -106,7 +106,7 @@ async def recast(
     message = await bot.edit_message_media(
         media=plan.media,
         reply_markup=plan.markup,
-        **util.targets(scope, identifier),
+        **resolve_targets(scope, identifier),
     )
     _log_success(channel, scope, payload, identifier, message)
     return message
@@ -135,7 +135,7 @@ async def retitle(
     )
     emit_telemetry(channel, plan.telemetry)
     message = await bot.edit_message_caption(
-        **util.targets(scope, identifier),
+        **resolve_targets(scope, identifier),
         caption=plan.caption,
         reply_markup=plan.markup,
         **screen.filter(bot.edit_message_caption, plan.extras.get("caption", {})),
@@ -155,7 +155,7 @@ async def remap(
 ):
     plan = prepare_markup_edit(payload, codec=codec)
     message = await bot.edit_message_reply_markup(
-        **util.targets(scope, identifier),
+        **resolve_targets(scope, identifier),
         reply_markup=plan.markup,
     )
     _log_success(channel, scope, payload, identifier, message)
