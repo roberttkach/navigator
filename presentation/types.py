@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
-
-
-class StateLike(Protocol):
-    """Protocol describing objects exposing an FSM state string."""
-
-    state: str
+from navigator.core.contracts.state import StateLike
 
 
 __all__ = ["StateLike"]

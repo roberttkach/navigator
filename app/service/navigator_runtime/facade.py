@@ -6,14 +6,14 @@ from typing import Any, SupportsInt
 
 from navigator.app.dto.content import Content, Node
 
-from .back_context import NavigatorBackContext
+from navigator.core.contracts.back import NavigatorBackContext
 from .bundler import bundle_from_dto
 from .history import NavigatorHistoryService
 from .runtime import NavigatorRuntime
 from .state import NavigatorStateService
 from .tail import NavigatorTail
 from .tail_components import dto_edit_request
-from .types import StateLike
+from navigator.core.contracts.state import StateLike
 
 
 @dataclass(frozen=True)

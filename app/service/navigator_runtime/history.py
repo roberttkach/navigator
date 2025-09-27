@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable, SupportsInt
 from navigator.app.locks.guard import Guardian
 
 from .bundler import PayloadBundleSource, PayloadBundler
-from .back_context import NavigatorBackContext
+from navigator.core.contracts.back import NavigatorBackContext
 from .ports import (
     AppendHistoryUseCase,
     RebaseHistoryUseCase,

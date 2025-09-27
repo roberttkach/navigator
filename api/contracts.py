@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Awaitable, Protocol, SupportsInt, runtime_checkable
 
-from ..app.service.navigator_runtime.back_context import NavigatorBackContext
-from ..app.service.navigator_runtime.types import StateLike
+from ..core.contracts.back import NavigatorBackContext
+from ..core.contracts.state import StateLike
 
 
 @dataclass(slots=True)

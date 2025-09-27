@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
-from navigator.app.service.navigator_runtime.back_context import NavigatorBackContext
+from navigator.core.contracts.back import NavigatorBackContext
 
 
 class RetreatHistory(Protocol):

@@ -6,10 +6,7 @@ from typing import Mapping, MutableMapping
 
 from aiogram.types import CallbackQuery, Message, User
 
-from navigator.app.service.navigator_runtime.back_context import (
-    NavigatorBackContext,
-    NavigatorBackEvent,
-)
+from navigator.core.contracts.back import NavigatorBackContext, NavigatorBackEvent
 
 
 class RetreatContextBuilder:

@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 from aiogram.types import CallbackQuery
 
-from navigator.app.service.navigator_runtime.back_context import NavigatorBackContext
+from navigator.core.contracts.back import NavigatorBackContext
 from navigator.app.service.retreat_failure import RetreatFailureResolver
 
 from .context import RetreatContextBuilder

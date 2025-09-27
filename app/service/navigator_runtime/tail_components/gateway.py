@@ -9,13 +9,13 @@ from navigator.app.service.navigator_runtime.tail_components.edit_request import
 from navigator.app.service.navigator_runtime.tail_components.converter import (
     TailPayloadConverter,
 )
-from navigator.app.usecase.last import Tailer
+from navigator.app.service.navigator_runtime.ports import TailUseCase
 
 
 class TailGateway:
     """Adapt navigator tail use cases for runtime consumption."""
 
-    def __init__(self, flow: Tailer, *, converter: TailPayloadConverter | None = None) -> None:
+    def __init__(self, flow: TailUseCase, *, converter: TailPayloadConverter | None = None) -> None:
         self._flow = flow
         self._converter = converter or TailPayloadConverter()
 
