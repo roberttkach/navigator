@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from navigator.app.service.navigator_runtime import NavigatorRuntime
 from navigator.app.service.navigator_runtime.activation import create_activation_plan
-from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
 from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
 from navigator.core.telemetry import Telemetry
 
@@ -26,13 +25,11 @@ class NavigatorRuntimeComposer:
         snapshot: NavigatorRuntimeSnapshot,
         context: BootstrapContext,
     ) -> NavigatorRuntime:
-        dependencies: NavigatorDependencies = snapshot.dependencies
         scope = scope_from_dto(context.scope)
-        missing_alert = context.missing_alert or dependencies.missing_alert
+        missing_alert = context.missing_alert
         plan = create_activation_plan(
             snapshot,
             scope,
-            guard=dependencies.guard,
             missing_alert=missing_alert,
         )
         return plan.activate()

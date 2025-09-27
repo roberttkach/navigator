@@ -9,15 +9,11 @@ from navigator.core.port.message import Result
 from navigator.core.port.extraschema import ExtraSchema
 from navigator.core.port.pathpolicy import MediaPathPolicy
 from navigator.core.port.preview import LinkPreviewCodec
-from navigator.core.telemetry import Telemetry, TelemetryChannel
+from navigator.core.telemetry import Telemetry
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from .send import (
-    SendContextFactory,
-    SendDependencies,
-    SendDispatcherFactory,
-)
+from .send import SendRequest, SendSetup, TelegramSendWorkflow
 from ..serializer.screen import SignatureScreen
 
 
@@ -37,30 +33,21 @@ class TelegramMessageSender:
         truncate: bool,
         telemetry: Telemetry,
     ) -> None:
-        dependencies = SendDependencies(
+        setup = SendSetup(
+            codec=codec,
             schema=schema,
             screen=screen,
             policy=policy,
             limits=limits,
-            telemetry=telemetry,
+            preview=preview,
         )
-        self._dispatcher = SendDispatcherFactory(dependencies).create(bot)
-        self._context_factory = SendContextFactory(codec=codec, preview=preview)
+        self._workflow = TelegramSendWorkflow(setup=setup, telemetry=telemetry)
+        self._bot = bot
         self._truncate = truncate
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
 
     async def send(self, scope: Scope, payload: Payload) -> Result:
-        context = self._context_factory.build(
-            scope=scope,
-            payload=payload,
-            channel=self._channel,
-        )
-        message, extras, meta = await self._dispatcher.dispatch(
-            payload,
-            scope=scope,
-            context=context,
-            truncate=self._truncate,
-        )
+        request = SendRequest(scope=scope, payload=payload, truncate=self._truncate)
+        message, extras, meta = await self._workflow.dispatch(self._bot, request)
         return Result(id=message.message_id, extra=extras, meta=meta)
 
 

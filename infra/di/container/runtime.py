@@ -31,7 +31,7 @@ class NavigatorRuntimeContainer(containers.DeclarativeContainer):
 
     snapshot = providers.Factory(
         NavigatorRuntimeSnapshot,
-        dependencies=navigator_bundle,
+        _dependencies=navigator_bundle,
         redaction=redaction,
     )
 

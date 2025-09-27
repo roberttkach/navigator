@@ -11,11 +11,15 @@ from navigator.core.value.message import Scope
 class NavigatorReporter:
     """Emit telemetry for navigator operations."""
 
-    def __init__(self, telemetry: Telemetry, scope: Scope) -> None:
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
+    def __init__(self, telemetry: Telemetry | None, scope: Scope) -> None:
+        self._channel: TelemetryChannel | None = (
+            telemetry.channel(__name__) if telemetry else None
+        )
         self._profile = profile(scope)
 
     def emit(self, method: str, **fields: object) -> None:
+        if self._channel is None:
+            return
         self._channel.emit(
             logging.INFO,
             LogCode.NAVIGATOR_API,

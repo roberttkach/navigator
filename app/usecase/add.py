@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 from typing import List, Optional
 
+from dataclasses import dataclass
+
 from ..log import events
 from ..log.aspect import TraceAspect
-from dataclasses import dataclass
 
 from ...core.entity.history import Entry
 from ...core.telemetry import LogCode, Telemetry, TelemetryChannel
@@ -41,6 +42,18 @@ class AppendPipeline:
     persistence: "AppendPersistence"
 
 
+@dataclass(frozen=True)
+class AppendInstrumentation:
+    """Capture telemetry collaborators used during append orchestration."""
+
+    channel: TelemetryChannel
+    trace: TraceAspect
+
+    @classmethod
+    def from_telemetry(cls, telemetry: Telemetry) -> "AppendInstrumentation":
+        return cls(channel=telemetry.channel(__name__), trace=TraceAspect(telemetry))
+
+
 class AppendPipelineFactory:
     """Create append pipeline stages from declarative dependencies."""
 
@@ -63,6 +76,37 @@ class AppendPipelineFactory:
             rendering=rendering,
             persistence=persistence,
         )
+
+
+class AppendWorkflow:
+    """Orchestrate append pipeline execution independently from telemetry."""
+
+    def __init__(self, pipeline: AppendPipeline) -> None:
+        self._preparation = pipeline.preparation
+        self._rendering = pipeline.rendering
+        self._persistence = pipeline.persistence
+
+    @classmethod
+    def from_factory(
+        cls,
+        factory: AppendPipelineFactory,
+        channel: TelemetryChannel,
+    ) -> "AppendWorkflow":
+        return cls(factory.create(channel))
+
+    async def run(
+        self,
+        scope: Scope,
+        bundle: List[Payload],
+        view: Optional[str],
+        *,
+        root: bool = False,
+    ) -> None:
+        prepared = await self._preparation.prepare(scope, bundle)
+        render = await self._rendering.plan(scope, prepared)
+        if render is None:
+            return
+        await self._persistence.persist(prepared, render, view, root=root)
 
 
 @dataclass(frozen=True)
@@ -146,65 +190,26 @@ class Appender:
     def __init__(
         self,
         *,
-        telemetry: Telemetry,
-        factory: AppendPipelineFactory,
+        instrumentation: AppendInstrumentation,
+        workflow: AppendWorkflow,
     ) -> None:
-        self._channel: TelemetryChannel = telemetry.channel(__name__)
-        self._trace = TraceAspect(telemetry)
-        pipeline = factory.create(self._channel)
-        self._preparation = pipeline.preparation
-        self._rendering = pipeline.rendering
-        self._persistence = pipeline.persistence
-
-    @classmethod
-    def build(
-            cls,
-            *,
-            telemetry: Telemetry,
-            history: AppendHistoryAccess,
-            payloads: AppendPayloadAdapter,
-            planner: AppendRenderPlanner,
-            assembler: AppendEntryAssembler,
-            writer: AppendHistoryWriter,
-    ) -> "Appender":
-        dependencies = AppendDependencies(
-            history=history,
-            payloads=payloads,
-            planner=planner,
-            assembler=assembler,
-            writer=writer,
-        )
-        factory = AppendPipelineFactory(dependencies)
-        return cls(telemetry=telemetry, factory=factory)
+        self._instrumentation = instrumentation
+        self._workflow = workflow
 
     async def execute(
-            self,
-            scope: Scope,
-            bundle: List[Payload],
-            view: Optional[str],
-            root: bool = False,
+        self,
+        scope: Scope,
+        bundle: List[Payload],
+        view: Optional[str],
+        root: bool = False,
     ) -> None:
         """Append ``bundle`` to ``scope`` while respecting ``view`` hints."""
 
-        await self._trace.run(
+        await self._instrumentation.trace.run(
             events.APPEND,
-            self._perform,
+            self._workflow.run,
             scope,
             bundle,
             view,
             root=root,
         )
-
-    async def _perform(
-            self,
-            scope: Scope,
-            bundle: List[Payload],
-            view: Optional[str],
-            *,
-            root: bool = False,
-    ) -> None:
-        prepared = await self._preparation.prepare(scope, bundle)
-        render = await self._rendering.plan(scope, prepared)
-        if render is None:
-            return
-        await self._persistence.persist(prepared, render, view, root=root)
