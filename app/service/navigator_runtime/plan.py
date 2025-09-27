@@ -43,7 +43,7 @@ class RuntimeActivationPlan:
         contracts = build_runtime_contract_selection(usecases=self.domain.usecases)
         collaborators = build_runtime_collaborators(
             scope=self.scope,
-            dependencies=RuntimePlannerDependencies(
+            dependencies=RuntimePlannerDependencies.from_components(
                 telemetry=self.telemetry.telemetry,
                 missing_alert=self.safety.missing_alert,
             ),

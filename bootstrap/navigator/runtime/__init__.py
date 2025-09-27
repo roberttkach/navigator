@@ -3,7 +3,15 @@ from .activation import NavigatorRuntimeActivationBridge, RuntimeActivator
 from .bundle import NavigatorRuntimeBundle
 from .composition import NavigatorRuntimeComposer, RuntimeCalibrator
 from .factory import ContainerRuntimeFactory, NavigatorFactory
-from .pipeline import RuntimeAssemblyPipeline, RuntimeFactorySettings, build_runtime_pipeline
+from .pipeline import (
+    RuntimeAssemblyPipeline,
+    RuntimeCalibrationStage,
+    RuntimeCompositionStage,
+    RuntimeFactorySettings,
+    RuntimePackagingStage,
+    RuntimeProvisionStage,
+    build_runtime_pipeline,
+)
 from .provision import (
     ContainerAssembler,
     ContainerInspector,
@@ -22,11 +30,15 @@ __all__ = [
     "NavigatorRuntimeComposer",
     "NavigatorRuntimeActivationBridge",
     "RuntimeAssemblyPipeline",
+    "RuntimeCalibrationStage",
+    "RuntimeCompositionStage",
     "RuntimeCalibrator",
     "RuntimeActivator",
     "RuntimeProvision",
     "RuntimeProvisioner",
     "RuntimeFactorySettings",
+    "RuntimePackagingStage",
+    "RuntimeProvisionStage",
     "build_runtime_provisioner",
     "build_runtime_pipeline",
     "TelemetryInitializer",

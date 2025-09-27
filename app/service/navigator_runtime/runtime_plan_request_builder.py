@@ -1,7 +1,7 @@
 """Builders producing runtime plan requests from domain inputs."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
@@ -17,14 +17,56 @@ from .usecases import NavigatorUseCases
 
 
 @dataclass(frozen=True)
-class RuntimePlannerDependencies:
-    """Bundle optional collaborators used during plan creation."""
+class RuntimeInstrumentationDependencies:
+    """Capture telemetry-related collaborators for runtime planning."""
 
     telemetry: Telemetry | None = None
-    bundler: PayloadBundler | None = None
+    tail: TailTelemetry | None = None
+
+
+@dataclass(frozen=True)
+class RuntimeNotificationDependencies:
+    """Capture notification components required during runtime planning."""
+
     reporter: NavigatorReporter | None = None
     missing_alert: MissingAlert | None = None
-    tail_telemetry: TailTelemetry | None = None
+
+
+@dataclass(frozen=True)
+class RuntimePlannerDependencies:
+    """Bundle cohesive collaborator groups used during plan creation."""
+
+    instrumentation: RuntimeInstrumentationDependencies = field(
+        default_factory=RuntimeInstrumentationDependencies
+    )
+    notifications: RuntimeNotificationDependencies = field(
+        default_factory=RuntimeNotificationDependencies
+    )
+    bundler: PayloadBundler | None = None
+
+    @classmethod
+    def from_components(
+        cls,
+        *,
+        telemetry: Telemetry | None = None,
+        tail_telemetry: TailTelemetry | None = None,
+        reporter: NavigatorReporter | None = None,
+        missing_alert: MissingAlert | None = None,
+        bundler: PayloadBundler | None = None,
+    ) -> "RuntimePlannerDependencies":
+        """Create dependencies from primitive components."""
+
+        return cls(
+            instrumentation=RuntimeInstrumentationDependencies(
+                telemetry=telemetry,
+                tail=tail_telemetry,
+            ),
+            notifications=RuntimeNotificationDependencies(
+                reporter=reporter,
+                missing_alert=missing_alert,
+            ),
+            bundler=bundler,
+        )
 
 
 @dataclass(frozen=True)
@@ -56,11 +98,11 @@ class RuntimeCollaboratorFactory:
 
         return RuntimeCollaboratorRequest(
             scope=scope,
-            telemetry=dependencies.telemetry,
-            reporter=dependencies.reporter,
+            telemetry=dependencies.instrumentation.telemetry,
+            reporter=dependencies.notifications.reporter,
             bundler=dependencies.bundler,
-            tail_telemetry=dependencies.tail_telemetry,
-            missing_alert=dependencies.missing_alert,
+            tail_telemetry=dependencies.instrumentation.tail,
+            missing_alert=dependencies.notifications.missing_alert,
         )
 
 
@@ -99,5 +141,7 @@ __all__ = [
     "RuntimeCollaboratorFactory",
     "RuntimeContractSelector",
     "RuntimePlanRequestBuilder",
+    "RuntimeInstrumentationDependencies",
+    "RuntimeNotificationDependencies",
     "RuntimePlannerDependencies",
 ]

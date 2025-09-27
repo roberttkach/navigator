@@ -14,13 +14,56 @@ from .provision import RuntimeProvision, RuntimeProvisioner, build_runtime_provi
 
 
 @dataclass(frozen=True)
-class RuntimeFactorySettings:
-    """Group configuration required to assemble the runtime pipeline."""
+class RuntimeProvisionStage:
+    """Provision container, telemetry and snapshot."""
 
-    telemetry_factory: TelemetryFactory
     provisioner: RuntimeProvisioner
+
+    def run(self, context: BootstrapContext) -> RuntimeProvision:
+        return self.provisioner.provision(context)
+
+
+@dataclass(frozen=True)
+class RuntimeCalibrationStage:
+    """Calibrate telemetry after the provision step."""
+
     calibrator: RuntimeCalibrator
+
+    def run(self, provision: RuntimeProvision) -> RuntimeProvision:
+        self.calibrator.run(provision.telemetry, provision.snapshot)
+        return provision
+
+
+@dataclass(frozen=True)
+class RuntimeCompositionStage:
+    """Compose the runtime instance from provisioned artefacts."""
+
     composer: NavigatorRuntimeComposer
+
+    def run(self, provision: RuntimeProvision, context: BootstrapContext) -> NavigatorRuntime:
+        return self.composer.compose(provision.snapshot, context)
+
+
+@dataclass(frozen=True)
+class RuntimePackagingStage:
+    """Package calibration results and runtime into a bundle."""
+
+    def package(self, provision: RuntimeProvision, runtime: NavigatorRuntime) -> NavigatorRuntimeBundle:
+        return NavigatorRuntimeBundle(
+            telemetry=provision.telemetry,
+            container=provision.container,
+            runtime=runtime,
+        )
+
+
+@dataclass(frozen=True)
+class RuntimeFactorySettings:
+    """Group the stages required to assemble the runtime pipeline."""
+
+    provision: RuntimeProvisionStage
+    calibration: RuntimeCalibrationStage
+    composition: RuntimeCompositionStage
+    packaging: RuntimePackagingStage
 
 
 class RuntimeAssemblyPipeline:
@@ -38,31 +81,26 @@ class RuntimeAssemblyPipeline:
     def _provision(self, context: BootstrapContext) -> RuntimeProvision:
         """Provision container, telemetry and snapshot for the given context."""
 
-        return self._settings.provisioner.provision(context)
+        return self._settings.provision.run(context)
 
     def _calibrate(self, provision: RuntimeProvision) -> RuntimeProvision:
         """Calibrate telemetry using the provisioned snapshot."""
 
-        self._settings.calibrator.run(provision.telemetry, provision.snapshot)
-        return provision
+        return self._settings.calibration.run(provision)
 
     def _compose_runtime(
         self, provision: RuntimeProvision, context: BootstrapContext
     ) -> NavigatorRuntime:
         """Compose a runtime instance using the provisioned snapshot."""
 
-        return self._settings.composer.compose(provision.snapshot, context)
+        return self._settings.composition.run(provision, context)
 
     def _package_bundle(
         self, provision: RuntimeProvision, runtime: NavigatorRuntime
     ) -> NavigatorRuntimeBundle:
         """Bundle runtime, telemetry and container into a single artefact."""
 
-        return NavigatorRuntimeBundle(
-            telemetry=provision.telemetry,
-            container=provision.container,
-            runtime=runtime,
-        )
+        return self._settings.packaging.package(provision, runtime)
 
 
 def build_runtime_pipeline(
@@ -83,16 +121,20 @@ def build_runtime_pipeline(
         view_container=view_container,
     )
     settings = RuntimeFactorySettings(
-        telemetry_factory=factory,
-        provisioner=resolved_provisioner,
-        calibrator=calibrator or RuntimeCalibrator(),
-        composer=composer or NavigatorRuntimeComposer(),
+        provision=RuntimeProvisionStage(resolved_provisioner),
+        calibration=RuntimeCalibrationStage(calibrator or RuntimeCalibrator()),
+        composition=RuntimeCompositionStage(composer or NavigatorRuntimeComposer()),
+        packaging=RuntimePackagingStage(),
     )
     return RuntimeAssemblyPipeline(settings)
 
 
 __all__ = [
+    "RuntimeCalibrationStage",
+    "RuntimeCompositionStage",
+    "RuntimePackagingStage",
     "RuntimeAssemblyPipeline",
     "RuntimeFactorySettings",
+    "RuntimeProvisionStage",
     "build_runtime_pipeline",
 ]

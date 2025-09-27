@@ -18,6 +18,7 @@ from .runtime_factory import (
     create_runtime_plan_request,
 )
 from .runtime import NavigatorRuntime
+from .runtime_assembly_port import RuntimeAssemblyPort, RuntimeAssemblyRequest
 from .usecases import NavigatorUseCases
 
 __all__ = [
@@ -26,6 +27,8 @@ __all__ = [
     "NavigatorRuntimeProvider",
     "NavigatorUseCases",
     "RuntimePlannerDependencies",
+    "RuntimeAssemblyPort",
+    "RuntimeAssemblyRequest",
     "RuntimeAssemblyConfiguration",
     "RuntimeAssemblyEntrypoint",
     "assemble_navigator",
