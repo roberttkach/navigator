@@ -4,6 +4,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from ..assembly.providers import RetreatHandlerProviders
+from ..context import RetreatContextBuilder
 from ..protocols import RetreatFailureNotes, RetreatFailureTranslator
 from .instrumentation import RetreatInstrumentationModule
 from .orchestrator import (
@@ -15,7 +17,7 @@ from .outcome import RetreatOutcomeModule, RetreatOutcomeProvidersFactory
 from .workflow import RetreatWorkflowModule, RetreatWorkflowProvidersFactory
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RetreatProviderModules:
     """Group modules used to compose retreat handler providers."""
 
@@ -24,23 +26,24 @@ class RetreatProviderModules:
     instrumentation: RetreatInstrumentationModule
     outcome: RetreatOutcomeModule
 
-    @classmethod
-    def default(
-        cls,
-        *,
-        notes: Callable[[], RetreatFailureNotes],
-        context_factory: Callable[[], "RetreatContextBuilder"] | None = None,
-        orchestrator_factory: RetreatOrchestratorFactory | None = None,
-        instrumentation: RetreatInstrumentationModule | None = None,
-    ) -> "RetreatProviderModules":
-        from ..context import RetreatContextBuilder
 
-        context_builder = context_factory or RetreatContextBuilder
-        return cls(
-            workflow=RetreatWorkflowModule(context_builder),
-            orchestrator=orchestrator_factory or create_retreat_orchestrator_factory(),
-            instrumentation=instrumentation or RetreatInstrumentationModule(),
-            outcome=RetreatOutcomeModule(notes),
+@dataclass(frozen=True)
+class RetreatProviderModuleFactory:
+    """Build provider modules without coupling assembly to defaults."""
+
+    notes: Callable[[], RetreatFailureNotes]
+    context_factory: Callable[[], RetreatContextBuilder] = RetreatContextBuilder
+    orchestrator_factory: RetreatOrchestratorFactory | None = None
+    instrumentation: RetreatInstrumentationModule | None = None
+
+    def create(self) -> RetreatProviderModules:
+        """Create a configured set of modules for provider assembly."""
+
+        return RetreatProviderModules(
+            workflow=RetreatWorkflowModule(self.context_factory),
+            orchestrator=self.orchestrator_factory or create_retreat_orchestrator_factory(),
+            instrumentation=self.instrumentation or RetreatInstrumentationModule(),
+            outcome=RetreatOutcomeModule(self.notes),
         )
 
 
@@ -54,9 +57,7 @@ class RetreatProvidersAssembler:
         self,
         *,
         failures: Callable[[], RetreatFailureTranslator],
-    ) -> "RetreatHandlerProviders":
-        from ..assembly import RetreatHandlerProviders
-
+    ) -> RetreatHandlerProviders:
         workflow_factory = RetreatWorkflowProvidersFactory(module=self.modules.workflow)
         context_provider, failure_provider, workflow_provider = workflow_factory.create(
             failures=failures
@@ -82,15 +83,26 @@ def default_retreat_providers(
     failures: Callable[[], RetreatFailureTranslator],
     notes: Callable[[], RetreatFailureNotes],
     modules: RetreatProviderModules | None = None,
-) -> "RetreatHandlerProviders":
-    """Return providers wiring application services for retreat handling."""
+    module_factory: RetreatProviderModuleFactory | None = None,
+) -> RetreatHandlerProviders:
+    """Return providers wiring application services for retreat handling.
 
-    registry = modules or RetreatProviderModules.default(notes=notes)
+    The caller may provide a fully constructed module registry or a factory
+    capable of creating one. When neither is supplied the default factory is
+    used to compose modules with presentation defaults.
+    """
+
+    if modules is not None:
+        registry = modules
+    else:
+        factory = module_factory or RetreatProviderModuleFactory(notes=notes)
+        registry = factory.create()
     assembler = RetreatProvidersAssembler(modules=registry)
     return assembler.assemble(failures=failures)
 
 
 __all__ = [
+    "RetreatProviderModuleFactory",
     "RetreatProviderModules",
     "RetreatProvidersAssembler",
     "default_retreat_providers",

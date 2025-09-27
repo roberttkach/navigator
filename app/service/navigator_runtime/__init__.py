@@ -14,16 +14,20 @@ from .presentation import (
     RuntimeAssemblyEntrypoint,
     default_configuration,
 )
+from .runtime_collaborator_factory import RuntimeCollaboratorFactory
+from .runtime_contract_selector import RuntimeContractSelector
 from .runtime_factory import (
     NavigatorRuntimeAssembly,
-    RuntimeInstrumentationDependencies,
-    RuntimeNotificationDependencies,
     build_navigator_runtime,
     build_runtime_collaborators,
     build_runtime_contract_selection,
     create_runtime_plan_request,
 )
 from .runtime import NavigatorRuntime
+from .runtime_plan_dependencies import (
+    RuntimeInstrumentationDependencies,
+    RuntimeNotificationDependencies,
+)
 from .runtime_assembly_port import RuntimeAssemblyPort, RuntimeAssemblyRequest
 from .runtime_assembly_resolver import (
     RuntimeAssemblerResolver,
@@ -34,12 +38,14 @@ from .runtime_assembly_resolver import (
 from .usecases import NavigatorUseCases
 
 __all__ = [
-    "NavigatorRuntime",
-    "NavigatorRuntimeAssembly",
-    "NavigatorRuntimeProvider",
-    "NavigatorUseCases",
-    "RuntimeInstrumentationDependencies",
-    "RuntimeNotificationDependencies",
+    "NavigatorRuntime", 
+    "NavigatorRuntimeAssembly", 
+    "NavigatorRuntimeProvider", 
+    "NavigatorUseCases", 
+    "RuntimeCollaboratorFactory",
+    "RuntimeContractSelector",
+    "RuntimeInstrumentationDependencies", 
+    "RuntimeNotificationDependencies", 
     "RuntimeAssemblyPort",
     "RuntimeAssemblyRequest",
     "RuntimeAssemblerResolver",

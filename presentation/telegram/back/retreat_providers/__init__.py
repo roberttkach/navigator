@@ -1,5 +1,6 @@
 """Provider factories composing retreat handler collaborators."""
 from .assembly import (
+    RetreatProviderModuleFactory,
     RetreatProviderModules,
     RetreatProvidersAssembler,
     default_retreat_providers,
@@ -19,6 +20,7 @@ __all__ = [
     "RetreatOrchestratorProvidersFactory",
     "RetreatOutcomeModule",
     "RetreatOutcomeProvidersFactory",
+    "RetreatProviderModuleFactory",
     "RetreatProviderModules",
     "RetreatProvidersAssembler",
     "RetreatWorkflowModule",

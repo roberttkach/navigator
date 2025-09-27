@@ -18,7 +18,7 @@ from .runtime_planning import (  # re-export for backwards compatibility
     build_runtime_contract_selection,
     create_runtime_plan_request,
 )
-from .runtime_plan_request_builder import (
+from .runtime_plan_dependencies import (
     RuntimeInstrumentationDependencies,
     RuntimeNotificationDependencies,
 )
