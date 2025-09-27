@@ -7,7 +7,7 @@ from typing import Optional
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from ...service.history_access import TailHistoryReader
+from ...service.tail_history import TailHistoryReader
 from .context import TailDecisionService, TailSnapshot, TailTelemetry
 from .inline import InlineEditCoordinator
 from .mutation import MessageEditCoordinator

@@ -5,15 +5,15 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
-from navigator.app.service import (
+from navigator.app.service import TailHistoryMutator
+from navigator.app.service.tail_history import (
     TailHistoryAccess,
     TailHistoryJournal,
-    TailHistoryMutator,
     TailHistoryReader,
     TailHistoryWriter,
     TailInlineHistory,
+    TailInlineTrimmer,
 )
-from navigator.app.service.history_access import TailInlineTrimmer
 from navigator.app.internal.policy import PrimeEntryFactory
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry

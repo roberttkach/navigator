@@ -1,7 +1,7 @@
 """Factories assembling the dependency injection container for the runtime."""
 from __future__ import annotations
 
-from navigator.app.service.navigator_runtime import MissingAlert
+from navigator.core.contracts import MissingAlert
 from navigator.core.telemetry import Telemetry
 
 from .adapter import LedgerAdapter

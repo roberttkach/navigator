@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from navigator.app.service.navigator_runtime import MissingAlert
+from navigator.core.contracts import MissingAlert
 
 from ..context import BootstrapContext, ViewContainerFactory
 from ..telemetry import TelemetryFactory
 from .bundle import NavigatorRuntimeBundle
 from .composition import NavigatorRuntimeComposer, RuntimeCalibrator
-from .provision import RuntimeProvisioner, build_runtime_provisioner
+from .pipeline import RuntimeAssemblyPipeline, build_runtime_pipeline
+from .provision import RuntimeProvisioner
 
 
 class NavigatorFactory(Protocol):
@@ -30,24 +31,17 @@ class ContainerRuntimeFactory(NavigatorFactory):
         calibrator: RuntimeCalibrator | None = None,
         composer: NavigatorRuntimeComposer | None = None,
     ) -> None:
-        factory = telemetry_factory or TelemetryFactory()
-        self._provisioner = provisioner or build_runtime_provisioner(
-            factory,
+        self._pipeline = build_runtime_pipeline(
+            telemetry_factory=telemetry_factory,
             missing_alert=missing_alert,
             view_container=view_container,
+            provisioner=provisioner,
+            calibrator=calibrator,
+            composer=composer,
         )
-        self._calibrator = calibrator or RuntimeCalibrator()
-        self._composer = composer or NavigatorRuntimeComposer()
 
     async def create(self, context: BootstrapContext) -> NavigatorRuntimeBundle:
-        provision = self._provisioner.provision(context)
-        self._calibrator.run(provision.telemetry, provision.snapshot)
-        runtime = self._composer.compose(provision.snapshot, context)
-        return NavigatorRuntimeBundle(
-            telemetry=provision.telemetry,
-            container=provision.container,
-            runtime=runtime,
-        )
+        return self._pipeline.execute(context)
 
 
 __all__ = ["ContainerRuntimeFactory", "NavigatorFactory"]

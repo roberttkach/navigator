@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from navigator.core.value.message import Scope
 
-from ...service.history_access import TailHistoryReader, TailInlineHistory
+from ...service.tail_history import TailHistoryReader, TailInlineHistory
 from .context import TailSnapshot, TailTelemetry
 from .mutation import MessageEditCoordinator
 

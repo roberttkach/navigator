@@ -3,15 +3,15 @@ from __future__ import annotations
 
 from dependency_injector import containers, providers
 
-from navigator.app.service import (
+from navigator.app.service import TailHistoryMutator
+from navigator.app.service.tail_history import (
     TailHistoryAccess,
     TailHistoryJournal,
-    TailHistoryMutator,
     TailHistoryReader,
     TailHistoryWriter,
     TailInlineHistory,
+    TailInlineTrimmer,
 )
-from navigator.app.service.history_access import TailInlineTrimmer
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
 from navigator.app.internal.policy import PrimeEntryFactory

@@ -42,21 +42,44 @@ class _HistoryOperation:
             await action()
 
 
+class HistoryPayloadAppender:
+    """Prepare payload bundles and delegate execution to the use-case."""
+
+    def __init__(self, *, appender: AppendHistoryUseCase, bundler: PayloadBundler) -> None:
+        self._appender = appender
+        self._bundler = bundler
+
+    def bundle(self, source: PayloadBundleSource) -> list[object]:
+        """Return bundled payloads derived from ``source``."""
+
+        return self._bundler.bundle(source)
+
+    async def append(
+        self,
+        scope,
+        payloads: list[object],
+        key: str | None,
+        *,
+        root: bool,
+    ) -> None:
+        """Execute the append use-case with prepared ``payloads``."""
+
+        await self._appender.execute(scope, payloads, key, root=root)
+
+
 class HistoryAddOperation(_HistoryOperation):
     """Append payloads to history while guarding shared resources."""
 
     def __init__(
         self,
         *,
-        appender: AppendHistoryUseCase,
-        bundler: PayloadBundler,
+        payloads: HistoryPayloadAppender,
         guard: Guardian,
         scope,
         reporter: NavigatorReporter,
     ) -> None:
         super().__init__(guard=guard, scope=scope, reporter=reporter)
-        self._appender = appender
-        self._bundler = bundler
+        self._payloads = payloads
 
     async def __call__(
         self,
@@ -65,17 +88,17 @@ class HistoryAddOperation(_HistoryOperation):
         key: str | None = None,
         root: bool = False,
     ) -> None:
-        payloads = self._bundler.bundle(content)
+        bundled = self._payloads.bundle(content)
 
         async def action() -> None:
-            await self._appender.execute(self._scope, payloads, key, root=root)
+            await self._payloads.append(self._scope, bundled, key, root=root)
 
         await self._run(
             "add",
             action,
             key=key,
             root=root,
-            payload={"count": len(payloads)},
+            payload={"count": len(bundled)},
         )
 
 
@@ -213,6 +236,7 @@ class NavigatorHistoryService:
 
 
 __all__ = [
+    "HistoryPayloadAppender",
     "HistoryAddOperation",
     "HistoryBackOperation",
     "HistoryRebaseOperation",

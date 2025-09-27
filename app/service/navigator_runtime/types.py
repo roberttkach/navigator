@@ -1,13 +1,7 @@
 """Shared type aliases used across navigator runtime components."""
 from __future__ import annotations
 
-from typing import Callable
-
-from navigator.core.value.message import Scope
-from navigator.core.contracts.state import StateLike
-
-
-MissingAlert = Callable[[Scope], str]
+from navigator.core.contracts import MissingAlert, StateLike
 
 
 __all__ = ["MissingAlert", "StateLike"]

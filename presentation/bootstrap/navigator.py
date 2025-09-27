@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from navigator.app.locks.guard import Guardian
 from navigator.app.service.navigator_runtime import (
-    MissingAlert,
     NavigatorRuntime,
     build_runtime_from_dependencies,
 )
 from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
+from navigator.core.contracts import MissingAlert
 from navigator.core.value.message import Scope
 from navigator.presentation.navigator import Navigator
 
@@ -53,4 +53,9 @@ def compose(
     return wrap_runtime(runtime)
 
 
-__all__ = ["NavigatorDependencies", "build_runtime", "compose", "wrap_runtime"]
+__all__ = [
+    "NavigatorDependencies",
+    "build_runtime",
+    "compose",
+    "wrap_runtime",
+]

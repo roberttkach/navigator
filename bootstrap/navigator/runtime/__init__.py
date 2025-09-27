@@ -2,6 +2,7 @@
 from .bundle import NavigatorRuntimeBundle
 from .composition import NavigatorRuntimeComposer, RuntimeCalibrator
 from .factory import ContainerRuntimeFactory, NavigatorFactory
+from .pipeline import RuntimeAssemblyPipeline, RuntimeFactorySettings, build_runtime_pipeline
 from .provision import (
     ContainerAssembler,
     ContainerInspector,
@@ -18,9 +19,12 @@ __all__ = [
     "NavigatorFactory",
     "NavigatorRuntimeBundle",
     "NavigatorRuntimeComposer",
+    "RuntimeAssemblyPipeline",
     "RuntimeCalibrator",
     "RuntimeProvision",
     "RuntimeProvisioner",
+    "RuntimeFactorySettings",
     "build_runtime_provisioner",
+    "build_runtime_pipeline",
     "TelemetryInitializer",
 ]

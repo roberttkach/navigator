@@ -8,6 +8,7 @@ from .bundler import PayloadBundler
 from .contracts import HistoryContracts
 from .history import (
     HistoryAddOperation,
+    HistoryPayloadAppender,
     HistoryBackOperation,
     HistoryRebaseOperation,
     HistoryReplaceOperation,
@@ -27,9 +28,12 @@ def build_history_service(
 ) -> NavigatorHistoryService:
     """Compose history operations using dedicated collaborators."""
 
-    add_operation = HistoryAddOperation(
+    payloads = HistoryPayloadAppender(
         appender=contracts.appender,
         bundler=bundler,
+    )
+    add_operation = HistoryAddOperation(
+        payloads=payloads,
         guard=guard,
         scope=scope,
         reporter=reporter,

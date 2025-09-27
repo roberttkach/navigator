@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from dependency_injector import containers
 from typing import Protocol
 
-from navigator.app.service.navigator_runtime import MissingAlert
+from navigator.core.contracts import MissingAlert
 from navigator.app.service.navigator_runtime.snapshot import NavigatorRuntimeSnapshot
 from navigator.core.telemetry import Telemetry
 

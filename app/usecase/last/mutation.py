@@ -7,7 +7,7 @@ from typing import Sequence
 from ....core.service.rendering import decision
 from ....core.value.message import Scope
 
-from ...service.history_access import TailHistoryWriter
+from ...service.tail_history import TailHistoryWriter
 from ...service.history_mutation import TailHistoryMutator
 from ...service.view.executor import EditExecutor
 from ...service.view.planner import RenderResult
