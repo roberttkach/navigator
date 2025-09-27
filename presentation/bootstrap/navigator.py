@@ -1,23 +1,33 @@
-"""Navigator assembly helpers decoupled from dependency container details."""
+"""Bootstrap helpers assembling presentation navigators."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, TYPE_CHECKING
 
 from navigator.app.locks.guard import Guardian
-from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
-from navigator.app.service.navigator_runtime.runtime import NavigatorRuntime
 from navigator.core.contracts import MissingAlert
 from navigator.core.value.message import Scope
 from navigator.presentation.navigator import Navigator
 
-from .runtime_factory import NavigatorRuntimeFactory, default_runtime_factory
+from .runtime_gateway import (
+    NavigatorRuntimePort,
+    RuntimeRequest,
+    default_runtime_port,
+)
+
+if TYPE_CHECKING:
+    from navigator.app.service.navigator_runtime.dependencies import NavigatorDependencies
+    from navigator.app.service.navigator_runtime.runtime import NavigatorRuntime
+else:  # pragma: no cover - runtime typing fallback
+    NavigatorDependencies = Any
+    NavigatorRuntime = Any
 
 
 @dataclass(frozen=True)
 class NavigatorComposer:
     """Compose navigators using an injected runtime factory."""
 
-    runtime_factory: NavigatorRuntimeFactory
+    runtime_port: NavigatorRuntimePort
 
     def build_runtime(
         self,
@@ -27,12 +37,8 @@ class NavigatorComposer:
         guard: Guardian | None = None,
         missing_alert: MissingAlert | None = None,
     ) -> NavigatorRuntime:
-        return self.runtime_factory(
-            dependencies,
-            scope,
-            guard=guard,
-            missing_alert=missing_alert,
-        )
+        request = RuntimeRequest(scope=scope, guard=guard, missing_alert=missing_alert)
+        return self.runtime_port.create_runtime(dependencies, request)
 
     def compose(
         self,
@@ -57,12 +63,12 @@ def build_runtime(
     *,
     guard: Guardian | None = None,
     missing_alert: MissingAlert | None = None,
-    runtime_factory: NavigatorRuntimeFactory | None = None,
+    runtime_port: NavigatorRuntimePort | None = None,
 ) -> NavigatorRuntime:
     """Construct a navigator runtime from resolved dependencies."""
 
-    factory = runtime_factory or default_runtime_factory()
-    composer = NavigatorComposer(factory)
+    port = runtime_port or default_runtime_port()
+    composer = NavigatorComposer(port)
     return composer.build_runtime(
         dependencies,
         scope,
@@ -83,12 +89,12 @@ def compose(
     *,
     guard: Guardian | None = None,
     missing_alert: MissingAlert | None = None,
-    runtime_factory: NavigatorRuntimeFactory | None = None,
+    runtime_port: NavigatorRuntimePort | None = None,
 ) -> Navigator:
     """Construct a Navigator facade from resolved runtime dependencies."""
 
-    factory = runtime_factory or default_runtime_factory()
-    composer = NavigatorComposer(factory)
+    port = runtime_port or default_runtime_port()
+    composer = NavigatorComposer(port)
     return composer.compose(
         dependencies,
         scope,
@@ -99,7 +105,6 @@ def compose(
 
 __all__ = [
     "NavigatorComposer",
-    "NavigatorDependencies",
     "build_runtime",
     "compose",
     "wrap_runtime",

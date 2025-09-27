@@ -63,23 +63,33 @@ class AppendHistoryJournal(AppendHistoryObserver):
         )
 
 
-class AppendHistoryAccess:
-    """Provide read helpers around history repositories."""
+class HistorySnapshotAccess:
+    """Expose history snapshots while notifying interested observers."""
 
     def __init__(
             self,
             archive: HistoryRepository,
-            state: StateRepository,
             observer: AppendHistoryObserver | None = None,
     ) -> None:
         self._archive = archive
-        self._state = state
         self._observer: AppendHistoryObserver = observer or NullAppendHistoryObserver()
 
     async def snapshot(self, scope: Scope) -> List[Entry]:
         records = await self._archive.recall()
         self._observer.history_loaded(scope, len(records))
         return records
+
+
+class StateStatusAccess:
+    """Retrieve state information while surfacing observer notifications."""
+
+    def __init__(
+            self,
+            state: StateRepository,
+            observer: AppendHistoryObserver | None = None,
+    ) -> None:
+        self._state = state
+        self._observer: AppendHistoryObserver = observer or NullAppendHistoryObserver()
 
     async def status(self) -> Optional[str]:
         status = await self._state.status()
@@ -175,11 +185,12 @@ class AppendEntryAssembler:
 
 __all__ = [
     "AppendEntryAssembler",
-    "AppendHistoryAccess",
     "AppendHistoryObserver",
     "AppendHistoryJournal",
     "AppendHistoryWriter",
     "AppendPayloadAdapter",
     "AppendRenderPlanner",
+    "HistorySnapshotAccess",
     "NullAppendHistoryObserver",
+    "StateStatusAccess",
 ]

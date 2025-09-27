@@ -12,11 +12,12 @@ from navigator.app.usecase.add import (
 )
 from navigator.app.usecase.add_components import (
     AppendEntryAssembler,
-    AppendHistoryAccess,
     AppendHistoryJournal,
     AppendHistoryWriter,
     AppendPayloadAdapter,
     AppendRenderPlanner,
+    HistorySnapshotAccess,
+    StateStatusAccess,
 )
 from navigator.core.telemetry import Telemetry
 
@@ -30,9 +31,13 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
     history_limit = providers.Dependency()
 
     journal = providers.Factory(AppendHistoryJournal, telemetry=telemetry)
-    history = providers.Factory(
-        AppendHistoryAccess,
+    history_snapshot = providers.Factory(
+        HistorySnapshotAccess,
         archive=storage.chronicle,
+        observer=journal,
+    )
+    state_status = providers.Factory(
+        StateStatusAccess,
         state=storage.status,
         observer=journal,
     )
@@ -48,7 +53,8 @@ class AppendUseCaseContainer(containers.DeclarativeContainer):
     )
     bundle = providers.Factory(
         AppendDependencies,
-        history=history,
+        history=history_snapshot,
+        state=state_status,
         payloads=payloads,
         planner=planner,
         assembler=assembler,
