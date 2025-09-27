@@ -6,7 +6,13 @@ from collections.abc import Callable
 
 from .context import RetreatContextBuilder
 from .factory import RetreatHandlerProviders
-from .orchestrator import RetreatOrchestrator
+from .orchestrator import (
+    RetreatFailurePolicy,
+    RetreatOrchestrator,
+    RetreatOutcomeReporter,
+    RetreatWorkflowRunner,
+    TelemetryScopeFactory,
+)
 from .outcome import RetreatOutcomeFactory
 from .protocols import RetreatFailureTranslator, Translator
 from .telemetry import RetreatTelemetry
@@ -26,7 +32,15 @@ def default_retreat_providers(
     def build_orchestrator(
         instrumentation: RetreatTelemetry, workflow: RetreatWorkflow
     ) -> RetreatOrchestrator:
-        return RetreatOrchestrator(telemetry=instrumentation, workflow=workflow)
+        telemetry = TelemetryScopeFactory(instrumentation)
+        failure_policy = RetreatFailurePolicy()
+        runner = RetreatWorkflowRunner(workflow, failure_policy)
+        reporter = RetreatOutcomeReporter()
+        return RetreatOrchestrator(
+            telemetry=telemetry,
+            runner=runner,
+            reporter=reporter,
+        )
 
     def build_outcomes(translator: Translator) -> RetreatOutcomeFactory:
         return RetreatOutcomeFactory(translator)

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Protocol
 
 from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
@@ -20,6 +20,12 @@ from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
 
+class ComponentBuilder(Protocol):
+    """Protocol describing how runtime components are constructed."""
+
+    def build_component(self, request: "ComponentAssemblyRequest") -> object: ...
+
+
 @dataclass(frozen=True)
 class ComponentAssemblyRequest:
     """Describe how a specific runtime component should be built."""
@@ -27,10 +33,10 @@ class ComponentAssemblyRequest:
     contract: object
     parameters: Mapping[str, Any]
 
-    def build_with(self, builder: object) -> object:
+    def build_with(self, builder: ComponentBuilder) -> object:
         """Execute the build action against the provided component builder."""
 
-        return builder.build(self.contract, **self.parameters)
+        return builder.build_component(self)
 
 
 @dataclass(frozen=True)

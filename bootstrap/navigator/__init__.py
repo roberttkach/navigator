@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from .adapter import LedgerAdapter
 from .assembly import NavigatorAssembler, assemble
-from .container import ContainerFactory
+from .container import ContainerFactory, ContainerFactoryBuilder
 from .context import BootstrapContext
 from .runtime import ContainerRuntimeFactory, NavigatorFactory, NavigatorRuntimeBundle
 from .telemetry import TelemetryFactory, calibrate_telemetry
@@ -11,6 +11,7 @@ from .telemetry import TelemetryFactory, calibrate_telemetry
 __all__ = [
     "BootstrapContext",
     "ContainerFactory",
+    "ContainerFactoryBuilder",
     "ContainerRuntimeFactory",
     "LedgerAdapter",
     "NavigatorAssembler",
