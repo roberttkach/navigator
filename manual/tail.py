@@ -9,8 +9,11 @@ from navigator.app.service import (
     TailHistoryAccess,
     TailHistoryJournal,
     TailHistoryMutator,
-    TailHistoryTracker,
+    TailHistoryReader,
+    TailHistoryWriter,
+    TailInlineHistory,
 )
+from navigator.app.service.history_access import TailInlineTrimmer
 from navigator.app.internal.policy import PrimeEntryFactory
 from navigator.app.usecase.last import Tailer
 from navigator.app.usecase.last.context import TailDecisionService, TailTelemetry
@@ -45,7 +48,12 @@ def decline() -> None:
     telemetry = monitor()
     journal = TailHistoryJournal.from_telemetry(telemetry)
     access = TailHistoryAccess(ledger=ledger, latest=latest)
-    history = TailHistoryTracker(access=access, journal=journal)
+    history_reader = TailHistoryReader(access=access, journal=journal)
+    history_writer = TailHistoryWriter(access=access, journal=journal)
+    inline_history = TailInlineHistory(
+        trimmer=TailInlineTrimmer(store=access.store),
+        journal=journal,
+    )
     mutator = TailHistoryMutator()
     decision = TailDecisionService(
         rendering=RenderingConfig(),
@@ -58,23 +66,24 @@ def decline() -> None:
     )
     mutation = MessageEditCoordinator(
         executor=executor,
-        history=history,
+        history=history_writer,
         mutator=mutator,
     )
     telemetry_service = TailTelemetry(telemetry)
     tail_delete = TailDeleteWorkflow(
-        history=history,
+        reader=history_reader,
+        inline_history=inline_history,
         mutation=mutation,
         telemetry=telemetry_service,
     )
     tail_edit = TailEditWorkflow(
-        history=history,
+        reader=history_reader,
         decision=decision,
         inline=inline_coord,
         mutation=mutation,
         telemetry=telemetry_service,
     )
-    tailer = Tailer(history=history, delete=tail_delete, edit=tail_edit)
+    tailer = Tailer(history=history_reader, delete=tail_delete, edit=tail_edit)
     payload = Payload(
         group=[
             MediaItem(type=MediaType.PHOTO, path="file-x"),

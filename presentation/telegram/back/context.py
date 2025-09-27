@@ -21,20 +21,25 @@ class RetreatContextBuilder:
         return NavigatorBackContext(context, self._event(cb))
 
     def _event(self, cb: CallbackQuery) -> NavigatorBackEvent:
+        metadata = {
+            "inline_message_id": cb.inline_message_id,
+            "chat_instance": cb.chat_instance,
+            "message_id": self._message_id(cb.message),
+            "message_chat_id": self._message_chat(cb.message),
+            "message_thread_id": self._message_thread(cb.message),
+            "message_chat_type": self._message_chat_type(cb.message),
+            "user_id": self._user_id(cb.from_user),
+            "user_language": self._user_language(cb.from_user),
+            "user_username": self._user_username(cb.from_user),
+            "user_first_name": self._user_first_name(cb.from_user),
+            "user_last_name": self._user_last_name(cb.from_user),
+        }
+        sanitized = {key: value for key, value in metadata.items() if value is not None}
         return NavigatorBackEvent(
             id=cb.id,
             data=cb.data,
-            inline_message_id=cb.inline_message_id,
-            chat_instance=cb.chat_instance,
-            message_id=self._message_id(cb.message),
-            message_chat_id=self._message_chat(cb.message),
-            message_thread_id=self._message_thread(cb.message),
-            message_chat_type=self._message_chat_type(cb.message),
-            user_id=self._user_id(cb.from_user),
-            user_language=self._user_language(cb.from_user),
-            user_username=self._user_username(cb.from_user),
-            user_first_name=self._user_first_name(cb.from_user),
-            user_last_name=self._user_last_name(cb.from_user),
+            source="telegram",
+            metadata=sanitized,
         )
 
     @staticmethod

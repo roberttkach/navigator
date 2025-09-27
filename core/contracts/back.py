@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Any, Iterable, Mapping, MutableMapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -12,36 +13,28 @@ class NavigatorBackEvent:
 
     id: str
     data: str | None
-    inline_message_id: str | None
-    chat_instance: str | None
-    message_id: int | None
-    message_chat_id: int | None
-    message_thread_id: int | None
-    message_chat_type: str | None
-    user_id: int | None
-    user_language: str | None
-    user_username: str | None
-    user_first_name: str | None
-    user_last_name: str | None
+    source: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Freeze ``metadata`` to avoid accidental mutation leaks."""
+
+        object.__setattr__(
+            self, "metadata", MappingProxyType(dict(self.metadata))
+        )
 
     def as_mapping(self) -> dict[str, Any]:
         """Return the event fields as a plain mapping."""
 
-        return {
+        data: MutableMapping[str, Any] = {
             "id": self.id,
             "data": self.data,
-            "inline_message_id": self.inline_message_id,
-            "chat_instance": self.chat_instance,
-            "message_id": self.message_id,
-            "message_chat_id": self.message_chat_id,
-            "message_thread_id": self.message_thread_id,
-            "message_chat_type": self.message_chat_type,
-            "user_id": self.user_id,
-            "user_language": self.user_language,
-            "user_username": self.user_username,
-            "user_first_name": self.user_first_name,
-            "user_last_name": self.user_last_name,
         }
+        if self.source is not None:
+            data["source"] = self.source
+        if self.metadata:
+            data["metadata"] = dict(self.metadata)
+        return dict(data)
 
 
 @dataclass(frozen=True, slots=True)

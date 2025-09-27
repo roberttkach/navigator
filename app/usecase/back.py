@@ -12,8 +12,10 @@ from ..log.aspect import TraceAspect
 from ...core.contracts.back import NavigatorBackContext
 from .back_access import (
     RewindFinalizer,
-    RewindHistoryReader,
+    RewindHistorySelector,
+    RewindHistorySnapshotter,
     RewindRenderer,
+    RewindStateReader,
 )
 
 
@@ -36,19 +38,23 @@ class RewindPerformer:
 
     def __init__(
         self,
-        history: RewindHistoryReader,
+        snapshotter: RewindHistorySnapshotter,
+        selector: RewindHistorySelector,
+        state: RewindStateReader,
         renderer: RewindRenderer,
         finalizer: RewindFinalizer,
     ) -> None:
-        self._history = history
+        self._snapshotter = snapshotter
+        self._selector = selector
+        self._state = state
         self._renderer = renderer
         self._finalizer = finalizer
 
     async def perform(self, scope: Scope, context: NavigatorBackContext) -> None:
-        history = await self._history.snapshot(scope)
-        origin, target = self._history.select(history)
+        history = await self._snapshotter.load(scope)
+        origin, target = self._selector.select(history)
         inline = bool(scope.inline)
-        memory = await self._history.payload()
+        memory = await self._state.payload()
         restored = await self._renderer.revive(
             target, context.as_mapping(), memory, inline=inline
         )

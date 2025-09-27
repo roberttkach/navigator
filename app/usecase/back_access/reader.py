@@ -1,4 +1,5 @@
 """History reading helpers supporting rewind use case."""
+
 from __future__ import annotations
 
 import logging
@@ -16,21 +17,17 @@ from navigator.core.value.message import Scope
 _MIN_HISTORY_LENGTH = 2
 
 
-class RewindHistoryReader:
-    """Expose read-only history operations required during rewind."""
+class RewindHistorySnapshotter:
+    """Load history snapshots while reporting telemetry."""
 
-    def __init__(
-        self,
-        ledger: HistoryRepository,
-        status: StateRepository,
-        telemetry: Telemetry,
-    ) -> None:
+    def __init__(self, ledger: HistoryRepository, telemetry: Telemetry) -> None:
         self._ledger = ledger
-        self._status = status
-        self._channel: TelemetryChannel = telemetry.channel(f"{__name__}.history.read")
+        self._channel: TelemetryChannel = telemetry.channel(
+            f"{__name__}.history.snapshot"
+        )
 
-    async def snapshot(self, scope: Scope) -> list[Entry]:
-        """Return the current history snapshot while logging telemetry."""
+    async def load(self, scope: Scope) -> list[Entry]:
+        """Return the current history snapshot."""
 
         history = await self._ledger.recall()
         self._channel.emit(
@@ -42,6 +39,10 @@ class RewindHistoryReader:
         )
         return history
 
+
+class RewindHistorySelector:
+    """Encapsulate selection of history entries used for rewind."""
+
     def select(self, history: Sequence[Entry]) -> tuple[Entry, Entry]:
         """Return the current and previous entries in ``history``."""
 
@@ -49,7 +50,21 @@ class RewindHistoryReader:
             raise HistoryEmpty("Cannot go back, history is too short.")
         return history[-1], history[-2]
 
+
+class RewindStateReader:
+    """Expose access to persisted state payloads."""
+
+    def __init__(self, status: StateRepository) -> None:
+        self._status = status
+
     async def payload(self) -> dict[str, Any]:
         """Return persisted state payload used for restore operations."""
 
         return await self._status.payload()
+
+
+__all__ = [
+    "RewindHistorySnapshotter",
+    "RewindHistorySelector",
+    "RewindStateReader",
+]

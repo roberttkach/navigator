@@ -181,19 +181,17 @@ class TailInlineTrimmer:
         return stored, marker
 
 
-class TailHistoryTracker:
-    """Decorate history access with telemetry side-effects."""
+class TailHistoryReader:
+    """Expose telemetry-aware read operations for history repositories."""
 
     def __init__(
         self,
         access: TailHistoryAccess,
         *,
         journal: TailHistoryJournal,
-        trimmer: TailInlineTrimmer | None = None,
     ) -> None:
         self._access = access
         self._journal = journal
-        self._trimmer = trimmer or TailInlineTrimmer(access.store)
 
     async def peek(self) -> int | None:
         marker = await self._access.peek()
@@ -204,6 +202,19 @@ class TailHistoryTracker:
         snapshot = await self._access.load()
         self._journal.record_history_load(snapshot, scope)
         return snapshot
+
+
+class TailHistoryWriter:
+    """Persist history mutations while recording telemetry."""
+
+    def __init__(
+        self,
+        access: TailHistoryAccess,
+        *,
+        journal: TailHistoryJournal,
+    ) -> None:
+        self._access = access
+        self._journal = journal
 
     async def save(self, history: Sequence[Entry], *, op: str) -> list[Entry]:
         snapshot = await self._access.save(history)
@@ -220,7 +231,20 @@ class TailHistoryTracker:
         await self._access.mark(marker)
         self._journal.record_marker_mark(marker, op=op, scope=scope)
 
-    async def trim_inline(
+
+class TailInlineHistory:
+    """Apply inline-specific trimming rules with telemetry reporting."""
+
+    def __init__(
+        self,
+        trimmer: TailInlineTrimmer,
+        *,
+        journal: TailHistoryJournal,
+    ) -> None:
+        self._trimmer = trimmer
+        self._journal = journal
+
+    async def trim(
         self,
         history: Sequence[Entry],
         scope: Scope,
@@ -238,7 +262,9 @@ __all__ = [
     "TailHistoryJournal",
     "TailHistoryScopeFormatter",
     "TailHistoryStore",
-    "TailHistoryTracker",
+    "TailHistoryReader",
+    "TailHistoryWriter",
+    "TailInlineHistory",
     "TailInlineMarker",
     "TailInlineTrimmer",
 ]

@@ -6,10 +6,14 @@ from dependency_injector import containers, providers
 from navigator.app.usecase.back import RewindInstrumentation, RewindPerformer, Rewinder
 from navigator.app.usecase.back_access import (
     RewindFinalizer,
-    RewindHistoryReader,
-    RewindHistoryWriter,
+    RewindHistoryArchiver,
+    RewindHistorySelector,
+    RewindHistorySnapshotter,
+    RewindLatestMarker,
     RewindMutator,
     RewindRenderer,
+    RewindStateReader,
+    RewindStateWriter,
     RewindWriteTelemetry,
 )
 from navigator.core.telemetry import Telemetry
@@ -22,20 +26,32 @@ class RewindUseCaseContainer(containers.DeclarativeContainer):
     telemetry = providers.Dependency(instance_of=Telemetry)
     view_support = providers.DependenciesContainer()
 
-    reader = providers.Factory(
-        RewindHistoryReader,
+    history_snapshotter = providers.Factory(
+        RewindHistorySnapshotter,
         ledger=storage.chronicle,
-        status=storage.status,
         telemetry=telemetry,
+    )
+    history_selector = providers.Factory(RewindHistorySelector)
+    state_reader = providers.Factory(
+        RewindStateReader,
+        status=storage.status,
     )
     writer_instrumentation = providers.Factory(
         RewindWriteTelemetry,
         telemetry=telemetry,
     )
-    writer = providers.Factory(
-        RewindHistoryWriter,
+    history_archiver = providers.Factory(
+        RewindHistoryArchiver,
         ledger=storage.chronicle,
+        instrumentation=writer_instrumentation,
+    )
+    state_writer = providers.Factory(
+        RewindStateWriter,
         status=storage.status,
+        instrumentation=writer_instrumentation,
+    )
+    latest_marker = providers.Factory(
+        RewindLatestMarker,
         latest=storage.latest,
         instrumentation=writer_instrumentation,
     )
@@ -47,7 +63,9 @@ class RewindUseCaseContainer(containers.DeclarativeContainer):
     mutator = providers.Factory(RewindMutator)
     finalizer = providers.Factory(
         RewindFinalizer,
-        writer=writer,
+        archiver=history_archiver,
+        state=state_writer,
+        latest=latest_marker,
         mutator=mutator,
         telemetry=telemetry,
     )
@@ -57,7 +75,9 @@ class RewindUseCaseContainer(containers.DeclarativeContainer):
     )
     performer = providers.Factory(
         RewindPerformer,
-        history=reader,
+        snapshotter=history_snapshotter,
+        selector=history_selector,
+        state=state_reader,
         renderer=renderer,
         finalizer=finalizer,
     )

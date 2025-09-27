@@ -7,7 +7,7 @@ from typing import Sequence
 from ....core.service.rendering import decision
 from ....core.value.message import Scope
 
-from ...service.history_access import TailHistoryTracker
+from ...service.history_access import TailHistoryWriter
 from ...service.history_mutation import TailHistoryMutator
 from ...service.view.executor import EditExecutor
 from ...service.view.planner import RenderResult
@@ -21,7 +21,7 @@ class MessageEditCoordinator:
     def __init__(
             self,
             executor: EditExecutor,
-            history: TailHistoryTracker,
+            history: TailHistoryWriter,
             mutator: TailHistoryMutator,
     ) -> None:
         self._executor = executor
