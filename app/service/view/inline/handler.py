@@ -15,7 +15,8 @@ from .guard import InlineGuard
 from .mediator import InlineEditMediator
 from .remap import InlineRemapper
 from .telemetry import InlineTelemetryAdapter
-from .editor import InlineEditor, InlineOutcome
+from .editor import InlineEditor
+from .outcome import InlineOutcome
 from ..executor import EditExecutor
 
 if TYPE_CHECKING:

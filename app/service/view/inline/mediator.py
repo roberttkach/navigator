@@ -4,7 +4,8 @@ from __future__ import annotations
 from navigator.core.value.content import Payload
 from navigator.core.value.message import Scope
 
-from .editor import InlineEditor, InlineOutcome
+from .editor import InlineEditor
+from .outcome import InlineOutcome
 from ..executor import EditExecutor
 
 

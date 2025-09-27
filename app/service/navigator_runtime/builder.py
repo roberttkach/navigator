@@ -114,14 +114,35 @@ class RuntimeAssemblyPlan:
     collaborators: RuntimeCollaborators
 
 
+@dataclass(frozen=True)
+class RuntimeComponentBuilders:
+    """Group component-specific builders under a shared context."""
+
+    history: HistoryServiceBuilder
+    state: StateServiceBuilder
+    tail: TailServiceBuilder
+
+    @classmethod
+    def for_context(cls, context: RuntimeBuildContext) -> "RuntimeComponentBuilders":
+        return cls(
+            history=HistoryServiceBuilder(context),
+            state=StateServiceBuilder(context),
+            tail=TailServiceBuilder(context),
+        )
+
+
 class NavigatorRuntimeBuilder:
     """Incrementally assemble navigator runtime components."""
 
-    def __init__(self, *, guard: Guardian, scope: Scope) -> None:
+    def __init__(self, builders: RuntimeComponentBuilders) -> None:
+        self._builders = builders
+
+    @classmethod
+    def from_context(
+        cls, *, guard: Guardian, scope: Scope
+    ) -> "NavigatorRuntimeBuilder":
         context = RuntimeBuildContext(guard=guard, scope=scope)
-        self._history_builder = HistoryServiceBuilder(context)
-        self._state_builder = StateServiceBuilder(context)
-        self._tail_builder = TailServiceBuilder(context)
+        return cls(RuntimeComponentBuilders.for_context(context))
 
     def build_history(
         self,
@@ -130,7 +151,7 @@ class NavigatorRuntimeBuilder:
         reporter: NavigatorReporter,
         bundler: PayloadBundler,
     ) -> NavigatorHistoryService:
-        return self._history_builder.build(
+        return self._builders.history.build(
             contracts,
             reporter=reporter,
             bundler=bundler,
@@ -143,7 +164,7 @@ class NavigatorRuntimeBuilder:
         reporter: NavigatorReporter,
         missing_alert: MissingAlert | None,
     ) -> NavigatorStateService:
-        return self._state_builder.build(
+        return self._builders.state.build(
             contracts,
             reporter=reporter,
             missing_alert=missing_alert,
@@ -156,7 +177,7 @@ class NavigatorRuntimeBuilder:
         telemetry: Telemetry | None,
         tail_telemetry: TailTelemetry | None,
     ) -> NavigatorTail:
-        return self._tail_builder.build(
+        return self._builders.tail.build(
             contracts,
             telemetry=telemetry,
             tail_telemetry=tail_telemetry,
@@ -196,7 +217,7 @@ class NavigatorRuntimeAssembler:
     def from_context(
         cls, *, guard: Guardian, scope: Scope
     ) -> "NavigatorRuntimeAssembler":
-        return cls(NavigatorRuntimeBuilder(guard=guard, scope=scope))
+        return cls(NavigatorRuntimeBuilder.from_context(guard=guard, scope=scope))
 
     def assemble(self, plan: RuntimeAssemblyPlan) -> NavigatorRuntime:
         return self._builder.assemble(
@@ -268,6 +289,7 @@ __all__ = [
     "HistoryContracts",
     "NavigatorRuntimeContracts",
     "RuntimeBuildContext",
+    "RuntimeComponentBuilders",
     "RuntimeAssemblyPlan",
     "StateContracts",
     "StateServiceBuilder",

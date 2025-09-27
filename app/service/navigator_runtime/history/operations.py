@@ -1,89 +1,21 @@
-"""History-oriented operations orchestrated by the navigator runtime."""
+"""History operation implementations coordinated by the runtime."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, SupportsInt
+from typing import SupportsInt
 
 from navigator.app.locks.guard import Guardian
-
-from .bundler import PayloadBundleSource, PayloadBundler
 from navigator.core.contracts.back import NavigatorBackContext
-from .ports import (
-    AppendHistoryUseCase,
+
+from ..bundler import PayloadBundleSource, PayloadBundler
+from ..ports import (
     RebaseHistoryUseCase,
     ReplaceHistoryUseCase,
     RewindHistoryUseCase,
     TrimHistoryUseCase,
 )
-from .reporter import NavigatorReporter
-
-
-class _HistoryOperation:
-    """Base helper coordinating guard and telemetry for history actions."""
-
-    def __init__(
-        self,
-        *,
-        guard: Guardian,
-        scope,
-        reporter: NavigatorReporter,
-    ) -> None:
-        self._guard = guard
-        self._scope = scope
-        self._reporter = reporter
-
-    async def _run(
-        self,
-        method: str,
-        action: Callable[[], Awaitable[None]],
-        **fields: object,
-    ) -> None:
-        self._reporter.emit(method, **fields)
-        async with self._guard(self._scope):
-            await action()
-
-
-@dataclass(frozen=True)
-class HistoryAppendRequest:
-    """Payload bundle prepared for history append operations."""
-
-    payloads: list[object]
-    key: str | None
-    root: bool
-
-    @property
-    def count(self) -> int:
-        return len(self.payloads)
-
-
-class HistoryPayloadAppender:
-    """Prepare payload bundles and delegate execution to the use-case."""
-
-    def __init__(self, *, appender: AppendHistoryUseCase, bundler: PayloadBundler) -> None:
-        self._appender = appender
-        self._bundler = bundler
-
-    def bundle(self, source: PayloadBundleSource) -> list[object]:
-        """Return bundled payloads derived from ``source``."""
-
-        return self._bundler.bundle(source)
-
-    def prepare(
-        self,
-        source: PayloadBundleSource,
-        *,
-        key: str | None,
-        root: bool,
-    ) -> HistoryAppendRequest:
-        """Return a structured append request derived from ``source``."""
-
-        payloads = self.bundle(source)
-        return HistoryAppendRequest(payloads=payloads, key=key, root=root)
-
-    async def append(self, scope, request: HistoryAppendRequest) -> None:
-        """Execute the append use-case using a prepared ``request``."""
-
-        await self._appender.execute(scope, request.payloads, request.key, root=request.root)
+from ..reporter import NavigatorReporter
+from .appender import HistoryPayloadAppender
+from .base import _HistoryOperation
 
 
 class HistoryAddOperation(_HistoryOperation):
@@ -214,53 +146,10 @@ class HistoryTrimOperation(_HistoryOperation):
         await self._run("pop", action, count=count)
 
 
-class NavigatorHistoryService:
-    """Coordinate history-centric operations via dedicated actions."""
-
-    def __init__(
-        self,
-        *,
-        add: HistoryAddOperation,
-        replace: HistoryReplaceOperation,
-        rebase: HistoryRebaseOperation,
-        back: HistoryBackOperation,
-        pop: HistoryTrimOperation,
-    ) -> None:
-        self._add = add
-        self._replace = replace
-        self._rebase = rebase
-        self._back = back
-        self._pop = pop
-
-    async def add(
-        self,
-        content: PayloadBundleSource,
-        *,
-        key: str | None = None,
-        root: bool = False,
-    ) -> None:
-        await self._add(content, key=key, root=root)
-
-    async def replace(self, content: PayloadBundleSource) -> None:
-        await self._replace(content)
-
-    async def rebase(self, message: int | SupportsInt) -> None:
-        await self._rebase(message)
-
-    async def back(self, context: NavigatorBackContext) -> None:
-        await self._back(context)
-
-    async def pop(self, count: int = 1) -> None:
-        await self._pop(count)
-
-
 __all__ = [
-    "HistoryAppendRequest",
-    "HistoryPayloadAppender",
     "HistoryAddOperation",
     "HistoryBackOperation",
     "HistoryRebaseOperation",
     "HistoryReplaceOperation",
     "HistoryTrimOperation",
-    "NavigatorHistoryService",
 ]

@@ -13,20 +13,27 @@ from ...service.view.executor import EditExecutor
 from ...service.view.planner import RenderResult
 
 from .context import TailResolution, TailSnapshot
+from .editing import TailEditService, TailFallbackPolicy, TailHistoryPersistence
 
 
 class MessageEditCoordinator:
     """Coordinate non-inline edits, deletions and resend fallbacks."""
 
     def __init__(
-            self,
-            executor: EditExecutor,
-            history: TailHistoryWriter,
-            mutator: TailHistoryMutator,
+        self,
+        executor: EditExecutor,
+        history: TailHistoryWriter,
+        mutator: TailHistoryMutator,
+        *,
+        editing: TailEditService | None = None,
+        persistence: TailHistoryPersistence | None = None,
+        fallback: TailFallbackPolicy | None = None,
     ) -> None:
-        self._executor = executor
-        self._history = history
-        self._mutator = mutator
+        self._editing = editing or TailEditService(executor)
+        self._persistence = (
+            persistence or TailHistoryPersistence(history=history, mutator=mutator)
+        )
+        self._fallback = fallback or TailFallbackPolicy()
 
     async def delete(self, scope: Scope, snapshot: TailSnapshot, *, op: str) -> None:
         """Delete the most recent entry and update history repositories."""
@@ -40,11 +47,11 @@ class MessageEditCoordinator:
             identifiers.append(int(message.id))
             identifiers.extend(int(extra) for extra in (message.extras or []))
         if identifiers:
-            await self._executor.delete(scope, identifiers)
+            await self._editing.executor.delete(scope, identifiers)
 
         trimmed = snapshot.history[:-1]
-        await self._history.save(trimmed, op=op)
-        await self._history.mark(None, op=op, scope=scope)
+        await self._persistence.history.save(trimmed, op=op)
+        await self._persistence.history.mark(None, op=op, scope=scope)
 
     async def edit(
             self,
@@ -56,86 +63,48 @@ class MessageEditCoordinator:
     ) -> int | None:
         """Apply message edits or resend fallbacks based on ``resolution``."""
 
-        result = await self._apply(scope, resolution.decision, resolution.payload, resolution.base)
+        result = await self._editing.apply(
+            scope,
+            resolution.decision,
+            resolution.payload,
+            resolution.base,
+        )
         if result:
             await self.persist(snapshot, result, scope=scope, op=op)
             return result.id
 
-        if resolution.decision is decision.Decision.EDIT_TEXT and not (
-                resolution.payload.text and str(resolution.payload.text).strip()
-        ):
+        if not self._fallback.allows_resend(resolution, scope):
             return None
 
-        if resolution.decision in (
-                decision.Decision.EDIT_MEDIA,
-                decision.Decision.EDIT_MEDIA_CAPTION,
-        ) and not (resolution.payload.media or resolution.payload.group):
-            return None
-
-        if scope.inline:
-            return None
-
-        if resolution.decision in (
-                decision.Decision.EDIT_TEXT,
-                decision.Decision.EDIT_MEDIA,
-                decision.Decision.EDIT_MEDIA_CAPTION,
-                decision.Decision.DELETE_SEND,
-        ):
-            await self._executor.delete(scope, snapshot.targets())
-            resend = await self._apply(
-                scope,
-                decision.Decision.RESEND,
-                resolution.payload,
-                None,
+        await self._editing.executor.delete(scope, snapshot.targets())
+        resend = await self._editing.resend(scope, resolution.payload)
+        if resend:
+            await self.persist(
+                snapshot,
+                resend,
+                scope=scope,
+                op=op,
+                extras=[resend.extra],
             )
-            if resend:
-                await self.persist(
-                    snapshot,
-                    resend,
-                    scope=scope,
-                    op=op,
-                    extras=[resend.extra],
-                )
-                return resend.id
+            return resend.id
 
         return None
 
     async def persist(
-            self,
-            snapshot: TailSnapshot,
-            outcome: RenderResult,
-            *,
-            scope: Scope,
-            op: str,
-            extras: Sequence[Sequence[int]] | None = None,
+        self,
+        snapshot: TailSnapshot,
+        outcome: RenderResult,
+        *,
+        scope: Scope,
+        op: str,
+        extras: Sequence[Sequence[int]] | None = None,
     ) -> None:
-        index = snapshot.index
-        if index is not None and 0 <= index < len(snapshot.history):
-            history = snapshot.clone()
-            entry = history[index]
-            bundle = extras
-            if bundle is None and entry.messages:
-                mismatch = int(entry.messages[0].id) != int(outcome.id)
-                bundle = [outcome.extra] if mismatch else None
-            history[index] = self._mutator.reindex(entry, [outcome.id], bundle)
-            await self._history.save(history, op=op)
-        await self._history.mark(outcome.id, op=op, scope=scope)
-
-    async def _apply(
-            self,
-            scope: Scope,
-            verdict: decision.Decision,
-            payload,
-            base,
-    ) -> RenderResult | None:
-        execution = await self._executor.execute(scope, verdict, payload, base)
-        if not execution:
-            return None
-        meta = self._executor.refine(execution, verdict, payload)
-        return RenderResult(
-            id=execution.result.id,
-            extra=list(execution.result.extra),
-            meta=meta,
+        await self._persistence.persist(
+            snapshot,
+            outcome,
+            scope=scope,
+            op=op,
+            extras=extras,
         )
 
 
