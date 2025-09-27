@@ -4,12 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from navigator.app.locks.guard import Guardian
-from navigator.core.telemetry import Telemetry
 from navigator.core.value.message import Scope
 
-from .bundler import PayloadBundler
 from .contracts import NavigatorRuntimeContracts, RuntimeContractSelection
-from .reporter import NavigatorReporter
 from .runtime import NavigatorRuntime
 from .runtime_assembler import NavigatorRuntimeAssembler
 from .runtime_inputs import RuntimeCollaboratorRequest
@@ -18,9 +15,8 @@ from .runtime_plan_request_builder import (
     RuntimeCollaboratorFactory,
     RuntimeContractSelector,
     RuntimePlanRequestBuilder,
+    RuntimePlannerDependencies,
 )
-from .tail_components import TailTelemetry
-from .types import MissingAlert
 from .usecases import NavigatorUseCases
 
 
@@ -68,20 +64,10 @@ class NavigatorRuntimePlanner:
         self,
         *,
         scope: Scope,
-        telemetry: Telemetry | None = None,
-        bundler: PayloadBundler | None = None,
-        reporter: NavigatorReporter | None = None,
-        missing_alert: MissingAlert | None = None,
-        tail_telemetry: TailTelemetry | None = None,
+        dependencies: RuntimePlannerDependencies | None = None,
     ) -> RuntimeCollaboratorRequest:
-        return self.collaborators.create(
-            scope=scope,
-            telemetry=telemetry,
-            reporter=reporter,
-            bundler=bundler,
-            tail_telemetry=tail_telemetry,
-            missing_alert=missing_alert,
-        )
+        payload = dependencies or RuntimePlannerDependencies()
+        return self.collaborators.create(scope=scope, dependencies=payload)
 
     def plan_request(
         self,
@@ -89,21 +75,14 @@ class NavigatorRuntimePlanner:
         scope: Scope,
         usecases: NavigatorUseCases | None = None,
         contracts: NavigatorRuntimeContracts | None = None,
-        telemetry: Telemetry | None = None,
-        bundler: PayloadBundler | None = None,
-        reporter: NavigatorReporter | None = None,
-        missing_alert: MissingAlert | None = None,
-        tail_telemetry: TailTelemetry | None = None,
+        dependencies: RuntimePlannerDependencies | None = None,
     ) -> RuntimePlanRequest:
+        payload = dependencies or RuntimePlannerDependencies()
         return self.builder.build(
             scope=scope,
             usecases=usecases,
             contracts=contracts,
-            telemetry=telemetry,
-            bundler=bundler,
-            reporter=reporter,
-            missing_alert=missing_alert,
-            tail_telemetry=tail_telemetry,
+            dependencies=payload,
         )
 
 
@@ -127,22 +106,14 @@ def build_runtime_contract_selection(
 def build_runtime_collaborators(
     *,
     scope: Scope,
-    telemetry: Telemetry | None = None,
-    bundler: PayloadBundler | None = None,
-    reporter: NavigatorReporter | None = None,
-    missing_alert: MissingAlert | None = None,
-    tail_telemetry: TailTelemetry | None = None,
+    dependencies: RuntimePlannerDependencies | None = None,
     planner: NavigatorRuntimePlanner | None = None,
 ) -> RuntimeCollaboratorRequest:
     """Create the collaborator request for a runtime plan."""
 
     return _planner(planner).collaborators_request(
         scope=scope,
-        telemetry=telemetry,
-        reporter=reporter,
-        bundler=bundler,
-        tail_telemetry=tail_telemetry,
-        missing_alert=missing_alert,
+        dependencies=dependencies,
     )
 
 
@@ -151,11 +122,7 @@ def create_runtime_plan_request(
     scope: Scope,
     usecases: NavigatorUseCases | None = None,
     contracts: NavigatorRuntimeContracts | None = None,
-    telemetry: Telemetry | None = None,
-    bundler: PayloadBundler | None = None,
-    reporter: NavigatorReporter | None = None,
-    missing_alert: MissingAlert | None = None,
-    tail_telemetry: TailTelemetry | None = None,
+    dependencies: RuntimePlannerDependencies | None = None,
     planner: NavigatorRuntimePlanner | None = None,
 ) -> RuntimePlanRequest:
     """Build a runtime plan request aggregating domain and infrastructure inputs."""
@@ -164,11 +131,7 @@ def create_runtime_plan_request(
         scope=scope,
         usecases=usecases,
         contracts=contracts,
-        telemetry=telemetry,
-        bundler=bundler,
-        reporter=reporter,
-        missing_alert=missing_alert,
-        tail_telemetry=tail_telemetry,
+        dependencies=dependencies,
     )
 
 
@@ -186,6 +149,7 @@ __all__ = [
     "NavigatorRuntimeAssembly",
     "NavigatorRuntimePlanner",
     "RuntimeAssemblyPlan",
+    "RuntimePlannerDependencies",
     "build_navigator_runtime",
     "build_runtime_collaborators",
     "build_runtime_contract_selection",

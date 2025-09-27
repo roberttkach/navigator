@@ -15,6 +15,7 @@ from .dependencies import (
 )
 from .runtime_factory import (
     NavigatorRuntimeAssembly,
+    RuntimePlannerDependencies,
     build_navigator_runtime,
     build_runtime_collaborators,
     build_runtime_contract_selection,
@@ -53,6 +54,7 @@ __all__ = [
     "NavigatorRuntimeInstrument",
     "NavigatorRuntimeBundleLike",
     "NavigatorRuntimeAssembly",
+    "RuntimePlannerDependencies",
     "RuntimeDomainServices",
     "RuntimeSafetyServices",
     "RuntimeTelemetryServices",

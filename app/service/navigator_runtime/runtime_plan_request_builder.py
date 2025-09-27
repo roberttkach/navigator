@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from navigator.core.telemetry import Telemetry
+from navigator.core.value.message import Scope
 
 from .bundler import PayloadBundler
 from .contracts import NavigatorRuntimeContracts, RuntimeContractSelection
@@ -13,7 +14,17 @@ from .runtime_plan import RuntimePlanRequest
 from .tail_components import TailTelemetry
 from .types import MissingAlert
 from .usecases import NavigatorUseCases
-from navigator.core.value.message import Scope
+
+
+@dataclass(frozen=True)
+class RuntimePlannerDependencies:
+    """Bundle optional collaborators used during plan creation."""
+
+    telemetry: Telemetry | None = None
+    bundler: PayloadBundler | None = None
+    reporter: NavigatorReporter | None = None
+    missing_alert: MissingAlert | None = None
+    tail_telemetry: TailTelemetry | None = None
 
 
 @dataclass(frozen=True)
@@ -39,21 +50,17 @@ class RuntimeCollaboratorFactory:
         self,
         *,
         scope: Scope,
-        telemetry: Telemetry | None = None,
-        bundler: PayloadBundler | None = None,
-        reporter: NavigatorReporter | None = None,
-        missing_alert: MissingAlert | None = None,
-        tail_telemetry: TailTelemetry | None = None,
+        dependencies: RuntimePlannerDependencies,
     ) -> RuntimeCollaboratorRequest:
         """Return a collaborator request describing runtime auxiliaries."""
 
         return RuntimeCollaboratorRequest(
             scope=scope,
-            telemetry=telemetry,
-            reporter=reporter,
-            bundler=bundler,
-            tail_telemetry=tail_telemetry,
-            missing_alert=missing_alert,
+            telemetry=dependencies.telemetry,
+            reporter=dependencies.reporter,
+            bundler=dependencies.bundler,
+            tail_telemetry=dependencies.tail_telemetry,
+            missing_alert=dependencies.missing_alert,
         )
 
 
@@ -70,11 +77,7 @@ class RuntimePlanRequestBuilder:
         scope: Scope,
         usecases: NavigatorUseCases | None = None,
         contracts: NavigatorRuntimeContracts | None = None,
-        telemetry: Telemetry | None = None,
-        bundler: PayloadBundler | None = None,
-        reporter: NavigatorReporter | None = None,
-        missing_alert: MissingAlert | None = None,
-        tail_telemetry: TailTelemetry | None = None,
+        dependencies: RuntimePlannerDependencies,
     ) -> RuntimePlanRequest:
         """Create a runtime plan request aggregating domain and tooling inputs."""
 
@@ -84,11 +87,7 @@ class RuntimePlanRequestBuilder:
         )
         collaborator_request = self.collaborator_factory.create(
             scope=scope,
-            telemetry=telemetry,
-            bundler=bundler,
-            reporter=reporter,
-            missing_alert=missing_alert,
-            tail_telemetry=tail_telemetry,
+            dependencies=dependencies,
         )
         return RuntimePlanRequest(
             contracts=contract_source,
@@ -100,4 +99,5 @@ __all__ = [
     "RuntimeCollaboratorFactory",
     "RuntimeContractSelector",
     "RuntimePlanRequestBuilder",
+    "RuntimePlannerDependencies",
 ]
